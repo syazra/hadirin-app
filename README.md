@@ -9,8 +9,6 @@ Kegiatan praktikum sudah berjalan, tetapi pencatatan kehadirannya belum memiliki
 - **Praktikan**: Peserta praktikum yang dapat melihat jadwal, melakukan presensi saat sesi dibuka, dan melihat riwayat kehadiran pribadi.
 - **Asisten**: Pengelola sesi praktikum yang dapat membuka/menutup sesi dan memantau rekap kehadiran praktikan.
 
----
-
 ## User Story Final (Epic: Pencatatan Kehadiran Praktikum)
 
 1. **US-01: Pilih peran dan identitas**
@@ -20,15 +18,13 @@ Kegiatan praktikum sudah berjalan, tetapi pencatatan kehadirannya belum memiliki
 3. **US-03: Buka sesi (Asisten)**
    - *Sebagai asisten*, aku ingin membuka sesi saat praktikum dimulai, supaya praktikan bisa mulai presensi.
 4. **US-04: Tutup sesi (Asisten)**
-   - *Asisten*, aku ingin menutup sesi setelah praktikum selesai, supaya presensi tidak bisa lagi dilakukan.
+   - *Sebagai asisten*, aku ingin menutup sesi setelah praktikum selesai, supaya presensi tidak bisa lagi dilakukan.
 5. **US-05: Presensi (Praktikan)**
    - *Sebagai praktikan*, aku ingin melakukan presensi saat sesi dibuka, supaya kehadiranku tercatat.
 6. **US-06: Pantau kehadiran / rekap sesi (Asisten)**
    - *Sebagai asisten*, aku ingin melihat daftar praktikan yang sudah presensi beserta waktunya, supaya aku bisa memantau kehadiran.
 7. **US-07: Lihat catatan kehadiran sendiri (Praktikan)**
    - *Sebagai praktikan*, aku ingin melihat riwayat kehadiranku, supaya tahu sesi mana yang sudah kuhadiri.
-
----
 
 ## Daftar SRS (Software Requirements Specification)
 
@@ -69,8 +65,7 @@ Berikut adalah daftar kebutuhan fungsional dan interaksi (SRS) yang diimplementa
 | **UIX-6** | Tata letak disusun menggunakan flexbox. | Wajib |
 | **UIX-7** | Sistem menangani kondisi tampilan: daftar kosong, sesi belum dibuka, serta presensi tercatat atau belum. | Wajib |
 | **UIX-8** | Antarmuka memenuhi kaidah UX mobile: area tap cukup besar, umpan balik jelas, hierarki rapi, dan minim error. | Wajib |
-| **UIX-9** | Teks antarmuka menggunakan bahasa non-formal dan ramah. | Penting |
-| **UIX-10** | Data presensi disarankan memakai state bersama agar perubahan dari sisi praktikan terlihat pada sisi asisten. | Penting |
+| **UIX-9** | Data presensi disarankan memakai state bersama agar perubahan dari sisi praktikan terlihat pada sisi asisten. | Penting |
 
 ## Menjalankan Proyek
 Pastikan Node.js dan Expo CLI sudah terinstal di komputer Anda.
