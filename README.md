@@ -3,7 +3,7 @@
 Sistem pencatatan kehadiran praktikum berbasis mobile (React Native) yang memudahkan asisten dalam mengelola sesi praktikum dan membantu praktikan dalam melakukan presensi serta melihat riwayat kehadiran secara real-time menggunakan state lokal.
 
 ## Konteks & Latar Belakang
-Kegiatan praktikum sudah berjalan, tetapi pencatatan kehadirannya belum memiliki software pendukung. Aplikasi ini membantu asisten mengelola sesi dan praktikan mencatat kehadiran dengan tampilan non-formal dan nyaman digunakan di perangkat mobile.
+Kegiatan praktikum sudah berjalan, tetapi pencatatan kehadirannya belum memiliki software pendukung. Aplikasi ini membantu asisten mengelola sesi dan praktikan mencatat kehadiran dengan tampilan yang yaman digunakan di perangkat mobile.
 
 ## Peran Pengguna
 - **Praktikan**: Peserta praktikum yang dapat melihat jadwal, melakukan presensi saat sesi dibuka, dan melihat riwayat kehadiran pribadi.
