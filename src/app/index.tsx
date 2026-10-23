@@ -1,98 +1,143 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+
+import { useState } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+import { AppCard } from '@/components/ui/app-card';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ConfirmSheet } from '@/components/ui/confirm-sheet';
+import { InfoSheet } from '@/components/ui/info-sheet';
 
 export default function HomeScreen() {
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [infoVisible, setInfoVisible] = useState(false);
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.title}>Hadir.in</Text>
+        <Text style={styles.subtitle}>
+          Preview komponen UI — Sprint 1
+        </Text>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+        <Text style={styles.sectionTitle}>1. AppCard</Text>
+        <AppCard>
+          <Text style={styles.cardTitle}>Praktikum Basis Data</Text>
+          <Text style={styles.description}>
+            Senin, 08.00–10.00 WIB
+          </Text>
+        </AppCard>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
+        <Text style={styles.sectionTitle}>2. StatusBadge</Text>
+        <View style={styles.badges}>
+          <StatusBadge status="BELUM_DIBUKA" />
+          <StatusBadge status="DIBUKA" />
+          <StatusBadge status="DITUTUP" />
+        </View>
+
+        <Text style={styles.sectionTitle}>3. EmptyState</Text>
+        <AppCard>
+          <EmptyState
+            judul="Belum ada jadwal"
+            pesan="Jadwal praktikum kamu akan muncul di sini."
           />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+        </AppCard>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+        <Text style={styles.sectionTitle}>4. ConfirmSheet</Text>
+        <AppCard>
+          <Text style={styles.description}>
+            Coba buka dialog konfirmasi di bawah.
+          </Text>
+          <Text
+            style={styles.action}
+            onPress={() => setConfirmVisible(true)}
+          >
+            Buka ConfirmSheet
+          </Text>
+        </AppCard>
+
+        <Text style={styles.sectionTitle}>5. InfoSheet</Text>
+        <AppCard>
+          <Text style={styles.description}>
+            Coba buka panel informasi.
+          </Text>
+          <Text
+            style={styles.action}
+            onPress={() => setInfoVisible(true)}
+          >
+            Buka InfoSheet
+          </Text>
+        </AppCard>
+      </ScrollView>
+
+      <ConfirmSheet
+        visible={confirmVisible}
+        judul="Konfirmasi tindakan"
+        pesan="Apakah kamu yakin ingin melanjutkan?"
+        onKonfirmasi={() => setConfirmVisible(false)}
+        onBatal={() => setConfirmVisible(false)}
+      />
+
+      <InfoSheet
+        visible={infoVisible}
+        judul="Informasi Hadir.in"
+        pesan="Ini adalah preview komponen informasi untuk aplikasi Hadir.in."
+        onTutup={() => setInfoVisible(false)}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
   safeArea: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+    backgroundColor: '#F9FAFB',
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+  container: {
+    padding: 20,
+    paddingBottom: 40,
+    gap: 12,
   },
   title: {
-    textAlign: 'center',
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#111827',
   },
-  code: {
-    textTransform: 'uppercase',
+  subtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 12,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 12,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  description: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  badges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  action: {
+    color: '#2563EB',
+    fontSize: 15,
+    fontWeight: '700',
+    paddingVertical: 8,
   },
 });
