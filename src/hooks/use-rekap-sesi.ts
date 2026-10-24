@@ -1,6 +1,17 @@
-import type { RekapSesi } from '@/types';
+import { useApp } from '@/hooks/use-app';
+import type { ItemRekapSesi, RekapSesi } from '@/types';
 
-// TODO(Binar): turunkan rekap dari useApp; stub bukan data rekap nyata.
-export function useRekapSesi(_idSesi: string): RekapSesi {
-  return { daftarHadir: [], jumlahHadir: 0 };
+export function useRekapSesi(idSesi: string): RekapSesi {
+  const { pengguna, getPresensiBySesi } = useApp();
+
+  const daftarHadir: ItemRekapSesi[] = getPresensiBySesi(idSesi)
+    .flatMap((presensi) => {
+      const user = pengguna.find(
+        (item) => item.idPengguna === presensi.idPengguna,
+      );
+
+      return user ? [{ pengguna: user, presensi }] : [];
+    });
+
+  return { daftarHadir, jumlahHadir: daftarHadir.length };
 }
