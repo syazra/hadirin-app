@@ -14,6 +14,20 @@ export default function DetailSesiScreen() {
     const { getSesiById } = useApp();
 
     const sesi = getSesiById(id);
+    const kembaliKeJadwal = () => {
+        if (router.canGoBack()) {
+            router.back();
+            return;
+        }
+
+        if (peran === 'ASISTEN') {
+            router.replace('/(asisten)/jadwal-asisten');
+        } else if (peran === 'PRAKTIKAN') {
+            router.replace('/(praktikan)/jadwal-praktikan');
+        } else {
+            router.replace('/');
+        }
+    };
 
     if (!sesi) {
         return (
@@ -23,7 +37,7 @@ export default function DetailSesiScreen() {
                     Data sesi yang kamu cari tidak tersedia.
                 </Text>
 
-                <Pressable onPress={() => router.back()}>
+                <Pressable onPress={kembaliKeJadwal}>
                     <Text style={styles.backText}>‹ Kembali</Text>
                 </Pressable>
             </ScrollView>
@@ -36,7 +50,7 @@ export default function DetailSesiScreen() {
             contentContainerStyle={styles.container}
         >
             <Pressable
-                onPress={() => router.back()}
+                onPress={kembaliKeJadwal}
                 style={styles.backButton}
             >
                 <Text style={styles.backText}>‹ Kembali ke jadwal</Text>

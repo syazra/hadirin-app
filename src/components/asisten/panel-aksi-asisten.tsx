@@ -1,72 +1,80 @@
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import type { Sesi } from '@/types';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { useApp } from '@/hooks/use-app';
+import type { Sesi } from '@/types';
 
 export interface PanelAksiAsistenProps {
   sesi: Sesi;
 }
 
+type AksiKonfirmasi = 'buka' | 'tutup' | null;
+
 export function PanelAksiAsisten({ sesi }: PanelAksiAsistenProps) {
   const { bukaSesi, tutupSesi } = useApp();
+  const [aksiKonfirmasi, setAksiKonfirmasi] =
+    useState<AksiKonfirmasi>(null);
 
-  const konfirmasiBukaSesi = () => {
-    Alert.alert(
-      'Buka Sesi?',
-      'Apakah kamu yakin ingin membuka sesi praktikum ini?',
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Buka Sesi',
-          onPress: () => bukaSesi(sesi.idSesi),
-        },
-      ],
-    );
+  const konfirmasiAksi = () => {
+    const aksi = aksiKonfirmasi;
+
+    setAksiKonfirmasi(null);
+
+    if (aksi === 'buka') {
+      bukaSesi(sesi.idSesi);
+    } else if (aksi === 'tutup') {
+      tutupSesi(sesi.idSesi);
+    }
   };
-
-  const konfirmasiTutupSesi = () => {
-    Alert.alert(
-      'Tutup Sesi?',
-      'Praktikan tidak dapat melakukan presensi setelah sesi ditutup.',
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Tutup Sesi',
-          style: 'destructive',
-          onPress: () => tutupSesi(sesi.idSesi),
-        },
-      ],
-    );
-  };
-
-  if (sesi.statusSesi === 'BELUM_DIBUKA') {
-    return (
-      <View style={styles.container}>
-        <Pressable
-          style={[styles.button, styles.bukaButton]}
-          onPress={konfirmasiBukaSesi}
-        >
-          <Text style={styles.buttonText}>Buka Sesi</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
-  if (sesi.statusSesi === 'DIBUKA') {
-    return (
-      <View style={styles.container}>
-        <Pressable
-          style={[styles.button, styles.tutupButton]}
-          onPress={konfirmasiTutupSesi}
-        >
-          <Text style={styles.buttonText}>Tutup Sesi</Text>
-        </Pressable>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.infoText}>Sesi sudah ditutup.</Text>
+      {sesi.statusSesi === 'BELUM_DIBUKA' && (
+        <Pressable
+          style={[styles.button, styles.bukaButton]}
+          onPress={() => setAksiKonfirmasi('buka')}
+          accessibilityRole="button"
+        >
+          <Text style={styles.buttonText}>Buka Sesi</Text>
+        </Pressable>
+      )}
+
+      {sesi.statusSesi === 'DIBUKA' && (
+        <Pressable
+          style={[styles.button, styles.tutupButton]}
+          onPress={() => setAksiKonfirmasi('tutup')}
+          accessibilityRole="button"
+        >
+          <Text style={styles.buttonText}>Tutup Sesi</Text>
+        </Pressable>
+      )}
+
+      {sesi.statusSesi === 'DITUTUP' && (
+        <Text style={styles.infoText}>Sesi sudah ditutup.</Text>
+      )}
+
+      <ConfirmSheet
+        visible={aksiKonfirmasi !== null}
+        judul={
+          aksiKonfirmasi === 'buka'
+            ? 'Buka Sesi?'
+            : 'Tutup Sesi?'
+        }
+        pesan={
+          aksiKonfirmasi === 'buka'
+            ? 'Dengan membuka sesi, QR presensi akan tersedia agar praktikan dapat melakukan presensi.'
+            : 'Sesi akan ditutup. Praktikan tidak dapat melakukan presensi lagi.'
+        }
+        labelKonfirmasi={
+          aksiKonfirmasi === 'buka'
+            ? 'Ya, Buka Sesi Sekarang'
+            : 'Ya, Tutup Sesi'
+        }
+        labelBatal="Batal"
+        onKonfirmasi={konfirmasiAksi}
+        onBatal={() => setAksiKonfirmasi(null)}
+      />
     </View>
   );
 }
@@ -76,8 +84,10 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   button: {
+    minHeight: 48,
     alignItems: 'center',
-    borderRadius: 10,
+    justifyContent: 'center',
+    borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
