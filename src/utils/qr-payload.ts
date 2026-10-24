@@ -1,11 +1,16 @@
 import type { Sesi } from '@/types';
 
-// TODO(Farhan): implementasikan format hadirin:<idSesi>:<kodeQr> pada Tahap 1a.
-export function buatPayloadQr(_sesi: Sesi): string {
-  throw new Error('buatPayloadQr belum tersedia. Lengkapi pada Tahap 1a.');
+export function buatPayloadQr(sesi: Sesi): string {
+  return `hadirin:${sesi.idSesi}:${sesi.kodeQr}`;
 }
 
-export function bacaPayloadQr(_teks: string): { idSesi: string; kodeQr: string } | null {
-  // Fail closed: stub tidak pernah menerima QR sebagai payload valid.
-  return null;
+export function bacaPayloadQr(teks: string): { idSesi: string; kodeQr: string } | null {
+  if (typeof teks !== 'string') return null;
+
+  const bagian = teks.split(':');
+  const [awalan, idSesi, kodeQr] = bagian;
+  if (bagian.length !== 3 || awalan !== 'hadirin' || !idSesi || !kodeQr || /\s/.test(idSesi + kodeQr)) {
+    return null;
+  }
+  return { idSesi, kodeQr };
 }
