@@ -8,6 +8,7 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
+.eas/
 
 # Native
 .kotlin/
@@ -35,6 +36,10 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# local verification output
+.tmp/
+coverage/
 
 example
 
