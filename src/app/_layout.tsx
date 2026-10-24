@@ -1,18 +1,20 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { Stack } from 'expo-router';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { AppProvider } from '@/context/app-context';
 
-SplashScreen.preventAutoHideAsync();
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function RootLayout() {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <AppProvider>
+        <Stack>
+          <Stack.Screen name="index" options={{ title: 'Hadir.in' }} />
+          <Stack.Screen name="(asisten)" options={{ headerShown: false }} />
+          <Stack.Screen name="(praktikan)" options={{ headerShown: false }} />
+          <Stack.Screen name="sesi/[id]" options={{ title: 'Detail sesi' }} />
+          <Stack.Screen name="scan-qr" options={{ title: 'Scan QR' }} />
+        </Stack>
+      </AppProvider>
+    </SafeAreaProvider>
   );
 }
