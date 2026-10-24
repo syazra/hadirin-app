@@ -1,6 +1,14 @@
+import { useApp } from '@/hooks/use-app';
 import type { ItemRiwayatKehadiran } from '@/types';
 
-// TODO(Binar): gabungkan sesi dan presensi pengguna dari useApp.
-export function useRiwayatKehadiran(_idPengguna: string): ItemRiwayatKehadiran[] {
-  return [];
+export function useRiwayatKehadiran(
+  idPengguna: string,
+): ItemRiwayatKehadiran[] {
+  const { sesi, getRiwayatPengguna } = useApp();
+  const riwayat = getRiwayatPengguna(idPengguna);
+
+  return sesi.map((itemSesi) => ({
+    sesi: itemSesi,
+    presensi: riwayat.find((item) => item.idSesi === itemSesi.idSesi) ?? null,
+  }));
 }
