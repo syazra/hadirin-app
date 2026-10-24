@@ -1,6 +1,6 @@
-
 import { useState } from 'react';
 import {
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,8 +13,10 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { InfoSheet } from '@/components/ui/info-sheet';
+import { useRouter } from 'expo-router';
 
 export default function HomeScreen() {
+  const router = useRouter();
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);
 
@@ -25,6 +27,24 @@ export default function HomeScreen() {
         <Text style={styles.subtitle}>
           Preview komponen UI — Sprint 1
         </Text>
+
+        <Text style={styles.sectionTitle}>Coba Halaman Jadwal</Text>
+
+        <Pressable
+          style={styles.navButton}
+          onPress={() => router.push('/(asisten)/jadwal-asisten')}
+        >
+          <Text style={styles.navButtonText}>
+            Buka Jadwal Asisten
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.navButton}
+          onPress={() => router.push('/jadwal-praktikan')}
+        >
+          <Text style={styles.navButtonText}>Buka Jadwal Praktikan</Text>
+        </Pressable>
 
         <Text style={styles.sectionTitle}>1. AppCard</Text>
         <AppCard>
@@ -139,5 +159,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     paddingVertical: 8,
+  },
+  navButton: {
+    backgroundColor: '#4F46E5',
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  navButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
