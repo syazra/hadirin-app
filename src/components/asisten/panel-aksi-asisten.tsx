@@ -51,10 +51,6 @@ export function PanelAksiAsisten({ sesi }: PanelAksiAsistenProps) {
         </Pressable>
       )}
 
-      {sesi.statusSesi === 'DITUTUP' && (
-        <Text style={styles.infoText}>Sesi sudah ditutup.</Text>
-      )}
-
       <QrSesiPanel sesi={sesi} />
 
       <ConfirmSheet
