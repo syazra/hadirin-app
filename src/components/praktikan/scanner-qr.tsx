@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import { StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
-import { LayarPersiapan } from '@/components/shared/layar-persiapan';
-import { PresensiBerhasilSheet } from '@/components/praktikan/presensi-berhasil-sheet';
 import { AppButton } from '@/components/ui/app-button';
+import { PresensiBerhasilSheet } from '@/components/praktikan/presensi-berhasil-sheet';
 import { Colors, Spacing } from '@/constants/theme';
 import { useApp } from '@/hooks/use-app';
 import type { HasilPresensi } from '@/types';
+import { LayarPersiapan } from '@/components/shared/layar-persiapan';
 
 export interface ScannerQrProps {
   idSesi: string;
@@ -64,11 +65,9 @@ function buatPesanHasil(hasil: HasilPresensi): HasilTampilan {
 }
 
 export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
-  const [izinKamera, mintaIzinKamera] = useCameraPermissions();
   const [hasilTampilan, setHasilTampilan] = useState<HasilTampilan | null>(null);
   const [sheetTerbuka, setSheetTerbuka] = useState(false);
   const [sedangMemproses, setSedangMemproses] = useState(false);
-  const [sudahMemindai, setSudahMemindai] = useState(false);
 
   const { penggunaAktif, getSesiById, catatPresensiDariQr } = useApp();
   const sesi = getSesiById(idSesi);
@@ -86,37 +85,31 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
     return (
       <LayarPersiapan
         judul="Akses tidak tersedia"
-        pesan="Halaman scan QR hanya dapat digunakan oleh praktikan."
+        pesan="Halaman ini hanya dapat digunakan oleh praktikan."
       />
     );
   }
 
-  function prosesPayloadQr(payloadQr: string) {
-    if (sedangMemproses) return;
+  function prosesSimulasi() {
+    if (sedangMemproses || !sesi || !penggunaAktif) return;
 
     setSedangMemproses(true);
-    setSudahMemindai(true);
 
     try {
-      const idPengguna = penggunaAktif?.idPengguna;
-      if (!idPengguna) return;
-      const hasil = catatPresensiDariQr(payloadQr, idPengguna);
+      const payloadQr = `hadirin:${sesi.idSesi}:${sesi.kodeQr}`;
+      const hasil = catatPresensiDariQr(payloadQr, penggunaAktif.idPengguna);
+
       setHasilTampilan(buatPesanHasil(hasil));
     } catch {
       setHasilTampilan({
         berhasil: false,
         judul: 'Presensi belum tersedia',
-        pesan: 'Fungsi pencatatan presensi belum siap. ' +
-          'Pastikan fondasi state aplikasi sudah diperbarui.',
+        pesan: 'Fungsi pencatatan presensi belum diimplementasikan.',
       });
     }
+
     setSheetTerbuka(true);
     setSedangMemproses(false);
-  }
-
-  function simulasiScan() {
-    if (!sesi) return;
-    prosesPayloadQr(`hadirin:${sesi.idSesi}:${sesi.kodeQr}`);
   }
 
   function tutupHasil() {
@@ -124,98 +117,50 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
 
     setSheetTerbuka(false);
     setHasilTampilan(null);
-    setSudahMemindai(false);
 
     if (berhasil) onBerhasil();
   }
 
   if (sesi.statusSesi !== 'DIBUKA') {
-    const pesan = sesi.statusSesi === 'BELUM_DIBUKA'
-      ? 'Sesi belum dibuka oleh asisten. Kamu dapat melakukan presensi setelah sesi dibuka.'
-      : 'Sesi praktikum sudah ditutup. Presensi tidak dapat dilakukan lagi.';
-
-    return (
-      <LayarPersiapan judul="Presensi belum tersedia" pesan={pesan}>
-        <AppButton
-          title="Kembali"
-          variant="outline"
-          fullWidth
-          onPress={onBatal}
-        />
-      </LayarPersiapan>
-    );
-  }
-
-  if (!izinKamera) {
     return (
       <LayarPersiapan
-        judul="Menyiapkan kamera"
-        pesan="Memeriksa izin kamera perangkat."
-      />
+        judul="Presensi belum tersedia"
+        pesan={sesi.statusSesi === 'BELUM_DIBUKA'
+          ? 'Sesi belum dibuka oleh asisten.'
+          : 'Sesi praktikum sudah ditutup.'}
+      >
+        <AppButton title="Kembali" variant="outline" fullWidth onPress={onBatal} />
+      </LayarPersiapan>
     );
   }
 
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.title}>Scan QR Presensi</Text>
+        <Text style={styles.title}>Simulasi Scan QR</Text>
         <Text style={styles.subtitle}>
-          Arahkan kamera ke QR sesi praktikum yang ditampilkan oleh asisten.
+          Tekan tombol di bawah untuk menyimulasikan pemindaian QR
+          sesi praktikum.
         </Text>
       </View>
 
-      {izinKamera.granted ? (
-        <View style={styles.cameraContainer}>
-          <CameraView
-            style={styles.camera}
-            facing="back"
-            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-            onBarcodeScanned={sudahMemindai ? undefined : ({ data }) => prosesPayloadQr(data)}
-          />
-          <View pointerEvents="none" style={styles.scanOverlay}>
-            <View style={styles.scanFrame} />
-            <Text style={styles.scanHint}>Posisikan QR di dalam kotak</Text>
-          </View>
-        </View>
-      ) : (
-        <View style={styles.permissionCard}>
-          <Text style={styles.permissionTitle}>Kamera belum tersedia</Text>
-          <Text style={styles.permissionMessage}>
-            Izinkan akses kamera untuk memindai QR. Kamu tetap bisa memakai simulasi scan.
-          </Text>
-          <AppButton
-            title="Izinkan Kamera"
-            variant="outline"
-            fullWidth
-            onPress={mintaIzinKamera}
-          />
-        </View>
-      )}
+      <View style={styles.qrCard}>
+        <Text style={styles.qrIcon}>▦</Text>
+        <Text style={styles.qrTitle}>QR Praktikum</Text>
+        <Text style={styles.qrInfo}>{sesi.namaPraktikum}</Text>
+        <Text style={styles.qrInfo}>{sesi.kelasLab}</Text>
+        <Text style={styles.simulasiLabel}>Mode simulasi</Text>
+      </View>
 
       <View style={styles.actions}>
         <AppButton
           title={sedangMemproses ? 'Memproses...' : 'Simulasi Scan'}
-          onPress={simulasiScan}
+          onPress={prosesSimulasi}
           loading={sedangMemproses}
           disabled={sedangMemproses}
           fullWidth
         />
-
-        {sudahMemindai && !sheetTerbuka && (
-          <AppButton
-            title="Pindai Lagi"
-            variant="outline"
-            fullWidth
-            onPress={() => setSudahMemindai(false)}
-          />
-        )}
-
-        <AppButton
-          title="Kembali"
-          variant="outline"
-          fullWidth
-          onPress={onBatal}
-        />
+        <AppButton title="Kembali" variant="outline" fullWidth onPress={onBatal} />
       </View>
 
       {hasilTampilan && (
@@ -240,55 +185,35 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   header: { gap: Spacing.two },
-  title: { color: Colors.light.text, fontSize: 24, fontWeight: '700' },
+  title: { fontSize: 24, fontWeight: '700', color: Colors.light.text },
   subtitle: {
-    color: Colors.light.textSecondary,
     fontSize: 14,
     lineHeight: 21,
+    color: Colors.light.textSecondary,
   },
-  cameraContainer: {
-    height: 340,
-    overflow: 'hidden',
-    borderRadius: 24,
-    backgroundColor: '#111827',
-  },
-  camera: { flex: 1 },
-  scanOverlay: {
-    ...StyleSheet.absoluteFill,
+  qrCard: {
+    minHeight: 250,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.three,
-  },
-  scanFrame: {
-    width: 220,
-    height: 220,
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-    borderRadius: 24,
-  },
-  scanHint: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  permissionCard: {
-    backgroundColor: Colors.light.card,
+    padding: 24,
+    gap: 10,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: Colors.light.border,
-    padding: Spacing.four,
-    gap: Spacing.three,
+    backgroundColor: Colors.light.card,
   },
-  permissionTitle: { color: Colors.light.text, fontSize: 17, fontWeight: '700' },
-  permissionMessage: {
-    color: Colors.light.textSecondary,
-    fontSize: 14,
-    lineHeight: 21,
+  qrIcon: { fontSize: 90, color: Colors.light.primary },
+  qrTitle: { fontSize: 20, fontWeight: '700', color: Colors.light.text },
+  qrInfo: { fontSize: 14, color: Colors.light.textSecondary },
+  simulasiLabel: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: Colors.light.primarySoft,
+    color: Colors.light.primary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   actions: { gap: Spacing.two },
 });
