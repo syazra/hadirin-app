@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { useApp } from '@/hooks/use-app';
 import type { Sesi } from '@/types';
+import { QrSesiPanel } from '@/components/asisten/qr-sesi-panel';
 
 export interface PanelAksiAsistenProps {
   sesi: Sesi;
@@ -53,6 +54,8 @@ export function PanelAksiAsisten({ sesi }: PanelAksiAsistenProps) {
       {sesi.statusSesi === 'DITUTUP' && (
         <Text style={styles.infoText}>Sesi sudah ditutup.</Text>
       )}
+
+      <QrSesiPanel sesi={sesi} />
 
       <ConfirmSheet
         visible={aksiKonfirmasi !== null}
