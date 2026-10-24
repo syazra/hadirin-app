@@ -1,40 +1,20 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { Stack } from 'expo-router';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-
-SplashScreen.preventAutoHideAsync();
+import { AppProvider } from '@/context/app-context';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-
-      <Stack>
-        <Stack.Screen
-          name="index"
-          options={{ title: 'Hadir.in', headerShown: false }}
-        />
-        <Stack.Screen
-          name="explore"
-          options={{ title: 'Explore' }}
-        />
-        <Stack.Screen
-          name="(asisten)/jadwal-asisten"
-          options={{ title: 'Jadwal Asisten' }}
-        />
-        <Stack.Screen
-          name="(praktikan)/jadwal-praktikan"
-          options={{ title: 'Jadwal Praktikan' }}
-        />
-        <Stack.Screen
-          name="sesi/[id]"
-          options={{ title: 'Detail Sesi' }}
-        />
-      </Stack>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <AppProvider>
+        <Stack>
+          <Stack.Screen name="index" options={{ title: 'Hadir.in' }} />
+          <Stack.Screen name="(asisten)" options={{ headerShown: false }} />
+          <Stack.Screen name="(praktikan)" options={{ headerShown: false }} />
+          <Stack.Screen name="sesi/[id]" options={{ title: 'Detail sesi' }} />
+          <Stack.Screen name="scan-qr" options={{ title: 'Scan QR' }} />
+        </Stack>
+      </AppProvider>
+    </SafeAreaProvider>
   );
 }
