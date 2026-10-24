@@ -1,9 +1,9 @@
 # Pemeriksaan merge Step 0
 
 Fondasi disiapkan pada branch chore/foundation-state-routing dari develop.
-Sesuai arahan Farhan, PR fondasi ditujukan ke main dan masuk lebih dulu.
-Empat PR fitur yang sudah terbuka tetap menargetkan develop. Setelah fondasi
-masuk main, bawa main ke develop sebelum integrasi fitur berikutnya.
+Sesuai arahan Farhan, PR fondasi ditujukan ke develop dan masuk lebih dulu.
+Empat PR fitur yang sudah terbuka juga menargetkan develop. Setelah fondasi
+masuk develop, lanjutkan integrasi fitur; main tetap untuk hasil integrasi final.
 
 ## Head awal yang diperiksa
 
@@ -34,7 +34,7 @@ Konfigurasi EAS milik branch Aqilla tetap ikut branch PR, tanpa membuat atau
 menautkan proyek cloud baru dari fondasi.
 
 Semua 24 permutasi urutan merge PR 1 sampai PR 4 diperiksa setelah fondasi masuk
-main secara simulasi. Resolusi sinkronisasi harus menghasilkan nol konflik dan
+develop secara simulasi. Resolusi sinkronisasi harus menghasilkan nol konflik dan
 satu tree akhir yang sama untuk semua urutan. Pemeriksaan berlaku pada head yang
 dicatat; perubahan commit selanjutnya perlu diperiksa lagi.
 
