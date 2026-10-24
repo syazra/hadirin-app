@@ -4,7 +4,6 @@ import { ScannerQr } from '@/components/praktikan/scanner-qr';
 import { LayarPersiapan } from '@/components/shared/layar-persiapan';
 import { useApp } from '@/hooks/use-app';
 
-// Route tipis milik Binar. Kamera dan validasi dilengkapi di fitur scan.
 export default function ScanQrScreen() {
   const { idSesi } = useLocalSearchParams<{ idSesi?: string | string[] }>();
   const { getSesiById } = useApp();
