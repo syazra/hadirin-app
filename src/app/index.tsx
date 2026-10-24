@@ -1,21 +1,44 @@
-import { Link } from 'expo-router';
-import { StyleSheet, Text } from 'react-native';
+import { Redirect } from 'expo-router';
+import { ScrollView, StyleSheet, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { LayarPersiapan } from '@/components/shared/layar-persiapan';
-import { Colors } from '@/constants/theme';
+import { IdentitasPicker } from '@/components/shared/identitas-picker';
+import { Colors, Spacing } from '@/constants/theme';
+import { useApp } from '@/hooks/use-app';
 
-// TODO(Farhan): pilihan peran dan identitas pada Tahap 1b.
 export default function HomeScreen() {
+  const { pengguna, penggunaAktif, pilihIdentitas, gantiPeran } = useApp();
+
+  if (penggunaAktif) {
+    return (
+      <Redirect href={penggunaAktif.peran === 'ASISTEN' ? '/(asisten)/jadwal-asisten' : '/(praktikan)/jadwal-praktikan'} />
+    );
+  }
+
   return (
-    <LayarPersiapan judul="Hadir.in" pesan="Sistem Informasi Praktikum">
-      <Text style={styles.heading}>Jadwal praktikum</Text>
-      <Link href="/(asisten)/jadwal-asisten" style={styles.link}>Buka jadwal Asisten</Link>
-      <Link href="/(praktikan)/jadwal-praktikan" style={styles.link}>Buka jadwal Praktikan</Link>
-    </LayarPersiapan>
+    <SafeAreaView style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text accessibilityRole="header" style={styles.brand}>Hadir.in</Text>
+
+        <IdentitasPicker
+          pengguna={pengguna}
+          penggunaAktif={penggunaAktif}
+          onPilihIdentitas={pilihIdentitas}
+          onGantiPeran={gantiPeran}
+        />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  heading: { color: Colors.light.text, fontSize: 18, fontWeight: '600' },
-  link: { color: Colors.light.primary, minHeight: 48, paddingVertical: 12, fontSize: 16 },
+  screen: { flex: 1, backgroundColor: Colors.light.background },
+  content: {
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
+    padding: Spacing.four,
+    gap: Spacing.four,
+  },
+  brand: { color: Colors.light.primary, fontSize: 28, fontWeight: '800' },
 });
