@@ -49,7 +49,7 @@ export default function JadwalAsistenScreen() {
                 onPilihSesi={(idSesi) =>
                     router.push({
                         pathname: '/sesi/[id]',
-                        params: { id: idSesi },
+                        params: { id: idSesi, peran: 'ASISTEN' },
                     })
                 }
             />
