@@ -1,3 +1,4 @@
+import { PanelAksiPraktikan } from '@/components/praktikan/panel-aksi-praktikan';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { useApp } from '@/hooks/use-app';
@@ -11,7 +12,11 @@ export default function DetailSesiScreen() {
         peran?: 'ASISTEN' | 'PRAKTIKAN';
     }>();
     const router = useRouter();
-    const { getSesiById } = useApp();
+    const {
+        getSesiById,
+        penggunaAktif,
+        getPresensiBySesi,
+    } = useApp();
 
     const sesi = getSesiById(id);
     const kembaliKeJadwal = () => {
@@ -44,6 +49,21 @@ export default function DetailSesiScreen() {
         );
     }
 
+    const presensiPraktikan =
+        penggunaAktif?.peran === 'PRAKTIKAN'
+            ? getPresensiBySesi(sesi.idSesi).find(
+                (presensi) =>
+                    presensi.idPengguna === penggunaAktif.idPengguna,
+            )
+            : undefined;
+
+    const waktuPresensi = presensiPraktikan
+        ? new Date(presensiPraktikan.waktuHadir).toLocaleTimeString('id-ID', {
+            hour: '2-digit',
+            minute: '2-digit',
+        })
+        : undefined;
+
     return (
         <ScrollView
             style={styles.screen}
@@ -65,6 +85,20 @@ export default function DetailSesiScreen() {
 
             {peran === 'ASISTEN' && (
                 <PanelAksiAsisten sesi={sesi} />
+            )}
+
+            {peran === 'PRAKTIKAN' && (
+                <PanelAksiPraktikan
+                    statusSesi={sesi.statusSesi}
+                    sudahPresensi={Boolean(presensiPraktikan)}
+                    waktuPresensi={waktuPresensi}
+                    onPressPresensi={() =>
+                        router.push({
+                            pathname: '/scan-qr',
+                            params: { idSesi: sesi.idSesi },
+                        })
+                    }
+                />
             )}
         </ScrollView>
     );
