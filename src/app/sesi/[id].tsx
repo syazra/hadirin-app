@@ -1,38 +1,19 @@
-
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { useApp } from '@/hooks/use-app';
+import { PanelAksiAsisten } from '@/components/asisten/panel-aksi-asisten';
 
 import { DetailSesi } from '@/components/shared/detail-sesi';
 
-const DATA_JADWAL = [
-    {
-        idSesi: 'S001',
-        namaPraktikum: 'Praktikum Basis Data',
-        kelasLab: 'Lab Informatika 1',
-        waktu: 'Senin, 08.00–10.00 WIB',
-        statusSesi: 'BELUM_DIBUKA' as const,
-    },
-    {
-        idSesi: 'S002',
-        namaPraktikum: 'Praktikum Struktur Data',
-        kelasLab: 'Lab Informatika 2',
-        waktu: 'Selasa, 10.00–12.00 WIB',
-        statusSesi: 'DIBUKA' as const,
-    },
-    {
-        idSesi: 'S003',
-        namaPraktikum: 'Praktikum Pemrograman',
-        kelasLab: 'Lab Informatika 1',
-        waktu: 'Rabu, 13.00–15.00 WIB',
-        statusSesi: 'DITUTUP' as const,
-    },
-];
-
 export default function DetailSesiScreen() {
-    const { id } = useLocalSearchParams<{ id: string }>();
+    const { id, peran } = useLocalSearchParams<{
+        id: string;
+        peran?: 'ASISTEN' | 'PRAKTIKAN';
+    }>();
     const router = useRouter();
+    const { getSesiById } = useApp();
 
-    const sesi = DATA_JADWAL.find((item) => item.idSesi === id);
+    const sesi = getSesiById(id);
 
     if (!sesi) {
         return (
@@ -67,6 +48,10 @@ export default function DetailSesiScreen() {
                 waktu={sesi.waktu}
                 statusSesi={sesi.statusSesi}
             />
+
+            {peran === 'ASISTEN' && (
+                <PanelAksiAsisten sesi={sesi} />
+            )}
         </ScrollView>
     );
 }
