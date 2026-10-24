@@ -3,33 +3,11 @@ import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { JadwalList } from '@/components/shared/jadwal-list';
-
-const DATA_JADWAL = [
-    {
-        idSesi: 'S001',
-        namaPraktikum: 'Praktikum Basis Data',
-        kelasLab: 'Lab Informatika 1',
-        waktu: 'Senin, 08.00–10.00 WIB',
-        statusSesi: 'BELUM_DIBUKA' as const,
-    },
-    {
-        idSesi: 'S002',
-        namaPraktikum: 'Praktikum Struktur Data',
-        kelasLab: 'Lab Informatika 2',
-        waktu: 'Selasa, 10.00–12.00 WIB',
-        statusSesi: 'DIBUKA' as const,
-    },
-    {
-        idSesi: 'S003',
-        namaPraktikum: 'Praktikum Pemrograman',
-        kelasLab: 'Lab Informatika 1',
-        waktu: 'Rabu, 13.00–15.00 WIB',
-        statusSesi: 'DITUTUP' as const,
-    },
-];
+import { useApp } from '@/hooks/use-app';
 
 export default function JadwalPraktikanScreen() {
     const router = useRouter();
+    const { sesi } = useApp();
 
     return (
         <ScrollView
@@ -45,7 +23,7 @@ export default function JadwalPraktikanScreen() {
             </View>
 
             <JadwalList
-                sesi={DATA_JADWAL}
+                sesi={sesi}
                 onPilihSesi={(idSesi) =>
                     router.push({
                         pathname: '/sesi/[id]',
