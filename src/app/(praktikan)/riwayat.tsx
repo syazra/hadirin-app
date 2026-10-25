@@ -31,10 +31,11 @@ export default function RiwayatScreen() {
         </Text>
       </View>
 
-      <View style={styles.ringkasan}>
-        <Text style={styles.jumlah}>{jumlahHadir}</Text>
-        <Text style={styles.keterangan}>Total hadir: {jumlahHadir} sesi</Text>
-      </View>
+      {riwayat.length > 0 && (
+        <View style={styles.ringkasan}>
+          <Text style={styles.keterangan}>Total hadir: {jumlahHadir} sesi</Text>
+        </View>
+      )}
 
       
       <Text style={styles.label}>Riwayat Presensi</Text>
@@ -67,18 +68,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
   },
-  jumlah: { fontSize: 36, fontWeight: '700', color: '#FFFFFF' },
-  keterangan: { fontSize: 14, color: '#FFFFFF' },
+  keterangan: { fontSize: 14, color: Colors.light.backgroundElement },
   label: { fontSize: 16, fontWeight: '700', color: Colors.light.text },
   daftar: { gap: 12 },
-  kosong: {
-    padding: 24,
-    borderRadius: 14,
-    backgroundColor: Colors.light.card,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    alignItems: 'center',
-    gap: 8,
-  },
-  kosongJudul: { fontSize: 16, fontWeight: '700', color: Colors.light.text },
 });

@@ -100,8 +100,8 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
     } catch {
       setHasilTampilan({
         berhasil: false,
-        judul: 'Presensi belum tersedia',
-        pesan: 'Fungsi pencatatan presensi belum diimplementasikan.',
+        judul: 'Presensi gagal',
+        pesan: 'Terjadi kendala saat memproses presensi. Silakan coba lagi.',
       });
     }
 
