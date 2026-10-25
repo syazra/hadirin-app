@@ -7,6 +7,8 @@ import {
     type ViewStyle,
 } from 'react-native';
 
+import { Colors } from '@/constants/theme';
+
 type AppCardProps = PropsWithChildren<{
     style?: StyleProp<ViewStyle>;
     onPress?: () => void;
@@ -42,10 +44,10 @@ export function AppCard({
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: Colors.light.card,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: '#E5E7EB',
+        borderColor: Colors.light.border,
         padding: 16,
         gap: 12,
     },

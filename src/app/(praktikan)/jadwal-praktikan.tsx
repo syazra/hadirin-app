@@ -1,9 +1,8 @@
-
 import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-
 import { JadwalList } from '@/components/shared/jadwal-list';
 import { useApp } from '@/hooks/use-app';
+import { Colors } from '@/constants/theme';
 
 export default function JadwalPraktikanScreen() {
     const router = useRouter();
@@ -38,7 +37,7 @@ export default function JadwalPraktikanScreen() {
 const styles = StyleSheet.create({
     screen: {
         flex: 1,
-        backgroundColor: '#F9FAFB',
+        backgroundColor: Colors.light.background,
     },
     content: {
         padding: 20,
@@ -52,16 +51,16 @@ const styles = StyleSheet.create({
     greeting: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#4F46E5',
+        color: Colors.light.primary,
     },
     title: {
         fontSize: 26,
         fontWeight: '700',
-        color: '#111827',
+        color: Colors.light.text,
     },
     description: {
         fontSize: 14,
         lineHeight: 21,
-        color: '#6B7280',
+        color: Colors.light.textSecondary,
     },
 });

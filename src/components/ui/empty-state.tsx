@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { Colors } from '@/constants/theme';
 
 type EmptyStateProps = {
     judul: string;
@@ -35,7 +36,7 @@ const styles = StyleSheet.create({
         width: 64,
         height: 64,
         borderRadius: 32,
-        backgroundColor: '#F3F4F6',
+        backgroundColor: Colors.light.background,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -45,13 +46,13 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#111827',
+        color: Colors.light.text,
         textAlign: 'center',
     },
     message: {
         fontSize: 14,
         lineHeight: 21,
-        color: '#6B7280',
+        color: Colors.light.textSecondary,
         textAlign: 'center',
     },
 });

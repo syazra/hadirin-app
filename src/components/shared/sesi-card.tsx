@@ -2,14 +2,13 @@ import { StyleSheet, Text, View } from 'react-native';
 import { AppCard } from '@/components/ui/app-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Colors } from '@/constants/theme';
-
-type StatusSesi = 'BELUM_DIBUKA' | 'DIBUKA' | 'DITUTUP';
+import type { Sesi } from '@/types';
 
 type SesiCardProps = {
     namaPraktikum: string;
     kelasLab: string;
     waktu: string;
-    statusSesi: StatusSesi;
+    statusSesi: Sesi['statusSesi'];
     onPress: () => void;
 };
 

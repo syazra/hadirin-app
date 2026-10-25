@@ -110,7 +110,7 @@ export default function DetailSesiScreen() {
                         judul="Cara memindai QR"
                         pesan={
                             '1. Pastikan sesi berstatus Dibuka.\n' +
-                            '2. Tekan Mulai Presensi pada halaman detail.\n' +
+                            '2. Tekan Scan QR pada halaman detail.\n' +
                             '3. Tekan Simulasi Scan pada halaman berikutnya.'
                         }
                         labelTutup="Mengerti"
