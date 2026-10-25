@@ -6,6 +6,7 @@ import { LayarPersiapan } from '@/components/shared/layar-persiapan';
 import { Colors, Spacing } from '@/constants/theme';
 import { useApp } from '@/hooks/use-app';
 import { useRekapSesi } from '@/hooks/use-rekap-sesi';
+import { RingkasanHadir } from '@/components/asisten/ringkasan-hadir';
 
 export default function RekapScreen() {
   const { sesi } = useApp();
@@ -59,10 +60,7 @@ export default function RekapScreen() {
         <View style={styles.ringkasan}>
           <Text style={styles.namaSesi}>{sesiAktif.namaPraktikum}</Text>
           <Text style={styles.lokasi}>{sesiAktif.kelasLab}</Text>
-          <View style={styles.jumlahBox}>
-            <Text style={styles.jumlah}>{rekap.jumlahHadir}</Text>
-            <Text style={styles.keterangan}>Praktikan hadir</Text>
-          </View>
+          <RingkasanHadir jumlahHadir={rekap.jumlahHadir} />
         </View>
       )}
 

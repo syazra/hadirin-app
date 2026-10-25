@@ -1,13 +1,13 @@
 import type { Sesi } from '@/types';
 
-// ID dan isi jadwal mengikuti contoh di branch feature/schedule-list-detail.
+// Sesi A/B/C dipetakan ke S001/S002/S003; ID, jadwal, dan kode QR tetap.
 export const dummySesi: Sesi[] = [
   {
     idSesi: 'S001',
     namaPraktikum: 'Praktikum Basis Data',
     kelasLab: 'Lab Informatika 1',
     waktu: 'Senin, 08.00–10.00 WIB',
-    statusSesi: 'BELUM_DIBUKA',
+    statusSesi: 'DITUTUP',
     kodeQr: 'basis-data-s001',
   },
   {
@@ -23,7 +23,7 @@ export const dummySesi: Sesi[] = [
     namaPraktikum: 'Praktikum Pemrograman',
     kelasLab: 'Lab Informatika 1',
     waktu: 'Rabu, 13.00–15.00 WIB',
-    statusSesi: 'DITUTUP',
+    statusSesi: 'BELUM_DIBUKA',
     kodeQr: 'pemrograman-s003',
   },
 ];

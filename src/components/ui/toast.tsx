@@ -4,7 +4,7 @@ export interface ToastProps {
   onTutup: () => void;
 }
 
-// TODO(Farhan): umpan balik singkat pada Tahap 1a.
+// ditunda, tidak dipakai di Sprint 1
 export function Toast(_props: ToastProps) {
   return null;
 }

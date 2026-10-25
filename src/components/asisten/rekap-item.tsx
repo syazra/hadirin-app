@@ -2,14 +2,12 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 import type { ItemRekapSesi } from '@/types';
+import { formatWaktu } from '@/utils/format-waktu';
 
 export type RekapItemProps = ItemRekapSesi;
 
 export function RekapItem({ pengguna, presensi }: RekapItemProps) {
-  const waktu = new Date(presensi.waktuHadir).toLocaleTimeString('id-ID', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const waktu = formatWaktu(presensi.waktuHadir);
 
   return (
     <View style={styles.card}>
