@@ -2,12 +2,14 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 import type { ItemRiwayatKehadiran } from '@/types';
+import { formatWaktu } from '@/utils/format-waktu';
 
 export type RiwayatItemProps = ItemRiwayatKehadiran;
 
+
 export function RiwayatItem({ sesi, presensi }: RiwayatItemProps) {
-  const sudahHadir = presensi !== null;
-  const waktu = presensi ? new Date(presensi.waktuHadir).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : null;
+  if (!presensi) return null;
+  const waktu = formatWaktu(presensi.waktuHadir);
 
   return (
     <View style={styles.card}>
@@ -17,18 +19,15 @@ export function RiwayatItem({ sesi, presensi }: RiwayatItemProps) {
           <Text style={styles.lokasi}>{sesi.kelasLab}</Text>
           <Text style={styles.jadwal}>{sesi.waktu}</Text>
         </View>
-
-        <View style={[styles.badge, sudahHadir ? styles.hadir : styles.belum]}>
-          <Text style={[styles.status, sudahHadir ? styles.teksHadir : styles.teksBelum]}>
-            {sudahHadir ? 'Hadir' : 'Belum presensi'}
-          </Text>
+        <View style={[styles.badge, styles.hadir]}>
+          <Text style={[styles.status, styles.teksHadir]}>Hadir</Text>
         </View>
       </View>
-
-      {waktu && <Text style={styles.waktu}>Waktu presensi: {waktu}</Text>}
+      <Text style={styles.waktu}>Waktu presensi: {waktu}</Text>
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   card: {
@@ -46,9 +45,7 @@ const styles = StyleSheet.create({
   jadwal: { fontSize: 12, color: Colors.light.textSecondary },
   badge: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 8 },
   hadir: { backgroundColor: Colors.light.successSoft },
-  belum: { backgroundColor: Colors.light.warningSoft },
   status: { fontSize: 11, fontWeight: '700' },
   teksHadir: { color: Colors.light.success },
-  teksBelum: { color: Colors.light.warning },
   waktu: { fontSize: 12, color: Colors.light.textSecondary },
 });

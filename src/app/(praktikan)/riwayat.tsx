@@ -1,6 +1,7 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { RiwayatItem } from '@/components/praktikan/riwayat-item';
+import { EmptyState } from '@/components/ui/empty-state';
 import { LayarPersiapan } from '@/components/shared/layar-persiapan';
 import { Colors, Spacing } from '@/constants/theme';
 import { useApp } from '@/hooks/use-app';
@@ -32,29 +33,23 @@ export default function RiwayatScreen() {
 
       <View style={styles.ringkasan}>
         <Text style={styles.jumlah}>{jumlahHadir}</Text>
-        <Text style={styles.keterangan}>
-          dari {riwayat.length} sesi sudah dihadiri
-        </Text>
+        <Text style={styles.keterangan}>Total hadir: {jumlahHadir} sesi</Text>
       </View>
 
-      <Text style={styles.label}>Semua Sesi Praktikum</Text>
+      
+      <Text style={styles.label}>Riwayat Presensi</Text>
 
       {riwayat.length > 0 ? (
         <View style={styles.daftar}>
           {riwayat.map((item) => (
-            <RiwayatItem
-              key={item.sesi.idSesi}
-              {...item}
-            />
+            <RiwayatItem key={item.sesi.idSesi} {...item} />
           ))}
         </View>
       ) : (
-        <View style={styles.kosong}>
-          <Text style={styles.kosongJudul}>Belum ada sesi</Text>
-          <Text style={styles.subtitle}>
-            Riwayat akan muncul ketika sesi praktikum tersedia.
-          </Text>
-        </View>
+        <EmptyState
+          judul="Belum ada catatan kehadiran"
+          pesan="Presensi yang kamu lakukan akan muncul di sini."
+        />
       )}
     </ScrollView>
   );

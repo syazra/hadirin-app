@@ -3,6 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 import { AppButton } from '@/components/ui/app-button';
+import { formatWaktu } from '@/utils/format-waktu';
 
 type PresensiBerhasilSheetProps = {
     visible: boolean;
@@ -52,7 +53,7 @@ export function PresensiBerhasilSheet({
                     {berhasil && waktuPresensi && (
                         <View style={styles.timeCard}>
                             <Text style={styles.timeLabel}>Waktu presensi</Text>
-                            <Text style={styles.timeValue}>{waktuPresensi}</Text>
+                            <Text style={styles.timeValue}>{formatWaktu(waktuPresensi)}</Text>
                         </View>
                     )}
 

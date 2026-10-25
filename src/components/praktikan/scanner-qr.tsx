@@ -7,6 +7,7 @@ import { Colors, Spacing } from '@/constants/theme';
 import { useApp } from '@/hooks/use-app';
 import type { HasilPresensi } from '@/types';
 import { LayarPersiapan } from '@/components/shared/layar-persiapan';
+import { buatPayloadQr } from '@/utils/qr-payload';
 
 export interface ScannerQrProps {
   idSesi: string;
@@ -94,7 +95,8 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
     setSedangMemproses(true);
 
     try {
-      const payloadQr = `hadirin:${sesi.idSesi}:${sesi.kodeQr}`;
+      // Kamera ditunda, masih berupa Simulasi Scan (PRS-9).
+      const payloadQr = buatPayloadQr(sesi);
       const hasil = catatPresensiDariQr(payloadQr, penggunaAktif.idPengguna);
 
       setHasilTampilan(buatPesanHasil(hasil));
