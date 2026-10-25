@@ -91,7 +91,7 @@ export function QrSesiPanel({ sesi }: QrSesiPanelProps) {
 
           <Text style={styles.modalTitle}>QR Sesi Praktikum</Text>
           <Text style={styles.message}>
-            Arahkan kamera aplikasi Hadir.in Praktikan ke kode QR ini.
+            Minta praktikan memindai QR ini melalui aplikasi Hadir.in.
           </Text>
 
           <View style={styles.largeQrContainer}>
