@@ -4,20 +4,26 @@ import { Colors, Spacing } from '@/constants/theme';
 
 export interface RingkasanHadirProps {
   jumlahHadir: number;
+  label?: string;
+  satuan?: string;
 }
 
-export function RingkasanHadir({ jumlahHadir }: RingkasanHadirProps) {
+export function RingkasanHadir({
+  jumlahHadir,
+  label = 'Jumlah hadir',
+  satuan = 'praktikan',
+}: RingkasanHadirProps) {
   return (
     <View
       accessible
-      accessibilityLabel={`${jumlahHadir} praktikan hadir`}
+      accessibilityLabel={`${label}: ${jumlahHadir} ${satuan}`}
       accessibilityLiveRegion="polite"
       style={styles.container}
     >
-      <Text style={styles.label}>Jumlah hadir</Text>
+      <Text style={styles.label}>{label}</Text>
       <View style={styles.total}>
         <Text style={styles.count}>{jumlahHadir}</Text>
-        <Text style={styles.unit}>praktikan</Text>
+        <Text style={styles.unit}>{satuan}</Text>
       </View>
     </View>
   );
