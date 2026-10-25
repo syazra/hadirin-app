@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
-import { useLocalSearchParams } from 'expo-router';
 
 import { AppButton } from '@/components/ui/app-button';
 import { PresensiBerhasilSheet } from '@/components/praktikan/presensi-berhasil-sheet';

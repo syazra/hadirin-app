@@ -1,45 +1,27 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-export type StatusSesiBadge =
-    | 'BELUM_DIBUKA'
-    | 'DIBUKA'
-    | 'DITUTUP';
+import { STATUS_SESI } from '@/constants/status-sesi';
+import type { StatusSesi } from '@/types';
+
+export type StatusSesiBadge = StatusSesi;
 
 type StatusBadgeProps = {
     status: StatusSesiBadge;
 };
 
-const STATUS_CONFIG = {
-    BELUM_DIBUKA: {
-        label: 'Belum dibuka',
-        backgroundColor: '#F3F4F6',
-        textColor: '#4B5563',
-    },
-    DIBUKA: {
-        label: 'Dibuka',
-        backgroundColor: '#DCFCE7',
-        textColor: '#166534',
-    },
-    DITUTUP: {
-        label: 'Ditutup',
-        backgroundColor: '#FEE2E2',
-        textColor: '#991B1B',
-    },
-} as const;
-
 export function StatusBadge({ status }: StatusBadgeProps) {
-    const config = STATUS_CONFIG[status];
+    const config = STATUS_SESI[status];
 
     return (
         <View
             style={[
                 styles.badge,
-                { backgroundColor: config.backgroundColor },
+                { backgroundColor: config.warnaLatar },
             ]}
             accessibilityRole="text"
             accessibilityLabel={`Status sesi: ${config.label}`}
         >
-            <Text style={[styles.label, { color: config.textColor }]}>
+            <Text style={[styles.label, { color: config.warna }]}>
                 {config.label}
             </Text>
         </View>

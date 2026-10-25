@@ -8,6 +8,7 @@ import {
 } from 'react';
 
 import { dummyPengguna } from '@/data/dummy-pengguna';
+import { dummyPresensi } from '@/data/dummy-presensi';
 import { dummySesi } from '@/data/dummy-sesi';
 import type { AppContextValue, AppState, HasilPresensi, Presensi } from '@/types';
 import { bacaPayloadQr } from '@/utils/qr-payload';
@@ -24,7 +25,7 @@ export function createInitialState(): AppState {
     pengguna: dummyPengguna.map((pengguna) => ({ ...pengguna })),
     penggunaAktif: null,
     sesi: dummySesi.map((sesi) => ({ ...sesi })),
-    presensi: [],
+    presensi: dummyPresensi.map((presensi) => ({ ...presensi })),
   };
 }
 

@@ -3,6 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const ts = require('typescript');
+const React = require('react');
+const { renderToStaticMarkup } = require('react-dom/server');
 
 // Run with: node --test scripts/check-app-context.cjs
 const root = path.resolve(__dirname, '..');
@@ -30,8 +32,10 @@ function loadTypeScript(file) {
   return module.exports;
 }
 
-const { appReducer, createInitialState } = loadTypeScript(path.join(root, 'src/context/app-context.tsx'));
+const { AppContext, AppProvider, appReducer, createInitialState } = loadTypeScript(path.join(root, 'src/context/app-context.tsx'));
 const { bacaPayloadQr, buatPayloadQr } = loadTypeScript(path.join(root, 'src/utils/qr-payload.ts'));
+const { formatWaktu } = loadTypeScript(path.join(root, 'src/utils/format-waktu.ts'));
+const { dummyPresensi } = loadTypeScript(path.join(root, 'src/data/dummy-presensi.ts'));
 const pilih = (state, idPengguna) => appReducer(state, { type: 'PILIH_IDENTITAS', idPengguna });
 const buka = (state, idSesi) => appReducer(state, { type: 'BUKA_SESI', idSesi });
 const tutup = (state, idSesi) => appReducer(state, { type: 'TUTUP_SESI', idSesi });
@@ -47,48 +51,100 @@ function freeze(value) {
   return Object.freeze(value);
 }
 
-test('initial state is isolated and reload clears attendance', () => {
+test('demo identities and sessions have consistent seed attendance', () => {
+  const state = createInitialState();
+  assert.deepEqual(state.pengguna, [
+    { idPengguna: 'A001', nama: 'Bima', peran: 'ASISTEN' },
+    { idPengguna: 'A002', nama: 'Laras', peran: 'ASISTEN' },
+    { idPengguna: 'P001', nama: 'Dewi', peran: 'PRAKTIKAN' },
+    { idPengguna: 'P002', nama: 'Raka', peran: 'PRAKTIKAN' },
+    { idPengguna: 'P003', nama: 'Salsa', peran: 'PRAKTIKAN' },
+  ]);
+  assert.equal(new Set(state.pengguna.map(item => item.idPengguna)).size, 5);
+  assert.deepEqual(state.sesi.map(item => [item.idSesi, item.statusSesi]), [
+    ['S001', 'DITUTUP'], ['S002', 'DIBUKA'], ['S003', 'BELUM_DIBUKA'],
+  ]);
+  assert.ok(state.sesi.every(item => item.kodeQr.length > 0));
+  assert.equal(state.presensi.length, 1);
+  const seed = state.presensi[0];
+  assert.equal(seed.idSesi, 'S001');
+  assert.equal(seed.idPengguna, 'P001');
+  assert.equal(seed.idPresensi, 'presensi:S001:P001');
+  assert.equal(new Date(seed.waktuHadir).toISOString(), seed.waktuHadir);
+  assert.equal(new Date(seed.waktuHadir).toLocaleString('en-GB', {
+    timeZone: 'Asia/Jakarta', weekday: 'long', hour: '2-digit', minute: '2-digit',
+  }), 'Monday 09:15');
+  assert.ok(Date.parse(seed.waktuHadir) < Date.parse('2026-10-25T00:00:00+07:00'));
+});
+
+test('initial state clones each fixture and reload restores only seed attendance', () => {
   const first = createInitialState();
   const second = createInitialState();
   assert.deepEqual(first, second);
-  first.sesi[0].statusSesi = 'DITUTUP';
+  first.sesi[0].statusSesi = 'DIBUKA';
   first.pengguna[0].nama = 'Changed';
-  assert.equal(second.sesi[0].statusSesi, 'BELUM_DIBUKA');
-  assert.equal(second.pengguna[0].nama, 'Asisten Farhan');
+  first.presensi[0].waktuHadir = 'Changed';
+  first.presensi.push({ ...dummyPresensi[0], idPengguna: 'P002' });
+  assert.equal(second.sesi[0].statusSesi, 'DITUTUP');
+  assert.equal(second.pengguna[0].nama, 'Bima');
   assert.equal(second.penggunaAktif, null);
-  assert.deepEqual(second.presensi, []);
+  assert.deepEqual(second.presensi, dummyPresensi);
+  assert.notEqual(second.presensi, dummyPresensi);
+  assert.notEqual(second.presensi[0], dummyPresensi[0]);
+  assert.deepEqual(createInitialState(), second);
+});
+
+test('provider selectors return only the requested user or session attendance', () => {
+  let app;
+  renderToStaticMarkup(React.createElement(AppProvider, null,
+    React.createElement(AppContext.Consumer, null, value => {
+      app = value;
+      return null;
+    }),
+  ));
+  assert.deepEqual(app.getRiwayatPengguna('P001'), dummyPresensi);
+  for (const idPengguna of ['P002', 'P003', 'A001', 'A002', 'missing', '']) {
+    assert.deepEqual(app.getRiwayatPengguna(idPengguna), []);
+  }
+  assert.deepEqual(app.getPresensiBySesi('S001'), dummyPresensi);
+  for (const idSesi of ['S002', 'S003', 'missing']) {
+    assert.deepEqual(app.getPresensiBySesi(idSesi), []);
+  }
+  assert.equal(app.sudahPresensi('S001', 'P001'), true);
+  assert.equal(app.sudahPresensi('S002', 'P001'), false);
+  assert.equal(app.sudahPresensi('S001', 'P002'), false);
 });
 
 test('assistant opens only the requested session without mutating input', () => {
   const initial = freeze(pilih(createInitialState(), 'A001'));
-  const opened = buka(initial, 'S001');
-  assert.equal(opened.sesi[0].statusSesi, 'DIBUKA');
-  assert.equal(initial.sesi[0].statusSesi, 'BELUM_DIBUKA');
-  assert.equal(opened.sesi[0].kodeQr, initial.sesi[0].kodeQr);
+  const opened = buka(initial, 'S003');
+  assert.equal(opened.sesi[2].statusSesi, 'DIBUKA');
+  assert.equal(initial.sesi[2].statusSesi, 'BELUM_DIBUKA');
+  assert.equal(opened.sesi[2].kodeQr, initial.sesi[2].kodeQr);
+  assert.equal(opened.sesi[0], initial.sesi[0]);
   assert.equal(opened.sesi[1], initial.sesi[1]);
-  assert.equal(opened.sesi[2], initial.sesi[2]);
   assert.equal(opened.presensi, initial.presensi);
-  assert.deepEqual(buka(initial, 'S001'), opened);
+  assert.deepEqual(buka(initial, 'S003'), opened);
 });
 
 test('session lifecycle allows unopened -> opened -> closed, with no reopening', () => {
   const initial = pilih(createInitialState(), 'A001');
-  assert.equal(tutup(initial, 'S001'), initial);
+  assert.equal(tutup(initial, 'S003'), initial);
   assert.equal(buka(initial, 'S002'), initial);
-  assert.equal(buka(initial, 'S003'), initial);
+  assert.equal(buka(initial, 'S001'), initial);
   assert.equal(buka(initial, 'missing'), initial);
   assert.equal(tutup(initial, 'missing'), initial);
-  const opened = buka(initial, 'S001');
-  assert.equal(buka(opened, 'S001'), opened);
-  const closed = tutup(opened, 'S001');
-  assert.equal(closed.sesi[0].statusSesi, 'DITUTUP');
-  assert.equal(buka(closed, 'S001'), closed);
-  assert.equal(tutup(closed, 'S001'), closed);
+  const opened = buka(initial, 'S003');
+  assert.equal(buka(opened, 'S003'), opened);
+  const closed = tutup(opened, 'S003');
+  assert.equal(closed.sesi[2].statusSesi, 'DITUTUP');
+  assert.equal(buka(closed, 'S003'), closed);
+  assert.equal(tutup(closed, 'S003'), closed);
 });
 
 test('missing identity and practitioners cannot open or close sessions', () => {
   for (const state of [createInitialState(), pilih(createInitialState(), 'P001')]) {
-    assert.equal(buka(state, 'S001'), state);
+    assert.equal(buka(state, 'S003'), state);
     assert.equal(tutup(state, 'S002'), state);
   }
 });
@@ -96,32 +152,33 @@ test('missing identity and practitioners cannot open or close sessions', () => {
 test('attendance records the provided timestamp and reducer stays deterministic', () => {
   const initial = freeze(pilih(createInitialState(), 'P001'));
   const recorded = catat(initial, 'S002', 'P001');
-  assert.equal(recorded.presensi.length, 1);
-  assert.deepEqual(recorded.presensi[0], {
+  assert.equal(recorded.presensi.length, 2);
+  assert.deepEqual(recorded.presensi[1], {
     idPresensi: 'presensi:S002:P001',
     idSesi: 'S002',
     idPengguna: 'P001',
     waktuHadir: '2026-10-24T12:00:00.000Z',
   });
   assert.deepEqual(catat(initial, 'S002', 'P001'), recorded);
-  assert.deepEqual(initial.presensi, []);
+  assert.deepEqual(initial.presensi, dummyPresensi);
+  assert.equal(recorded.presensi[0], initial.presensi[0]);
   assert.equal(recorded.sesi, initial.sesi);
 });
 
 test('duplicate attendance never overwrites the original timestamp', () => {
   const recorded = catat(pilih(createInitialState(), 'P001'), 'S002', 'P001');
   assert.equal(catat(recorded, 'S002', 'P001', '2026-10-24T13:00:00.000Z'), recorded);
-  assert.equal(recorded.presensi.length, 1);
-  assert.equal(recorded.presensi[0].waktuHadir, '2026-10-24T12:00:00.000Z');
+  assert.equal(recorded.presensi.length, 2);
+  assert.equal(recorded.presensi[1].waktuHadir, '2026-10-24T12:00:00.000Z');
 });
 
 test('different practitioners and sessions can each receive attendance', () => {
-  let state = buka(pilih(createInitialState(), 'A001'), 'S001');
-  state = catat(pilih(state, 'P001'), 'S001', 'P001');
+  let state = buka(pilih(createInitialState(), 'A001'), 'S003');
+  state = catat(pilih(state, 'P001'), 'S003', 'P001');
   state = catat(state, 'S002', 'P001');
   state = catat(pilih(state, 'P002'), 'S002', 'P002');
-  assert.equal(state.presensi.length, 3);
-  assert.equal(new Set(state.presensi.map(item => item.idPresensi)).size, 3);
+  assert.equal(state.presensi.length, 4);
+  assert.equal(new Set(state.presensi.map(item => item.idPresensi)).size, 4);
 });
 
 test('invalid user, spoofed identity, unknown session, and unavailable sessions are rejected', () => {
@@ -148,7 +205,36 @@ test('switching identity and closing sessions preserve attendance', () => {
   assert.equal(closed.presensi, recorded.presensi);
   const practitioner = pilih(closed, 'P002');
   assert.equal(catat(practitioner, 'S002', 'P002'), practitioner);
-  assert.deepEqual(createInitialState().presensi, []);
+  assert.deepEqual(createInitialState().presensi, dummyPresensi);
+});
+
+test('seed attendance cannot be overwritten and assistants share session state', () => {
+  const initial = pilih(createInitialState(), 'P001');
+  assert.equal(catat(initial, 'S001', 'P001'), initial);
+  let state = catat(pilih(initial, 'P002'), 'S002', 'P002');
+  state = catat(pilih(state, 'P001'), 'S002', 'P001', '2026-10-24T12:05:00.000Z');
+  state = pilih(state, 'A002');
+  assert.equal(state.presensi.filter(item => item.idSesi === 'S002').length, 2);
+  assert.equal(state.presensi.filter(item => item.idPengguna === 'P001').length, 2);
+  assert.equal(state.presensi.filter(item => item.idPengguna === 'P002').length, 1);
+  assert.equal(state.presensi.filter(item => item.idPengguna === 'P003').length, 0);
+  const closed = tutup(state, 'S002');
+  assert.equal(closed.sesi[1].statusSesi, 'DITUTUP');
+  assert.equal(closed.presensi, state.presensi);
+  assert.deepEqual(closed.presensi[0], dummyPresensi[0]);
+});
+
+test('attendance time uses Indonesian dates and padded device-local hours and minutes', () => {
+  assert.equal(formatWaktu(new Date(2026, 9, 20, 9, 15).toISOString()), '20 Okt 2026, 09.15');
+  assert.equal(formatWaktu(new Date(2026, 0, 1, 0, 0).toISOString()), '1 Jan 2026, 00.00');
+  assert.equal(formatWaktu(new Date(2026, 11, 31, 23, 59).toISOString()), '31 Des 2026, 23.59');
+  assert.equal(formatWaktu(new Date(2028, 1, 29, 8, 5).toISOString()), '29 Feb 2028, 08.05');
+});
+
+test('empty and invalid attendance times have a safe fallback', () => {
+  for (const waktu of ['', '   ', '\n', null, undefined, 'not-a-date', '2026-13-20T09:15:00Z']) {
+    assert.equal(formatWaktu(waktu), '-');
+  }
 });
 
 test('QR payload round-trips every dummy session', () => {
