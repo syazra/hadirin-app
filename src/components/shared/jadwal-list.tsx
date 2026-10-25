@@ -1,21 +1,11 @@
-
 import { StyleSheet, View } from 'react-native';
 
-import { EmptyState } from '@/components/ui/empty-state';
 import { SesiCard } from '@/components/shared/sesi-card';
-
-type StatusSesi = 'BELUM_DIBUKA' | 'DIBUKA' | 'DITUTUP';
-
-export type ItemJadwal = {
-    idSesi: string;
-    namaPraktikum: string;
-    kelasLab: string;
-    waktu: string;
-    statusSesi: StatusSesi;
-};
+import { EmptyState } from '@/components/ui/empty-state';
+import type { Sesi } from '@/types';
 
 type JadwalListProps = {
-    sesi: ItemJadwal[];
+    sesi: Sesi[];
     onPilihSesi: (idSesi: string) => void;
 };
 

@@ -1,3 +1,4 @@
+
 import {
     Modal,
     Pressable,
@@ -5,6 +6,8 @@ import {
     Text,
     View,
 } from 'react-native';
+
+import { Colors } from '@/constants/theme';
 
 type InfoSheetProps = {
     visible: boolean;
@@ -31,7 +34,7 @@ export function InfoSheet({
         >
             <View style={styles.overlay}>
                 <Pressable
-                    style={StyleSheet.absoluteFill}
+                    style={[StyleSheet.absoluteFill, styles.backdrop]}
                     onPress={onTutup}
                     accessibilityRole="button"
                     accessibilityLabel="Tutup informasi"
@@ -58,7 +61,9 @@ export function InfoSheet({
                             pressed && styles.pressed,
                         ]}
                     >
-                        <Text style={styles.closeText}>{labelTutup}</Text>
+                        <Text style={styles.closeText}>
+                            {labelTutup}
+                        </Text>
                     </Pressable>
                 </View>
             </View>
@@ -70,10 +75,14 @@ const styles = StyleSheet.create({
     overlay: {
         flex: 1,
         justifyContent: 'flex-end',
-        backgroundColor: 'rgba(17, 24, 39, 0.45)',
+        backgroundColor: 'transparent',
+    },
+    backdrop: {
+        backgroundColor: Colors.light.overlay,
+        opacity: 0.45,
     },
     sheet: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: Colors.light.card,
         paddingHorizontal: 24,
         paddingTop: 12,
         paddingBottom: 28,
@@ -86,43 +95,43 @@ const styles = StyleSheet.create({
         width: 40,
         height: 4,
         borderRadius: 999,
-        backgroundColor: '#D1D5DB',
+        backgroundColor: Colors.light.border,
         marginBottom: 8,
     },
     infoIcon: {
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: '#DBEAFE',
+        backgroundColor: Colors.light.primarySoft,
         alignItems: 'center',
         justifyContent: 'center',
     },
     infoIconText: {
         fontSize: 24,
         fontWeight: '700',
-        color: '#1D4ED8',
+        color: Colors.light.primary,
     },
     title: {
         fontSize: 20,
         fontWeight: '700',
-        color: '#111827',
+        color: Colors.light.text,
     },
     message: {
         fontSize: 14,
         lineHeight: 21,
-        color: '#6B7280',
+        color: Colors.light.textSecondary,
         marginBottom: 4,
     },
     closeButton: {
         minHeight: 48,
         borderRadius: 12,
-        backgroundColor: '#2563EB',
+        backgroundColor: Colors.light.primary,
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: 16,
     },
     closeText: {
-        color: '#FFFFFF',
+        color: Colors.light.backgroundElement,
         fontSize: 15,
         fontWeight: '700',
     },
