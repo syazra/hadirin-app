@@ -1,5 +1,5 @@
 import { useApp } from '@/hooks/use-app';
-import type { ItemRiwayatKehadiran, Sesi, Presensi } from '@/types';
+import type { Sesi, Presensi } from '@/types';
 
 type ItemRiwayatValid = {
   sesi: Sesi;
