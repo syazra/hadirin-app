@@ -1,8 +1,7 @@
-
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-
+import { StyleSheet, Text, View } from 'react-native';
 import { AppCard } from '@/components/ui/app-card';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { Colors } from '@/constants/theme';
 
 type StatusSesi = 'BELUM_DIBUKA' | 'DIBUKA' | 'DITUTUP';
 
@@ -56,11 +55,11 @@ const styles = StyleSheet.create({
     nama: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#111827',
+        color: Colors.light.text,
     },
     lokasi: {
         fontSize: 14,
-        color: '#6B7280',
+        color: Colors.light.textSecondary,
     },
     footer: {
         flexDirection: 'row',
@@ -70,11 +69,11 @@ const styles = StyleSheet.create({
     },
     icon: {
         fontSize: 18,
-        color: '#6B7280',
+        color: Colors.light.textSecondary,
     },
     waktu: {
         fontSize: 13,
-        color: '#4B5563',
+        color: Colors.light.textSecondary,
         flexShrink: 1,
     },
     spacer: {
@@ -83,6 +82,6 @@ const styles = StyleSheet.create({
     detail: {
         fontSize: 12,
         fontWeight: '600',
-        color: '#4F46E5',
+        color: Colors.light.primary,
     },
 });
