@@ -27,7 +27,7 @@ export default function JadwalPraktikanScreen() {
                 onPilihSesi={(idSesi) =>
                     router.push({
                         pathname: '/sesi/[id]',
-                        params: { id: idSesi, peran: 'PRAKTIKAN' },
+                        params: { id: idSesi },
                     })
                 }
             />

@@ -1,38 +1,37 @@
-import { PanelAksiPraktikan } from '@/components/praktikan/panel-aksi-praktikan';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
-import { useApp } from '@/hooks/use-app';
-import { PanelAksiAsisten } from '@/components/asisten/panel-aksi-asisten';
 
+import { PanelAksiAsisten } from '@/components/asisten/panel-aksi-asisten';
 import { DetailSesi } from '@/components/shared/detail-sesi';
+import { PanelAksiPraktikan } from '@/components/praktikan/panel-aksi-praktikan';
+import { AppButton } from '@/components/ui/app-button';
+import { InfoSheet } from '@/components/ui/info-sheet';
+import { useApp } from '@/hooks/use-app';
+import { formatWaktu } from '@/utils/format-waktu';
 
 export default function DetailSesiScreen() {
-    const { id, peran } = useLocalSearchParams<{
-        id: string;
-        peran?: 'ASISTEN' | 'PRAKTIKAN';
+    const { id } = useLocalSearchParams<{
+        id?: string | string[];
     }>();
+
     const router = useRouter();
+
     const {
         getSesiById,
         penggunaAktif,
         getPresensiBySesi,
     } = useApp();
 
-    const sesi = getSesiById(id);
-    const kembaliKeJadwal = () => {
-        if (router.canGoBack()) {
-            router.back();
-            return;
-        }
+    const [caraMemindaiTerbuka, setCaraMemindaiTerbuka] =
+        useState(false);
 
-        if (peran === 'ASISTEN') {
-            router.replace('/(asisten)/jadwal-asisten');
-        } else if (peran === 'PRAKTIKAN') {
-            router.replace('/(praktikan)/jadwal-praktikan');
-        } else {
-            router.replace('/');
-        }
-    };
+    const idSesi = Array.isArray(id) ? id[0] : id;
+    const sesi = idSesi ? getSesiById(idSesi) : undefined;
+
+    if (!penggunaAktif) {
+        return <Redirect href="/" />;
+    }
 
     if (!sesi) {
         return (
@@ -42,7 +41,7 @@ export default function DetailSesiScreen() {
                     Data sesi yang kamu cari tidak tersedia.
                 </Text>
 
-                <Pressable onPress={kembaliKeJadwal}>
+                <Pressable onPress={() => router.back()}>
                     <Text style={styles.backText}>‹ Kembali</Text>
                 </Pressable>
             </ScrollView>
@@ -50,7 +49,7 @@ export default function DetailSesiScreen() {
     }
 
     const presensiPraktikan =
-        penggunaAktif?.peran === 'PRAKTIKAN'
+        penggunaAktif.peran === 'PRAKTIKAN'
             ? getPresensiBySesi(sesi.idSesi).find(
                 (presensi) =>
                     presensi.idPengguna === penggunaAktif.idPengguna,
@@ -58,10 +57,7 @@ export default function DetailSesiScreen() {
             : undefined;
 
     const waktuPresensi = presensiPraktikan
-        ? new Date(presensiPraktikan.waktuHadir).toLocaleTimeString('id-ID', {
-            hour: '2-digit',
-            minute: '2-digit',
-        })
+        ? formatWaktu(presensiPraktikan.waktuHadir)
         : undefined;
 
     return (
@@ -70,7 +66,7 @@ export default function DetailSesiScreen() {
             contentContainerStyle={styles.container}
         >
             <Pressable
-                onPress={kembaliKeJadwal}
+                onPress={() => router.back()}
                 style={styles.backButton}
             >
                 <Text style={styles.backText}>‹ Kembali ke jadwal</Text>
@@ -83,22 +79,43 @@ export default function DetailSesiScreen() {
                 statusSesi={sesi.statusSesi}
             />
 
-            {peran === 'ASISTEN' && (
+            {penggunaAktif.peran === 'ASISTEN' && (
                 <PanelAksiAsisten sesi={sesi} />
             )}
 
-            {peran === 'PRAKTIKAN' && (
-                <PanelAksiPraktikan
-                    statusSesi={sesi.statusSesi}
-                    sudahPresensi={Boolean(presensiPraktikan)}
-                    waktuPresensi={waktuPresensi}
-                    onPressPresensi={() =>
-                        router.push({
-                            pathname: '/scan-qr',
-                            params: { idSesi: sesi.idSesi },
-                        })
-                    }
-                />
+            {penggunaAktif.peran === 'PRAKTIKAN' && (
+                <>
+                    <PanelAksiPraktikan
+                        statusSesi={sesi.statusSesi}
+                        sudahPresensi={Boolean(presensiPraktikan)}
+                        waktuPresensi={waktuPresensi}
+                        onPressPresensi={() =>
+                            router.push({
+                                pathname: '/scan-qr',
+                                params: { idSesi: sesi.idSesi },
+                            })
+                        }
+                    />
+
+                    <AppButton
+                        title="Cara memindai QR"
+                        variant="outline"
+                        fullWidth
+                        onPress={() => setCaraMemindaiTerbuka(true)}
+                    />
+
+                    <InfoSheet
+                        visible={caraMemindaiTerbuka}
+                        judul="Cara memindai QR"
+                        pesan={
+                            '1. Pastikan sesi berstatus Dibuka.\n' +
+                            '2. Tekan Mulai Presensi pada halaman detail.\n' +
+                            '3. Tekan Simulasi Scan pada halaman berikutnya.'
+                        }
+                        labelTutup="Mengerti"
+                        onTutup={() => setCaraMemindaiTerbuka(false)}
+                    />
+                </>
             )}
         </ScrollView>
     );
