@@ -9,6 +9,7 @@ import { AppButton } from '@/components/ui/app-button';
 import { InfoSheet } from '@/components/ui/info-sheet';
 import { useApp } from '@/hooks/use-app';
 import { formatWaktu } from '@/utils/format-waktu';
+import { Colors } from '@/constants/theme';
 
 export default function DetailSesiScreen() {
     const { id } = useLocalSearchParams<{
@@ -124,7 +125,7 @@ export default function DetailSesiScreen() {
 const styles = StyleSheet.create({
     screen: {
         flex: 1,
-        backgroundColor: '#F9FAFB',
+        backgroundColor: Colors.light.background,
     },
     container: {
         padding: 20,
@@ -135,11 +136,11 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 22,
         fontWeight: '700',
-        color: '#111827',
+        color: Colors.light.text,
     },
     description: {
         fontSize: 14,
-        color: '#6B7280',
+        color: Colors.light.textSecondary,
     },
     backButton: {
         alignSelf: 'flex-start',
@@ -147,6 +148,6 @@ const styles = StyleSheet.create({
     backText: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#4F46E5',
+        color: Colors.light.primary,
     },
 });
