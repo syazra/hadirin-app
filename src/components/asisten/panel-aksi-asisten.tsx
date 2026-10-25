@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-
+import { QrSesiPanel } from '@/components/asisten/qr-sesi-panel';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
+import { Colors } from '@/constants/theme';
 import { useApp } from '@/hooks/use-app';
 import type { Sesi } from '@/types';
-import { QrSesiPanel } from '@/components/asisten/qr-sesi-panel';
 
 export interface PanelAksiAsistenProps {
   sesi: Sesi;
@@ -91,18 +91,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   bukaButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: Colors.light.primary,
   },
   tutupButton: {
-    backgroundColor: '#DC2626',
+    backgroundColor: Colors.light.danger,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: Colors.light.backgroundElement,
     fontSize: 16,
     fontWeight: '600',
-  },
-  infoText: {
-    color: '#6B7280',
-    fontSize: 14,
   },
 });
