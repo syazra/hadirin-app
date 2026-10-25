@@ -28,10 +28,7 @@ function buatPesanHasil(hasil: HasilPresensi): HasilTampilan {
       berhasil: true,
       judul: 'Presensi berhasil',
       pesan: 'Kehadiranmu berhasil dicatat.',
-      waktuPresensi: new Date().toLocaleTimeString('id-ID', {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
+      waktuPresensi: new Date().toISOString(),
     };
   }
 
