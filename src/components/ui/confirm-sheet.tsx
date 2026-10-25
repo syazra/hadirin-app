@@ -5,6 +5,7 @@ import {
     Text,
     View,
 } from 'react-native';
+import { Colors } from '@/constants/theme';
 
 type ConfirmSheetProps = {
     visible: boolean;
@@ -37,7 +38,7 @@ export function ConfirmSheet({
         >
             <View style={styles.overlay}>
                 <Pressable
-                    style={StyleSheet.absoluteFill}
+                    style={[StyleSheet.absoluteFill, styles.backdrop]}
                     onPress={onBatal}
                     accessibilityRole="button"
                     accessibilityLabel="Tutup konfirmasi"
@@ -88,10 +89,14 @@ const styles = StyleSheet.create({
     overlay: {
         flex: 1,
         justifyContent: 'flex-end',
-        backgroundColor: 'rgba(17, 24, 39, 0.45)',
+        backgroundColor: 'transparent',
+    },
+    backdrop: {
+        backgroundColor: Colors.light.overlay,
+        opacity: 0.45,
     },
     sheet: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: Colors.light.card,
         paddingHorizontal: 24,
         paddingTop: 12,
         paddingBottom: 28,
@@ -104,43 +109,43 @@ const styles = StyleSheet.create({
         width: 40,
         height: 4,
         borderRadius: 999,
-        backgroundColor: '#D1D5DB',
+        backgroundColor: Colors.light.border,
         marginBottom: 8,
     },
     title: {
         fontSize: 20,
         fontWeight: '700',
-        color: '#111827',
+        color: Colors.light.text,
     },
     message: {
         fontSize: 14,
         lineHeight: 21,
-        color: '#6B7280',
+        color: Colors.light.textSecondary,
         marginBottom: 4,
     },
     confirmButton: {
         minHeight: 48,
         borderRadius: 12,
-        backgroundColor: '#2563EB',
+        backgroundColor: Colors.light.primary,
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: 16,
     },
     confirmText: {
-        color: '#FFFFFF',
+        color: Colors.light.backgroundElement,
         fontSize: 15,
         fontWeight: '700',
     },
     cancelButton: {
         minHeight: 48,
         borderRadius: 12,
-        backgroundColor: '#F3F4F6',
+        backgroundColor: Colors.light.background,
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: 16,
     },
     cancelText: {
-        color: '#374151',
+        color: Colors.light.text,
         fontSize: 15,
         fontWeight: '600',
     },

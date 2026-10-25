@@ -1,15 +1,14 @@
 import { StyleSheet, Text, View } from 'react-native';
-
 import { AppCard } from '@/components/ui/app-card';
 import { StatusBadge } from '@/components/ui/status-badge';
-
-type StatusSesi = 'BELUM_DIBUKA' | 'DIBUKA' | 'DITUTUP';
+import { Colors } from '@/constants/theme';
+import type { Sesi } from '@/types';
 
 type DetailSesiProps = {
     namaPraktikum: string;
     kelasLab: string;
     waktu: string;
-    statusSesi: StatusSesi;
+    statusSesi: Sesi['statusSesi'];
 };
 
 export function DetailSesi({
@@ -53,28 +52,28 @@ const styles = StyleSheet.create({
     heading: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#111827',
+        color: Colors.light.text,
     },
     nama: {
         fontSize: 20,
         fontWeight: '700',
-        color: '#111827',
+        color: Colors.light.text,
     },
     divider: {
         height: 1,
-        backgroundColor: '#E5E7EB',
+        backgroundColor: Colors.light.border,
     },
     infoRow: {
         gap: 6,
     },
     label: {
         fontSize: 13,
-        color: '#6B7280',
+        color: Colors.light.textSecondary,
     },
     value: {
         fontSize: 15,
         fontWeight: '500',
-        color: '#1F2937',
+        color: Colors.light.text,
     },
     statusSection: {
         gap: 8,
