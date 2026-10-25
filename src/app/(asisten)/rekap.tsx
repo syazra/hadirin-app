@@ -7,6 +7,7 @@ import { Colors, Spacing } from '@/constants/theme';
 import { useApp } from '@/hooks/use-app';
 import { useRekapSesi } from '@/hooks/use-rekap-sesi';
 import { RingkasanHadir } from '@/components/asisten/ringkasan-hadir';
+import { EmptyState } from '@/components/ui/empty-state';
 
 export default function RekapScreen() {
   const { sesi } = useApp();
@@ -57,11 +58,13 @@ export default function RekapScreen() {
       </View>
 
       {sesiAktif && (
-        <View style={styles.ringkasan}>
-          <Text style={styles.namaSesi}>{sesiAktif.namaPraktikum}</Text>
-          <Text style={styles.lokasi}>{sesiAktif.kelasLab}</Text>
+        <>
+          <View style={styles.ringkasan}>
+            <Text style={styles.namaSesi}>{sesiAktif.namaPraktikum}</Text>
+            <Text style={styles.lokasi}>{sesiAktif.kelasLab}</Text>
+          </View>
           <RingkasanHadir jumlahHadir={rekap.jumlahHadir} />
-        </View>
+        </>
       )}
 
       <Text style={styles.label}>Daftar Kehadiran</Text>
@@ -75,12 +78,10 @@ export default function RekapScreen() {
           ))}
         </View>
       ) : (
-        <View style={styles.kosong}>
-          <Text style={styles.kosongJudul}>Belum ada presensi</Text>
-          <Text style={styles.subtitle}>
-            Belum ada praktikan yang tercatat hadir pada sesi ini.
-          </Text>
-        </View>
+        <EmptyState
+          judul="Belum ada presensi"
+          pesan="Belum ada praktikan yang tercatat hadir pada sesi ini."
+        />
       )}
     </ScrollView>
   );
@@ -114,20 +115,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.primary,
     gap: 5,
   },
-  namaSesi: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
-  lokasi: { fontSize: 13, color: '#FFFFFF' },
-  jumlahBox: { marginTop: 12, alignItems: 'center', gap: 2 },
-  jumlah: { fontSize: 34, fontWeight: '700', color: '#FFFFFF' },
-  keterangan: { fontSize: 13, color: '#FFFFFF' },
+  namaSesi: { fontSize: 18, fontWeight: '700', color: Colors.light.backgroundElement },
+  lokasi: { fontSize: 13, color: Colors.light.backgroundElement },
   daftar: { gap: 10 },
-  kosong: {
-    alignItems: 'center',
-    padding: 24,
-    borderRadius: 14,
-    backgroundColor: Colors.light.card,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    gap: 8,
-  },
-  kosongJudul: { fontSize: 16, fontWeight: '700', color: Colors.light.text },
 });

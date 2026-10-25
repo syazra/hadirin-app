@@ -3,8 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 import { AppButton } from '@/components/ui/app-button';
-
-type StatusSesi = 'BELUM_DIBUKA' | 'DIBUKA' | 'DITUTUP';
+import type { StatusSesi } from '@/types';
 
 type PanelAksiPraktikanProps = {
     statusSesi: StatusSesi;
@@ -43,7 +42,7 @@ export function PanelAksiPraktikan({
         },
     }[statusSesi];
 
-    let judulTombol = 'Mulai Presensi';
+    let judulTombol = 'Scan QR';
     let pesanPresensi = '';
 
     if (sudahPresensi) {
