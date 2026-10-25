@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import {
   Modal,
@@ -10,7 +9,9 @@ import {
 import QRCode from 'react-native-qrcode-svg';
 
 import { AppCard } from '@/components/ui/app-card';
+import { Colors } from '@/constants/theme';
 import type { Sesi } from '@/types';
+import { buatPayloadQr } from '@/utils/qr-payload';
 
 export interface QrSesiPanelProps {
   sesi: Sesi;
@@ -19,9 +20,7 @@ export interface QrSesiPanelProps {
 export function QrSesiPanel({ sesi }: QrSesiPanelProps) {
   const [qrDiperbesar, setQrDiperbesar] = useState(false);
 
-  // Format sementara mengikuti kontrak payload di PRD.
-  // Implementasi bersama qr-payload.ts masih menunggu Farhan.
-  const payloadQr = `hadirin:${sesi.idSesi}:${sesi.kodeQr}`;
+  const payloadQr = buatPayloadQr(sesi);
 
   if (sesi.statusSesi === 'BELUM_DIBUKA') {
     return (
@@ -62,8 +61,8 @@ export function QrSesiPanel({ sesi }: QrSesiPanelProps) {
           <QRCode
             value={payloadQr}
             size={200}
-            backgroundColor="#FFFFFF"
-            color="#111827"
+            backgroundColor={Colors.light.card}
+            color={Colors.light.text}
           />
         </View>
 
@@ -99,8 +98,8 @@ export function QrSesiPanel({ sesi }: QrSesiPanelProps) {
             <QRCode
               value={payloadQr}
               size={260}
-              backgroundColor="#FFFFFF"
-              color="#111827"
+              backgroundColor={Colors.light.card}
+              color={Colors.light.text}
             />
           </View>
 
@@ -128,20 +127,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: Colors.light.text,
     textAlign: 'center',
   },
   message: {
     fontSize: 14,
     lineHeight: 21,
-    color: '#6B7280',
+    color: Colors.light.textSecondary,
     textAlign: 'center',
   },
   qrContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.light.card,
     borderRadius: 12,
   },
   button: {
@@ -152,10 +151,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#2563EB',
+    backgroundColor: Colors.light.primary,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: Colors.light.backgroundElement,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -165,7 +164,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
     gap: 20,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: Colors.light.background,
   },
   closeButton: {
     alignSelf: 'flex-start',
@@ -175,17 +174,17 @@ const styles = StyleSheet.create({
   closeText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#2563EB',
+    color: Colors.light.primary,
   },
   modalTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#111827',
+    color: Colors.light.text,
     textAlign: 'center',
   },
   largeQrContainer: {
     padding: 24,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.light.card,
   },
 });
