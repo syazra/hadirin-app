@@ -11,7 +11,6 @@ export default function AsistenLayout() {
 
   return (
     <Tabs
-      initialRouteName="jadwal-asisten"
       screenOptions={{
         headerStyle: { backgroundColor: Colors.light.card },
         headerTitleAlign: 'left',

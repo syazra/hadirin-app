@@ -11,7 +11,6 @@ export default function PraktikanLayout() {
 
   return (
     <Tabs
-      initialRouteName="jadwal-praktikan"
       screenOptions={{
         headerStyle: { backgroundColor: Colors.light.card },
         headerTitleAlign: 'left',
