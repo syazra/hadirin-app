@@ -1,44 +1,61 @@
 import { Redirect } from 'expo-router';
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { IdentitasPicker } from '@/components/shared/identitas-picker';
 import { Colors, Spacing } from '@/constants/theme';
-import { useApp } from '@/hooks/use-app';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function HomeScreen() {
-  const { pengguna, penggunaAktif, pilihIdentitas, gantiPeran } = useApp();
+  const {
+    pengguna,
+    loading,
+    profilBelumLengkap,
+  } = useAuth();
 
-  if (penggunaAktif) {
+  if (loading) {
     return (
-      <Redirect href={penggunaAktif.peran === 'ASISTEN' ? '/(asisten)/jadwal-asisten' : '/(praktikan)/jadwal-praktikan'} />
+      <SafeAreaView style={styles.centered}>
+        <ActivityIndicator
+          size="large"
+          color={Colors.light.primary}
+        />
+        <Text style={styles.helper}>
+          Memeriksa sesi akun...
+        </Text>
+      </SafeAreaView>
     );
   }
 
-  return (
-    <SafeAreaView style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text accessibilityRole="header" style={styles.brand}>Hadir.in</Text>
+  if (!pengguna || profilBelumLengkap) {
+    return <Redirect href="/(auth)/login" />;
+  }
 
-        <IdentitasPicker
-          pengguna={pengguna}
-          penggunaAktif={penggunaAktif}
-          onPilihIdentitas={pilihIdentitas}
-          onGantiPeran={gantiPeran}
-        />
-      </ScrollView>
-    </SafeAreaView>
+  return (
+    <Redirect
+      href={
+        pengguna.peran === 'ASISTEN'
+          ? '/(asisten)/jadwal-asisten'
+          : '/(praktikan)/jadwal-praktikan'
+      }
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.light.background },
-  content: {
-    width: '100%',
-    maxWidth: 600,
-    alignSelf: 'center',
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.three,
     padding: Spacing.four,
-    gap: Spacing.four,
+    backgroundColor: Colors.light.background,
   },
-  brand: { color: Colors.light.primary, fontSize: 28, fontWeight: '800' },
+  helper: {
+    color: Colors.light.textSecondary,
+    fontSize: 14,
+  },
 });

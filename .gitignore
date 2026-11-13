@@ -48,6 +48,7 @@ example
 # generated native folders
 /ios
 /android
+google-services.json
 
 # Firebase local files
 .firebase/

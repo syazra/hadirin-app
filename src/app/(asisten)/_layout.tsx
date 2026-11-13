@@ -2,12 +2,11 @@ import { Tabs } from 'expo-router';
 import { StyleSheet, Text } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { AppButton } from '@/components/ui/app-button';
-import { Colors, Spacing } from '@/constants/theme';
-import { useApp } from '@/hooks/use-app';
+import { Colors } from '@/constants/theme';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function AsistenLayout() {
-  const { penggunaAktif, gantiPeran } = useApp();
+  const { pengguna } = useAuth();
 
   return (
     <Tabs
@@ -15,24 +14,35 @@ export default function AsistenLayout() {
         headerStyle: { backgroundColor: Colors.light.card },
         headerTitleAlign: 'left',
         headerTitle: () => (
-          <Text numberOfLines={1} style={styles.name}>{penggunaAktif?.nama}</Text>
-        ),
-        headerRight: () => (
-          <AppButton
-            title="Ganti peran"
-            variant="outline"
-            size="small"
-            style={styles.switchButton}
-            accessibilityHint="Ganti peran atau identitas."
-            onPress={gantiPeran}
-          />
+          <Text numberOfLines={1} style={styles.name}>
+            {pengguna?.nama ?? 'Hadir.in'}
+          </Text>
         ),
         tabBarActiveTintColor: Colors.light.primary,
         tabBarInactiveTintColor: Colors.light.textSecondary,
-        tabBarStyle: { backgroundColor: Colors.light.card, borderTopColor: Colors.light.border },
-        tabBarLabelStyle: { fontSize: 12, lineHeight: 16, fontWeight: '600' },
+        tabBarStyle: {
+          backgroundColor: Colors.light.card,
+          borderTopColor: Colors.light.border,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          lineHeight: 16,
+          fontWeight: '600',
+        },
       }}
     >
+      <Tabs.Screen
+        name="kelas"
+        options={{
+          title: 'Kelas',
+          tabBarIcon: ({ color, size }) => (
+            <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8}>
+              <Path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8" />
+            </Svg>
+          ),
+        }}
+      />
+
       <Tabs.Screen
         name="jadwal-asisten"
         options={{
@@ -44,6 +54,7 @@ export default function AsistenLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
         name="rekap"
         options={{
@@ -55,11 +66,38 @@ export default function AsistenLayout() {
           ),
         }}
       />
+
+      <Tabs.Screen
+        name="izin-asisten"
+        options={{
+          title: 'Izin',
+          tabBarIcon: ({ color, size }) => (
+            <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8}>
+              <Path d="M7 3h10v18H7zM9 8h6m-6 4h6m-6 4h4" />
+            </Svg>
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="profil"
+        options={{
+          title: 'Profil',
+          tabBarIcon: ({ color, size }) => (
+            <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8}>
+              <Path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0" />
+            </Svg>
+          ),
+        }}
+      />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
-  name: { color: Colors.light.text, fontSize: 15, fontWeight: '600' },
-  switchButton: { minHeight: 44, marginRight: Spacing.three },
+  name: {
+    color: Colors.light.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
 });

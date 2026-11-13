@@ -3,24 +3,46 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { Colors } from '@/constants/theme';
 import { AppProvider } from '@/context/app-context';
-import { useApp } from '@/hooks/use-app';
-
 import { AuthProvider } from '@/context/auth-context';
+import { useAuth } from '@/hooks/use-auth';
 
 function AppNavigator() {
-  const { penggunaAktif } = useApp();
+  const { pengguna, loading, profilBelumLengkap } = useAuth();
 
   return (
     <Stack screenOptions={{ headerTintColor: Colors.light.primary }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Protected guard={penggunaAktif?.peran === 'ASISTEN'}>
+
+      {/* Route autentikasi */}
+      <Stack.Protected
+        guard={!loading && (!pengguna || profilBelumLengkap)}
+        redirectTo="/"
+      >
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      </Stack.Protected>
+
+      {/* Halaman Asisten */}
+      <Stack.Protected
+        guard={!loading && pengguna?.peran === 'ASISTEN' && !profilBelumLengkap}
+        redirectTo="/"
+      >
         <Stack.Screen name="(asisten)" options={{ headerShown: false }} />
       </Stack.Protected>
-      <Stack.Protected guard={penggunaAktif?.peran === 'PRAKTIKAN'}>
+
+      {/* Halaman Praktikan */}
+      <Stack.Protected
+        guard={!loading && pengguna?.peran === 'PRAKTIKAN' && !profilBelumLengkap}
+        redirectTo="/"
+      >
         <Stack.Screen name="(praktikan)" options={{ headerShown: false }} />
         <Stack.Screen name="scan-qr" options={{ title: 'Scan QR' }} />
       </Stack.Protected>
-      <Stack.Protected guard={penggunaAktif !== null}>
+
+      {/* Detail sesi */}
+      <Stack.Protected
+        guard={!loading && !!pengguna && !profilBelumLengkap}
+        redirectTo="/"
+      >
         <Stack.Screen name="sesi/[id]" options={{ title: 'Detail sesi' }} />
       </Stack.Protected>
     </Stack>
@@ -30,11 +52,11 @@ function AppNavigator() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-        <AuthProvider>
-            <AppProvider>
-                <AppNavigator />
-            </AppProvider>
-        </AuthProvider>
+      <AuthProvider>
+        <AppProvider>
+          <AppNavigator />
+        </AppProvider>
+      </AuthProvider>
     </SafeAreaProvider>
-);
+  );
 }
