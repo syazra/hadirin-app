@@ -4,7 +4,7 @@ import { QrSesiPanel } from '@/components/asisten/qr-sesi-panel';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { Colors } from '@/constants/theme';
 import { useApp } from '@/hooks/use-app';
-import type { Sesi } from '@/types';
+import type { Sesi } from '@/types/legacy';
 
 export interface PanelAksiAsistenProps {
   sesi: Sesi;

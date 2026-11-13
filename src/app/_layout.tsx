@@ -5,6 +5,8 @@ import { Colors } from '@/constants/theme';
 import { AppProvider } from '@/context/app-context';
 import { useApp } from '@/hooks/use-app';
 
+import { AuthProvider } from '@/context/auth-context';
+
 function AppNavigator() {
   const { penggunaAktif } = useApp();
 
@@ -28,9 +30,11 @@ function AppNavigator() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <AppProvider>
-        <AppNavigator />
-      </AppProvider>
+        <AuthProvider>
+            <AppProvider>
+                <AppNavigator />
+            </AppProvider>
+        </AuthProvider>
     </SafeAreaProvider>
-  );
+);
 }

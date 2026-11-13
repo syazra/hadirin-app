@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { AppCard } from '@/components/ui/app-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Colors } from '@/constants/theme';
-import type { Sesi } from '@/types';
+import type { Sesi } from '@/types/legacy';
 
 type DetailSesiProps = {
     namaPraktikum: string;
