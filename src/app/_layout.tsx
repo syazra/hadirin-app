@@ -17,6 +17,7 @@ function AppNavigator() {
       <Stack.Protected guard={penggunaAktif?.peran === 'PRAKTIKAN'}>
         <Stack.Screen name="(praktikan)" options={{ headerShown: false }} />
         <Stack.Screen name="scan-qr" options={{ title: 'Scan QR' }} />
+        <Stack.Screen name="izin" options={{ headerShown: true }} />
       </Stack.Protected>
       <Stack.Protected guard={penggunaAktif !== null}>
         <Stack.Screen name="sesi/[id]" options={{ title: 'Detail sesi' }} />

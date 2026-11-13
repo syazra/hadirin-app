@@ -10,10 +10,11 @@ type TextFieldProps = {
     error?: string;
     multiline?: boolean;
     maxLength?: number;
+    editable?: boolean;
 };
 
 export function TextField({
-    label, value, onChangeText, placeholder, error, multiline, maxLength,
+    label, value, onChangeText, placeholder, error, multiline, maxLength, editable = true,
 }: TextFieldProps) {
     return (
         <View style={styles.container}>
@@ -25,6 +26,7 @@ export function TextField({
                 placeholderTextColor={Colors.light.textSecondary}
                 multiline={multiline}
                 maxLength={maxLength}
+                editable={editable}
                 style={[styles.input, multiline && styles.multiline, error && styles.inputError]}
             />
             {error ? <Text style={styles.error}>{error}</Text> : null}

@@ -56,6 +56,17 @@ export default function PraktikanLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="izin-praktikan"
+        options={{
+          title: 'Izin',
+          tabBarIcon: ({ color, size }) => (
+            <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8}>
+              <Path d="M8 3h8a2 2 0 0 1 2 2v16H6V5a2 2 0 0 1 2-2Zm2 5h4m-4 4h4m-4 4h4" />
+            </Svg>
+          ),
+        }}
+      />
     </Tabs>
   );
 }
