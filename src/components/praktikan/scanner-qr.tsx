@@ -5,7 +5,7 @@ import { AppButton } from '@/components/ui/app-button';
 import { PresensiBerhasilSheet } from '@/components/praktikan/presensi-berhasil-sheet';
 import { Colors, Spacing } from '@/constants/theme';
 import { useApp } from '@/hooks/use-app';
-import type { HasilPresensi } from '@/types';
+import type { HasilPresensi } from '@/types/legacy';
 import { LayarPersiapan } from '@/components/shared/layar-persiapan';
 import { buatPayloadQr } from '@/utils/qr-payload';
 

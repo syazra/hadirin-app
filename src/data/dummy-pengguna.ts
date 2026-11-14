@@ -1,4 +1,4 @@
-import type { Pengguna } from '@/types';
+import type { Pengguna } from '@/types/legacy';
 
 export const dummyPengguna: Pengguna[] = [
   { idPengguna: 'A001', nama: 'Bima', peran: 'ASISTEN' },
