@@ -1,3 +1,5 @@
+import * as Crypto from 'expo-crypto';
+
 import {
     collection,
     doc,
@@ -114,17 +116,8 @@ function petakanErrorFirestore(error: unknown, pesanDefault: string): Hasil<neve
 }
 
 function buatKodeQrAcak(): string {
-    const cryptoApi = globalThis.crypto;
-    if (!cryptoApi || typeof cryptoApi.getRandomValues !== 'function') {
-        throw new Error(
-            'Generator acak kriptografis tidak tersedia di perangkat ini.',
-        );
-    }
-
     // 16 byte = 128 bit entropi; hex lowercase bebas titik dua dan spasi.
-    const bytes = new Uint8Array(16);
-    cryptoApi.getRandomValues(bytes);
-
+    const bytes = Crypto.getRandomBytes(16);
     return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
