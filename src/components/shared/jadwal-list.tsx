@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { SesiCard } from '@/components/shared/sesi-card';
 import { EmptyState } from '@/components/ui/empty-state';
-import type { Sesi } from '@/types/legacy';
+import type { Sesi } from '@/types';
 
 type JadwalListProps = {
     sesi: Sesi[];
@@ -28,10 +28,7 @@ export function JadwalList({
             {sesi.map((item) => (
                 <SesiCard
                     key={item.idSesi}
-                    namaPraktikum={item.namaPraktikum}
-                    kelasLab={item.kelasLab}
-                    waktu={item.waktu}
-                    statusSesi={item.statusSesi}
+                    sesi={item}
                     onPress={() => onPilihSesi(item.idSesi)}
                 />
             ))}

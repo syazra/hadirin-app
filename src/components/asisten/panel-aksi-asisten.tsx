@@ -1,104 +1,193 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+
 import { QrSesiPanel } from '@/components/asisten/qr-sesi-panel';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { Colors } from '@/constants/theme';
-import { useApp } from '@/hooks/use-app';
-import type { Sesi } from '@/types/legacy';
+import { bukaSesi, tutupSesi } from '@/services/sesi-service';
+import type { Sesi } from '@/types';
 
 export interface PanelAksiAsistenProps {
-  sesi: Sesi;
+    sesi: Sesi;
+    kelasDiarsipkan?: boolean;
 }
 
 type AksiKonfirmasi = 'buka' | 'tutup' | null;
 
-export function PanelAksiAsisten({ sesi }: PanelAksiAsistenProps) {
-  const { bukaSesi, tutupSesi } = useApp();
-  const [aksiKonfirmasi, setAksiKonfirmasi] =
-    useState<AksiKonfirmasi>(null);
+export function PanelAksiAsisten({
+    sesi,
+    kelasDiarsipkan = false,
+}: PanelAksiAsistenProps) {
+    const [aksiKonfirmasi, setAksiKonfirmasi] =
+        useState<AksiKonfirmasi>(null);
+    const [sedangProses, setSedangProses] = useState(false);
+    const [pesanError, setPesanError] = useState<string | null>(null);
 
-  const konfirmasiAksi = () => {
-    const aksi = aksiKonfirmasi;
+    const bolehBuka =
+        sesi.statusSesi === 'BELUM_DIBUKA' &&
+        !sesi.diarsipkan &&
+        !kelasDiarsipkan;
+    const bolehTutup = sesi.statusSesi === 'DIBUKA' && !sesi.diarsipkan;
 
-    setAksiKonfirmasi(null);
-
-    if (aksi === 'buka') {
-      bukaSesi(sesi.idSesi);
-    } else if (aksi === 'tutup') {
-      tutupSesi(sesi.idSesi);
-    }
-  };
-
-  return (
-    <View style={styles.container}>
-      {sesi.statusSesi === 'BELUM_DIBUKA' && (
-        <Pressable
-          style={[styles.button, styles.bukaButton]}
-          onPress={() => setAksiKonfirmasi('buka')}
-          accessibilityRole="button"
-        >
-          <Text style={styles.buttonText}>Buka Sesi</Text>
-        </Pressable>
-      )}
-
-      {sesi.statusSesi === 'DIBUKA' && (
-        <Pressable
-          style={[styles.button, styles.tutupButton]}
-          onPress={() => setAksiKonfirmasi('tutup')}
-          accessibilityRole="button"
-        >
-          <Text style={styles.buttonText}>Tutup Sesi</Text>
-        </Pressable>
-      )}
-
-      <QrSesiPanel sesi={sesi} />
-
-      <ConfirmSheet
-        visible={aksiKonfirmasi !== null}
-        judul={
-          aksiKonfirmasi === 'buka'
-            ? 'Buka Sesi?'
-            : 'Tutup Sesi?'
+    const konfirmasiAksi = async () => {
+        if (sedangProses || !aksiKonfirmasi) {
+            return;
         }
-        pesan={
-          aksiKonfirmasi === 'buka'
-            ? 'Dengan membuka sesi, QR presensi akan tersedia agar praktikan dapat melakukan presensi.'
-            : 'Sesi akan ditutup. Praktikan tidak dapat melakukan presensi lagi.'
+
+        const aksi = aksiKonfirmasi;
+        setSedangProses(true);
+        setPesanError(null);
+
+        const hasil =
+            aksi === 'buka'
+                ? await bukaSesi(sesi.idSesi)
+                : await tutupSesi(sesi.idSesi);
+
+        setSedangProses(false);
+        setAksiKonfirmasi(null);
+
+        if (!hasil.ok) {
+            setPesanError(hasil.pesan);
         }
-        labelKonfirmasi={
-          aksiKonfirmasi === 'buka'
-            ? 'Ya, Buka Sesi Sekarang'
-            : 'Ya, Tutup Sesi'
-        }
-        labelBatal="Batal"
-        onKonfirmasi={konfirmasiAksi}
-        onBatal={() => setAksiKonfirmasi(null)}
-      />
-    </View>
-  );
+    };
+
+    return (
+        <View style={styles.container}>
+            {bolehBuka && (
+                <Pressable
+                    style={[
+                        styles.button,
+                        styles.bukaButton,
+                        sedangProses && styles.buttonDisabled,
+                    ]}
+                    onPress={() => {
+                        setPesanError(null);
+                        setAksiKonfirmasi('buka');
+                    }}
+                    disabled={sedangProses}
+                    accessibilityRole="button"
+                >
+                    {sedangProses ? (
+                        <ActivityIndicator
+                            size="small"
+                            color={Colors.light.backgroundElement}
+                        />
+                    ) : (
+                        <Text style={styles.buttonText}>Buka Sesi</Text>
+                    )}
+                </Pressable>
+            )}
+
+            {bolehTutup && (
+                <Pressable
+                    style={[
+                        styles.button,
+                        styles.tutupButton,
+                        sedangProses && styles.buttonDisabled,
+                    ]}
+                    onPress={() => {
+                        setPesanError(null);
+                        setAksiKonfirmasi('tutup');
+                    }}
+                    disabled={sedangProses}
+                    accessibilityRole="button"
+                >
+                    {sedangProses ? (
+                        <ActivityIndicator
+                            size="small"
+                            color={Colors.light.backgroundElement}
+                        />
+                    ) : (
+                        <Text style={styles.buttonText}>Tutup Sesi</Text>
+                    )}
+                </Pressable>
+            )}
+
+            {pesanError ? (
+                <View style={styles.errorBox}>
+                    <Text style={styles.errorText}>{pesanError}</Text>
+                </View>
+            ) : null}
+
+            <QrSesiPanel
+                sesi={sesi}
+                kelasDiarsipkan={kelasDiarsipkan}
+            />
+
+            <ConfirmSheet
+                visible={aksiKonfirmasi !== null}
+                judul={
+                    aksiKonfirmasi === 'buka'
+                        ? 'Buka Sesi?'
+                        : 'Tutup Sesi?'
+                }
+                pesan={
+                    aksiKonfirmasi === 'buka'
+                        ? 'Dengan membuka sesi, QR presensi akan tersedia agar praktikan dapat melakukan presensi.'
+                        : 'Sesi akan ditutup. Praktikan tidak dapat melakukan presensi lagi.'
+                }
+                labelKonfirmasi={
+                    sedangProses
+                        ? 'Memproses...'
+                        : aksiKonfirmasi === 'buka'
+                          ? 'Ya, Buka Sesi Sekarang'
+                          : 'Ya, Tutup Sesi'
+                }
+                labelBatal="Batal"
+                onKonfirmasi={konfirmasiAksi}
+                onBatal={() => {
+                    if (!sedangProses) {
+                        setAksiKonfirmasi(null);
+                    }
+                }}
+            />
+        </View>
+    );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginTop: 16,
-  },
-  button: {
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  bukaButton: {
-    backgroundColor: Colors.light.primary,
-  },
-  tutupButton: {
-    backgroundColor: Colors.light.danger,
-  },
-  buttonText: {
-    color: Colors.light.backgroundElement,
-    fontSize: 16,
-    fontWeight: '600',
-  },
+    container: {
+        marginTop: 16,
+        gap: 12,
+    },
+    button: {
+        minHeight: 48,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 12,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+    },
+    bukaButton: {
+        backgroundColor: Colors.light.primary,
+    },
+    tutupButton: {
+        backgroundColor: Colors.light.danger,
+    },
+    buttonDisabled: {
+        opacity: 0.6,
+    },
+    buttonText: {
+        color: Colors.light.backgroundElement,
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    errorBox: {
+        padding: 12,
+        borderRadius: 10,
+        backgroundColor: Colors.light.backgroundElement,
+        borderWidth: 1,
+        borderColor: Colors.light.danger,
+    },
+    errorText: {
+        fontSize: 13,
+        lineHeight: 18,
+        color: Colors.light.danger,
+    },
 });
