@@ -145,9 +145,14 @@ export default function DetailSesiScreen() {
                 namaPraktikum={kelas?.namaPraktikum}
             />
 
-            {peran === 'ASISTEN' && <PanelAksiAsisten sesi={sesi} />}
+            {peran === 'ASISTEN' && (
+                <PanelAksiAsisten
+                    sesi={sesi}
+                    kelasDiarsipkan={Boolean(kelas?.diarsipkan)}
+                />
+            )}
 
-            {peran === 'PRAKTIKAN' && (
+            {peran === 'PRAKTIKAN' && !dataDiarsipkan && (
                 <>
                     <PanelAksiPraktikan
                         statusSesi={sesi.statusSesi}
