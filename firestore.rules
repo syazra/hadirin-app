@@ -1,8 +1,153 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function teksValid(nilai, batasMaks) {
+      return nilai is string
+        && nilai.size() > 0
+        && nilai.size() <= batasMaks
+        && nilai.matches('.*\\S.*');
+    }
+
+    function isAsisten() {
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/pengguna/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/pengguna/$(request.auth.uid)
+        ).data.peran == 'ASISTEN';
+    }
+
+    function kodeMilikSendiri(kode) {
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/pengguna/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/pengguna/$(request.auth.uid)
+        ).data.kodePeserta == kode;
+    }
+
+    function profilBaruValid(uid) {
+      return signedIn()
+        && request.auth.uid == uid
+
+        && request.resource.data.keys().hasAll([
+          'nama',
+          'nim',
+          'email',
+          'peran',
+          'kodePeserta',
+          'dibuatPada'
+        ])
+
+        && request.resource.data.keys().hasOnly([
+          'nama',
+          'nim',
+          'email',
+          'peran',
+          'kodePeserta',
+          'dibuatPada'
+        ])
+
+        && teksValid(request.resource.data.nama, 100)
+        && teksValid(request.resource.data.nim, 32)
+
+        && request.resource.data.email is string
+        && request.resource.data.email == request.auth.token.email
+
+        && request.resource.data.peran == 'PRAKTIKAN'
+
+        && request.resource.data.kodePeserta is string
+        && request.resource.data.kodePeserta.matches('^[A-Z0-9]{8}$')
+
+        && request.resource.data.dibuatPada == request.time
+
+        // Mapping wajib tersedia setelah batch selesai.
+        && existsAfter(
+          /databases/$(database)/documents/kodePeserta/$(request.resource.data.kodePeserta)
+        )
+
+        // Identitas mapping harus cocok dengan profil.
+        && getAfter(
+          /databases/$(database)/documents/kodePeserta/$(request.resource.data.kodePeserta)
+        ).data.uid == uid
+
+        && getAfter(
+          /databases/$(database)/documents/kodePeserta/$(request.resource.data.kodePeserta)
+        ).data.nama == request.resource.data.nama
+
+        && getAfter(
+          /databases/$(database)/documents/kodePeserta/$(request.resource.data.kodePeserta)
+        ).data.nim == request.resource.data.nim;
+    }
+
+    function mappingBaruValid(kode) {
+      return signedIn()
+
+        && request.resource.data.keys().hasAll([
+          'uid',
+          'nama',
+          'nim'
+        ])
+
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'nama',
+          'nim'
+        ])
+
+        && request.resource.data.uid == request.auth.uid
+
+        && teksValid(request.resource.data.nama, 100)
+        && teksValid(request.resource.data.nim, 32)
+
+        // Profil harus tersedia setelah batch selesai.
+        && existsAfter(
+          /databases/$(database)/documents/pengguna/$(request.auth.uid)
+        )
+
+        // Kode dan identitas mapping harus cocok dengan profil.
+        && getAfter(
+          /databases/$(database)/documents/pengguna/$(request.auth.uid)
+        ).data.kodePeserta == kode
+
+        && getAfter(
+          /databases/$(database)/documents/pengguna/$(request.auth.uid)
+        ).data.nama == request.resource.data.nama
+
+        && getAfter(
+          /databases/$(database)/documents/pengguna/$(request.auth.uid)
+        ).data.nim == request.resource.data.nim;
+    }
+
+    // Profil pengguna
+    match /pengguna/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list: if false;
+
+      allow create: if profilBaruValid(uid);
+
+      allow update, delete: if false;
+    }
+
+    // Mapping kode peserta
+    match /kodePeserta/{kode} {
+      allow get: if isAsisten() || kodeMilikSendiri(kode);
+      allow list: if false;
+
+      allow create: if mappingBaruValid(kode);
+
+      allow update, delete: if false;
+    }
+
+    // Koleksi lain tetap ditolak sampai Rules modulnya diimplementasikan.
     match /{document=**} {
       allow read, write: if false;
     }

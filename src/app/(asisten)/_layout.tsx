@@ -1,12 +1,20 @@
-import { Tabs } from 'expo-router';
-import { StyleSheet, Text } from 'react-native';
+import { Redirect, Tabs } from 'expo-router';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { Colors } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 
 export default function AsistenLayout() {
-  const { pengguna } = useAuth();
+  const { pengguna, loading, profilBelumLengkap } = useAuth();
+
+  if (loading) {
+    return <View style={styles.centered}><ActivityIndicator color={Colors.light.primary} /></View>;
+  }
+
+  if (!pengguna || profilBelumLengkap || pengguna.peran !== 'ASISTEN') {
+    return <Redirect href="/" />;
+  }
 
   return (
     <Tabs
@@ -95,6 +103,7 @@ export default function AsistenLayout() {
 }
 
 const styles = StyleSheet.create({
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four },
   name: {
     color: Colors.light.text,
     fontSize: 15,

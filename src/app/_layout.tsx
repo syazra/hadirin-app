@@ -27,6 +27,7 @@ function AppNavigator() {
         redirectTo="/"
       >
         <Stack.Screen name="(asisten)" options={{ headerShown: false }} />
+        <Stack.Screen name="kelas/[id]" options={{ title: 'Detail kelas' }} />
       </Stack.Protected>
 
       {/* Halaman Praktikan */}
@@ -36,6 +37,7 @@ function AppNavigator() {
       >
         <Stack.Screen name="(praktikan)" options={{ headerShown: false }} />
         <Stack.Screen name="scan-qr" options={{ title: 'Scan QR' }} />
+        <Stack.Screen name="izin/ajukan" options={{ title: 'Ajukan izin' }} />
       </Stack.Protected>
 
       {/* Detail sesi */}
@@ -44,6 +46,7 @@ function AppNavigator() {
         redirectTo="/"
       >
         <Stack.Screen name="sesi/[id]" options={{ title: 'Detail sesi' }} />
+        <Stack.Screen name="izin/[id]" options={{ title: 'Detail izin' }} />
       </Stack.Protected>
     </Stack>
   );
