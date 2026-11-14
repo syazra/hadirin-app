@@ -10,7 +10,7 @@ import QRCode from 'react-native-qrcode-svg';
 
 import { AppCard } from '@/components/ui/app-card';
 import { Colors } from '@/constants/theme';
-import type { Sesi } from '@/types';
+import type { Sesi } from '@/types/legacy';
 import { buatPayloadQr } from '@/utils/qr-payload';
 
 export interface QrSesiPanelProps {

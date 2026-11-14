@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui/app-button';
 import { Colors, Spacing } from '@/constants/theme';
-import type { Pengguna, Peran } from '@/types';
+import type { Pengguna, Peran } from '@/types/legacy';
 
 export interface IdentitasPickerProps {
   pengguna: Pengguna[];

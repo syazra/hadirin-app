@@ -1,5 +1,5 @@
 import { useApp } from '@/hooks/use-app';
-import type { ItemRekapSesi, RekapSesi } from '@/types';
+import type { ItemRekapSesi, RekapSesi } from '@/types/legacy';
 
 export function useRekapSesi(idSesi: string): RekapSesi {
   const { pengguna, getPresensiBySesi } = useApp();
