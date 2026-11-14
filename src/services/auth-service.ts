@@ -24,6 +24,13 @@ import type {
     Hasil,
     Pengguna,
 } from '@/types';
+import { hasilErrorFirebase } from '@/utils/error-firebase';
+import {
+    normalisasiEmail,
+    validasiEmail,
+    validasiIdentitas,
+    validasiPassword,
+} from '@/utils/validasi-form';
 
 export type InputDaftar = {
     nama: string;
@@ -33,11 +40,6 @@ export type InputDaftar = {
 };
 
 export type InputLengkapiProfil = {
-    nama: string;
-    nim: string;
-};
-
-type IdentitasProfil = {
     nama: string;
     nim: string;
 };
@@ -57,117 +59,6 @@ function firebaseTidakTersedia<T = never>(): Hasil<T> {
         'TIDAK_BERWENANG',
         'Firebase Hadir.in saat ini hanya tersedia di Android.',
     );
-}
-
-function kodeError(error: unknown): string | null {
-    if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        typeof error.code === 'string'
-    ) {
-        return error.code;
-    }
-
-    return null;
-}
-
-function hasilError<T = never>(error: unknown): Hasil<T> {
-    const code = kodeError(error);
-
-    if (
-        code === 'auth/invalid-email' ||
-        code === 'auth/weak-password' ||
-        code === 'auth/missing-email' ||
-        code === 'auth/missing-password'
-    ) {
-        return gagal(
-            'INPUT_TIDAK_VALID',
-            'Periksa kembali format email dan kata sandi.',
-        );
-    }
-
-    if (code === 'auth/email-already-in-use') {
-        return gagal(
-            'AUTENTIKASI_GAGAL',
-            'Email sudah terdaftar. Silakan masuk.',
-        );
-    }
-
-    if (
-        code === 'auth/invalid-credential' ||
-        code === 'auth/user-not-found' ||
-        code === 'auth/wrong-password' ||
-        code === 'auth/user-disabled' ||
-        code === 'auth/too-many-requests'
-    ) {
-        return gagal(
-            'AUTENTIKASI_GAGAL',
-            'Email atau kata sandi tidak sesuai, atau akun sementara dibatasi.',
-        );
-    }
-
-    if (
-        code === 'auth/network-request-failed' ||
-        code === 'firestore/unavailable' ||
-        code === 'firestore/network-request-failed'
-    ) {
-        return gagal(
-            'JARINGAN',
-            'Koneksi bermasalah. Periksa jaringan lalu coba lagi.',
-        );
-    }
-
-    if (
-        code === 'firestore/deadline-exceeded' ||
-        code === 'firestore/cancelled'
-    ) {
-        return gagal(
-            'TIMEOUT',
-            'Permintaan terlalu lama. Silakan coba lagi.',
-        );
-    }
-
-    if (
-        code === 'firestore/permission-denied' ||
-        code === 'auth/operation-not-allowed'
-    ) {
-        return gagal(
-            'TIDAK_BERWENANG',
-            'Akses ditolak. Periksa konfigurasi Firebase dan Security Rules.',
-        );
-    }
-
-    return gagal(
-        'TIDAK_DIKENAL',
-        'Terjadi kesalahan yang tidak dikenali. Silakan coba lagi.',
-    );
-}
-
-function validasiIdentitas(
-    input: InputLengkapiProfil,
-): Hasil<IdentitasProfil> {
-    const nama = input.nama.trim();
-    const nim = input.nim.trim();
-
-    if (!nama || nama.length > 100) {
-        return gagal(
-            'INPUT_TIDAK_VALID',
-            'Nama wajib diisi dan maksimal 100 karakter.',
-        );
-    }
-
-    if (!nim || nim.length > 32) {
-        return gagal(
-            'INPUT_TIDAK_VALID',
-            'NIM wajib diisi dan maksimal 32 karakter.',
-        );
-    }
-
-    return {
-        ok: true,
-        data: { nama, nim },
-    };
 }
 
 /**
@@ -296,7 +187,7 @@ export async function ambilProfil(
     try {
         return await bacaProfil(uid);
     } catch (error) {
-        return hasilError<Pengguna>(error);
+        return hasilErrorFirebase<Pengguna>(error);
     }
 }
 
@@ -410,12 +301,12 @@ async function simpanProfilDanKode(input: {
             } catch (errorBaca) {
                 // Tidak bisa memastikan kondisi profil, misalnya karena
                 // koneksi terputus atau akses Firestore ditolak.
-                return hasilError<Pengguna>(errorBaca);
+                return hasilErrorFirebase<Pengguna>(errorBaca);
             }
         }
     }
 
-    return hasilError<Pengguna>(kesalahanTerakhir);
+    return hasilErrorFirebase<Pengguna>(kesalahanTerakhir);
 }
 
 /**
@@ -429,19 +320,25 @@ export async function daftar(
         return firebaseTidakTersedia<Pengguna>();
     }
 
-    const identitas = validasiIdentitas(input);
-
-    if (!identitas.ok) return identitas;
-
-    const email = input.email.trim().toLowerCase();
-    const password = input.password;
-
-    if (!email || !password) {
-        return gagal(
-            'INPUT_TIDAK_VALID',
-            'Email dan kata sandi wajib diisi.',
-        );
+    const kesalahanIdentitas = validasiIdentitas(input);
+    if (kesalahanIdentitas) {
+        return gagal('INPUT_TIDAK_VALID', kesalahanIdentitas);
     }
+
+    const kesalahanEmail = validasiEmail(input.email);
+    if (kesalahanEmail) {
+        return gagal('INPUT_TIDAK_VALID', kesalahanEmail);
+    }
+
+    const kesalahanPassword = validasiPassword(input.password);
+    if (kesalahanPassword) {
+        return gagal('INPUT_TIDAK_VALID', kesalahanPassword);
+    }
+
+    const email = normalisasiEmail(input.email);
+    const password = input.password;
+    const nama = input.nama.trim();
+    const nim = input.nim.trim();
 
     try {
         const { auth } = getFirebaseServices();
@@ -464,8 +361,8 @@ export async function daftar(
         const hasilSimpan = await simpanProfilDanKode({
             uid: penggunaAuth.uid,
             email: penggunaAuth.email,
-            nama: identitas.data.nama,
-            nim: identitas.data.nim,
+            nama,
+            nim,
         });
 
         if (!hasilSimpan.ok) {
@@ -480,7 +377,7 @@ export async function daftar(
 
         return hasilSimpan;
     } catch (error) {
-        return hasilError<Pengguna>(error);
+        return hasilErrorFirebase<Pengguna>(error);
     }
 }
 
@@ -495,9 +392,10 @@ export async function lengkapiProfil(
         return firebaseTidakTersedia<Pengguna>();
     }
 
-    const identitas = validasiIdentitas(input);
-
-    if (!identitas.ok) return identitas;
+    const kesalahanIdentitas = validasiIdentitas(input);
+    if (kesalahanIdentitas) {
+        return gagal('INPUT_TIDAK_VALID', kesalahanIdentitas);
+    }
 
     try {
         const { auth } = getFirebaseServices();
@@ -513,11 +411,11 @@ export async function lengkapiProfil(
         return await simpanProfilDanKode({
             uid: penggunaAuth.uid,
             email: penggunaAuth.email,
-            nama: identitas.data.nama,
-            nim: identitas.data.nim,
+            nama: input.nama.trim(),
+            nim: input.nim.trim(),
         });
     } catch (error) {
-        return hasilError<Pengguna>(error);
+        return hasilErrorFirebase<Pengguna>(error);
     }
 }
 
@@ -533,14 +431,15 @@ export async function masuk(
         return firebaseTidakTersedia<Pengguna>();
     }
 
-    const emailNormal = email.trim().toLowerCase();
-
-    if (!emailNormal || !password) {
-        return gagal(
-            'INPUT_TIDAK_VALID',
-            'Email dan kata sandi wajib diisi.',
-        );
+    const kesalahanEmail = validasiEmail(email);
+    if (kesalahanEmail) {
+        return gagal('INPUT_TIDAK_VALID', kesalahanEmail);
     }
+    if (!password) {
+        return gagal('INPUT_TIDAK_VALID', 'Kata sandi wajib diisi.');
+    }
+
+    const emailNormal = normalisasiEmail(email);
 
     try {
         const { auth } = getFirebaseServices();
@@ -553,7 +452,7 @@ export async function masuk(
 
         return await bacaProfil(credential.user.uid);
     } catch (error) {
-        return hasilError<Pengguna>(error);
+        return hasilErrorFirebase<Pengguna>(error);
     }
 }
 
@@ -575,6 +474,6 @@ export async function keluar(): Promise<Hasil> {
             data: undefined,
         };
     } catch (error) {
-        return hasilError(error);
+        return hasilErrorFirebase(error);
     }
 }

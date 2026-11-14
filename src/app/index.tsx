@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
+import { tentukanTujuanNavigasiAuth } from '@/utils/tujuan-navigasi-auth';
 
 export default function HomeScreen() {
   const {
@@ -15,8 +16,13 @@ export default function HomeScreen() {
     loading,
     profilBelumLengkap,
   } = useAuth();
+  const tujuan = tentukanTujuanNavigasiAuth({
+    pengguna,
+    loading,
+    profilBelumLengkap,
+  });
 
-  if (loading) {
+  if (!tujuan) {
     return (
       <SafeAreaView style={styles.centered}>
         <ActivityIndicator
@@ -30,19 +36,7 @@ export default function HomeScreen() {
     );
   }
 
-  if (!pengguna || profilBelumLengkap) {
-    return <Redirect href="/(auth)/login" />;
-  }
-
-  return (
-    <Redirect
-      href={
-        pengguna.peran === 'ASISTEN'
-          ? '/(asisten)/jadwal-asisten'
-          : '/(praktikan)/jadwal-praktikan'
-      }
-    />
-  );
+  return <Redirect href={tujuan} />;
 }
 
 const styles = StyleSheet.create({
