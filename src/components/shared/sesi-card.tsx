@@ -1,38 +1,68 @@
 import { StyleSheet, Text, View } from 'react-native';
+
 import { AppCard } from '@/components/ui/app-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Colors } from '@/constants/theme';
-import type { Sesi } from '@/types/legacy';
+import type { Sesi } from '@/types';
 
 type SesiCardProps = {
-    namaPraktikum: string;
-    kelasLab: string;
-    waktu: string;
-    statusSesi: Sesi['statusSesi'];
+    sesi: Sesi;
+    namaPraktikum?: string;
     onPress: () => void;
 };
 
+function formatJam(tanggal: Date): string {
+    const jam = String(tanggal.getHours()).padStart(2, '0');
+    const menit = String(tanggal.getMinutes()).padStart(2, '0');
+    return `${jam}.${menit}`;
+}
+
+function formatRentangWaktu(
+    waktuMulai: Date,
+    waktuSelesai: Date | null,
+): string {
+    const tanggal = waktuMulai.toLocaleDateString('id-ID', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+    });
+
+    const jamMulai = formatJam(waktuMulai);
+    if (!waktuSelesai) {
+        return `${tanggal} • ${jamMulai} WIB`;
+    }
+
+    return `${tanggal} • ${jamMulai}–${formatJam(waktuSelesai)} WIB`;
+}
+
 export function SesiCard({
+    sesi,
     namaPraktikum,
-    kelasLab,
-    waktu,
-    statusSesi,
     onPress,
 }: SesiCardProps) {
+    const waktuTampil = formatRentangWaktu(
+        sesi.waktuMulai,
+        sesi.waktuSelesai,
+    );
+
     return (
         <AppCard onPress={onPress}>
             <View style={styles.header}>
                 <View style={styles.info}>
-                    <Text style={styles.nama}>{namaPraktikum}</Text>
-                    <Text style={styles.lokasi}>{kelasLab}</Text>
+                    {namaPraktikum ? (
+                        <Text style={styles.kelas}>{namaPraktikum}</Text>
+                    ) : null}
+                    <Text style={styles.nama}>{sesi.judul}</Text>
+                    <Text style={styles.lokasi}>{sesi.lokasi}</Text>
                 </View>
 
-                <StatusBadge status={statusSesi} />
+                <StatusBadge status={sesi.statusSesi} />
             </View>
 
             <View style={styles.footer}>
                 <Text style={styles.icon}>◷</Text>
-                <Text style={styles.waktu}>{waktu}</Text>
+                <Text style={styles.waktu}>{waktuTampil}</Text>
                 <View style={styles.spacer} />
                 <Text style={styles.detail}>Lihat detail ›</Text>
             </View>
@@ -49,7 +79,12 @@ const styles = StyleSheet.create({
     },
     info: {
         flex: 1,
-        gap: 6,
+        gap: 4,
+    },
+    kelas: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: Colors.light.primary,
     },
     nama: {
         fontSize: 16,
