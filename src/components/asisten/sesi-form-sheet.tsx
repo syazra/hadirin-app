@@ -1,11 +1,4 @@
-import { BottomSheet } from '@/components/ui/bottom-sheet';
-import { Colors } from '@/constants/theme';
-import {
-    FieldErrorSesi,
-    MAKS_TEKS_SESI,
-    validasiSesi,
-} from '@/utils/validasi-sesi';
-import { ComponentRef, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
     Pressable,
     ScrollView,
@@ -15,459 +8,368 @@ import {
     View,
 } from 'react-native';
 
-export type NilaiSesiForm = {
+import { BottomSheet } from '@/components/ui/bottom-sheet';
+import { Colors } from '@/constants/theme';
+import type { Sesi } from '@/types';
+
+export type NilaiFormSesi = {
     judul: string;
     lokasi: string;
     waktuMulai: Date;
     waktuSelesai: Date | null;
 };
 
-type SesiFormSheetProps = {
+export interface SesiFormSheetProps {
     visible: boolean;
-    mode?: 'tambah' | 'ubah';
-    nilaiAwal?: NilaiSesiForm;
-    loading?: boolean;
-    errorPesan?: string | null;
-    onSubmit: (data: NilaiSesiForm) => void;
+    mode: 'tambah' | 'ubah';
+    sesiAwal?: Sesi | null;
+    loading: boolean;
+    errorPesan: string | null;
+    onSubmit: (nilai: NilaiFormSesi) => void;
     onTutup: () => void;
-};
-
-function formatTanggalInput(date: Date): string {
-    const tahun = date.getFullYear();
-    const bulan = String(date.getMonth() + 1).padStart(2, '0');
-    const hari = String(date.getDate()).padStart(2, '0');
-    return `${tahun}-${bulan}-${hari}`;
 }
 
-function formatJamInput(date: Date): string {
-    const jam = String(date.getHours()).padStart(2, '0');
-    const menit = String(date.getMinutes()).padStart(2, '0');
-    return `${jam}:${menit}`;
+function formatInputTanggalWaktu(tanggal: Date): string {
+    const tahun = tanggal.getFullYear();
+    const bulan = String(tanggal.getMonth() + 1).padStart(2, '0');
+    const hari = String(tanggal.getDate()).padStart(2, '0');
+    const jam = String(tanggal.getHours()).padStart(2, '0');
+    const menit = String(tanggal.getMinutes()).padStart(2, '0');
+    return `${tahun}-${bulan}-${hari} ${jam}:${menit}`;
 }
 
-function parseTanggalJam(tanggalStr: string, jamStr: string): Date | null {
-    const matchTgl = /^(\d{4})-(\d{2})-(\d{2})$/.exec(tanggalStr.trim());
-    const matchJam = /^(\d{2}):(\d{2})$/.exec(jamStr.trim());
-    if (!matchTgl || !matchJam) return null;
+function parseInputTanggalWaktu(teks: string): Date | null {
+    const rapi = teks.trim();
+    if (!rapi) return null;
 
-    const tahun = Number(matchTgl[1]);
-    const bulan = Number(matchTgl[2]);
-    const hari = Number(matchTgl[3]);
-    const jam = Number(matchJam[1]);
-    const menit = Number(matchJam[2]);
+    const cocok = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/.exec(rapi);
+    if (!cocok) return null;
 
-    if (bulan < 1 || bulan > 12 || hari < 1 || hari > 31 || jam > 23 || menit > 59) {
-        return null;
-    }
+    const tahun = Number(cocok[1]);
+    const bulan = Number(cocok[2]);
+    const hari = Number(cocok[3]);
+    const jam = Number(cocok[4]);
+    const menit = Number(cocok[5]);
 
     const hasil = new Date(tahun, bulan - 1, hari, jam, menit, 0, 0);
     if (
+        Number.isNaN(hasil.getTime()) ||
         hasil.getFullYear() !== tahun ||
         hasil.getMonth() !== bulan - 1 ||
-        hasil.getDate() !== hari
+        hasil.getDate() !== hari ||
+        hasil.getHours() !== jam ||
+        hasil.getMinutes() !== menit
     ) {
         return null;
     }
+
     return hasil;
 }
 
-export function SesiFormSheet({
-    visible,
-    mode = 'tambah',
-    nilaiAwal,
-    loading = false,
-    errorPesan = null,
+function SesiFormSheetIsi({
+    mode,
+    sesiAwal,
+    loading,
+    errorPesan,
     onSubmit,
     onTutup,
-}: SesiFormSheetProps) {
-    const defaultMulai = nilaiAwal?.waktuMulai ?? new Date();
-
-    const [judul, setJudul] = useState(nilaiAwal?.judul ?? '');
-    const [lokasi, setLokasi] = useState(nilaiAwal?.lokasi ?? '');
-    const [tglMulai, setTglMulai] = useState(formatTanggalInput(defaultMulai));
-    const [jamMulai, setJamMulai] = useState(formatJamInput(defaultMulai));
-    const [tglSelesai, setTglSelesai] = useState(
-        nilaiAwal?.waktuSelesai ? formatTanggalInput(nilaiAwal.waktuSelesai) : '',
+}: Omit<SesiFormSheetProps, 'visible'>) {
+    const [judul, setJudul] = useState(() =>
+        mode === 'ubah' && sesiAwal ? sesiAwal.judul : '',
     );
-    const [jamSelesai, setJamSelesai] = useState(
-        nilaiAwal?.waktuSelesai ? formatJamInput(nilaiAwal.waktuSelesai) : '',
+    const [lokasi, setLokasi] = useState(() =>
+        mode === 'ubah' && sesiAwal ? sesiAwal.lokasi : '',
     );
-    const [errorLokal, setErrorLokal] = useState<{
-        field?: FieldErrorSesi;
-        pesan: string;
-    } | null>(null);
-
-    const inputJudulRef = useRef<ComponentRef<typeof TextInput>>(null);
-    const [prevVisible, setPrevVisible] = useState(visible);
-    const [prevNilaiAwal, setPrevNilaiAwal] = useState(nilaiAwal);
-
-    if (visible !== prevVisible || nilaiAwal !== prevNilaiAwal) {
-        setPrevVisible(visible);
-        setPrevNilaiAwal(nilaiAwal);
-        if (visible) {
-            const mulai = nilaiAwal?.waktuMulai ?? new Date();
-            setJudul(nilaiAwal?.judul ?? '');
-            setLokasi(nilaiAwal?.lokasi ?? '');
-            setTglMulai(formatTanggalInput(mulai));
-            setJamMulai(formatJamInput(mulai));
-            setTglSelesai(
-                nilaiAwal?.waktuSelesai ? formatTanggalInput(nilaiAwal.waktuSelesai) : '',
-            );
-            setJamSelesai(
-                nilaiAwal?.waktuSelesai ? formatJamInput(nilaiAwal.waktuSelesai) : '',
-            );
-            setErrorLokal(null);
+    const [waktuMulaiTeks, setWaktuMulaiTeks] = useState(() => {
+        if (mode === 'ubah' && sesiAwal) {
+            return formatInputTanggalWaktu(sesiAwal.waktuMulai);
         }
-    }
+        const sekarang = new Date();
+        sekarang.setSeconds(0, 0);
+        return formatInputTanggalWaktu(sekarang);
+    });
+    const [waktuSelesaiTeks, setWaktuSelesaiTeks] = useState(() =>
+        mode === 'ubah' && sesiAwal?.waktuSelesai
+            ? formatInputTanggalWaktu(sesiAwal.waktuSelesai)
+            : '',
+    );
+    const [errorLokal, setErrorLokal] = useState<string | null>(null);
 
-    const pesanError = errorLokal?.pesan ?? errorPesan;
-
-    const kirim = () => {
+    const handleKirim = () => {
         if (loading) return;
 
-        const waktuMulai = parseTanggalJam(tglMulai, jamMulai);
-        if (!waktuMulai) {
-            setErrorLokal({
-                field: 'waktuMulai',
-                pesan: 'Format waktu mulai harus YYYY-MM-DD dan HH:MM yang valid.',
-            });
+        const judulRapi = judul.trim();
+        const lokasiRapi = lokasi.trim();
+
+        if (!judulRapi) {
+            setErrorLokal('Judul sesi wajib diisi.');
+            return;
+        }
+        if (judulRapi.length > 100) {
+            setErrorLokal('Judul sesi maksimal 100 karakter.');
+            return;
+        }
+        if (!lokasiRapi) {
+            setErrorLokal('Lokasi sesi wajib diisi.');
+            return;
+        }
+        if (lokasiRapi.length > 100) {
+            setErrorLokal('Lokasi sesi maksimal 100 karakter.');
             return;
         }
 
-        const isiTglSelesai = tglSelesai.trim();
-        const isiJamSelesai = jamSelesai.trim();
-        let waktuSelesai: Date | null = null;
+        const waktuMulai = parseInputTanggalWaktu(waktuMulaiTeks);
+        if (!waktuMulai) {
+            setErrorLokal(
+                'Format waktu mulai harus YYYY-MM-DD HH:mm (contoh: 2026-11-14 13:00).',
+            );
+            return;
+        }
 
-        if (isiTglSelesai.length > 0 || isiJamSelesai.length > 0) {
-            const targetTglSelesai = isiTglSelesai.length > 0 ? isiTglSelesai : tglMulai;
-            const parsedSelesai = parseTanggalJam(targetTglSelesai, isiJamSelesai);
-            if (!parsedSelesai) {
-                setErrorLokal({
-                    field: 'waktuSelesai',
-                    pesan: 'Format waktu selesai harus YYYY-MM-DD dan HH:MM yang valid.',
-                });
+        let waktuSelesai: Date | null = null;
+        if (waktuSelesaiTeks.trim().length > 0) {
+            waktuSelesai = parseInputTanggalWaktu(waktuSelesaiTeks);
+            if (!waktuSelesai) {
+                setErrorLokal(
+                    'Format waktu selesai harus YYYY-MM-DD HH:mm atau kosongkan.',
+                );
                 return;
             }
-            waktuSelesai = parsedSelesai;
-        }
-
-        const hasil = validasiSesi(judul, lokasi, waktuMulai, waktuSelesai);
-        if (!hasil.valid) {
-            setErrorLokal({ field: hasil.field, pesan: hasil.pesan });
-            return;
+            if (waktuSelesai.getTime() <= waktuMulai.getTime()) {
+                setErrorLokal(
+                    'Waktu selesai harus lebih besar dari waktu mulai.',
+                );
+                return;
+            }
         }
 
         setErrorLokal(null);
-        onSubmit(hasil.data);
+        onSubmit({
+            judul: judulRapi,
+            lokasi: lokasiRapi,
+            waktuMulai,
+            waktuSelesai,
+        });
     };
 
-    const judulModal = mode === 'tambah' ? 'Tambah sesi' : 'Ubah sesi';
-    const labelSimpan = mode === 'tambah' ? 'Simpan sesi' : 'Simpan perubahan';
+    const pesanError = errorLokal ?? errorPesan;
 
     return (
-        <BottomSheet
-            visible={visible}
-            onTutup={onTutup}
-            nonaktifTutup={loading}
-            denganKeyboard
-            onSetelahTampil={() => inputJudulRef.current?.focus()}
-            accessibilityLabelTutup="Tutup form sesi"
-        >
-            <Text style={styles.judul} accessibilityRole="header">
-                {judulModal}
+        <View style={styles.container}>
+            <Text style={styles.title}>
+                {mode === 'tambah' ? 'Tambah Sesi Baru' : 'Ubah Sesi'}
             </Text>
 
             <ScrollView
-                showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.formBody}
             >
-                <Text style={styles.label}>Judul / nama praktikum</Text>
-                <TextInput
-                    ref={inputJudulRef}
-                    value={judul}
-                    onChangeText={(teks) => {
-                        setJudul(teks);
-                        if (errorLokal) setErrorLokal(null);
-                    }}
-                    editable={!loading}
-                    maxLength={MAKS_TEKS_SESI}
-                    placeholder="Contoh: Pertemuan 3 - Firebase Auth"
-                    placeholderTextColor={Colors.light.textSecondary}
-                    accessibilityLabel="Judul sesi"
-                    style={[
-                        styles.input,
-                        errorLokal?.field === 'judul' && styles.inputError,
-                        loading && styles.inputNonaktif,
-                    ]}
-                />
-
-                <Text style={styles.label}>Lokasi</Text>
-                <TextInput
-                    value={lokasi}
-                    onChangeText={(teks) => {
-                        setLokasi(teks);
-                        if (errorLokal) setErrorLokal(null);
-                    }}
-                    editable={!loading}
-                    maxLength={MAKS_TEKS_SESI}
-                    placeholder="Contoh: Lab Komputasi E103"
-                    placeholderTextColor={Colors.light.textSecondary}
-                    accessibilityLabel="Lokasi sesi"
-                    style={[
-                        styles.input,
-                        errorLokal?.field === 'lokasi' && styles.inputError,
-                        loading && styles.inputNonaktif,
-                    ]}
-                />
-
-                <Text style={styles.label}>Waktu mulai (YYYY-MM-DD & HH:MM)</Text>
-                <View style={styles.barisInput}>
+                <View style={styles.field}>
+                    <Text style={styles.label}>Judul Sesi</Text>
                     <TextInput
-                        value={tglMulai}
-                        onChangeText={(teks) => {
-                            setTglMulai(teks);
-                            if (errorLokal) setErrorLokal(null);
-                        }}
-                        editable={!loading}
-                        maxLength={10}
-                        placeholder="2026-11-14"
+                        value={judul}
+                        onChangeText={setJudul}
+                        placeholder="Contoh: Pertemuan 3 — Modul Firestore"
                         placeholderTextColor={Colors.light.textSecondary}
-                        keyboardType="numbers-and-punctuation"
-                        accessibilityLabel="Tanggal mulai"
-                        style={[
-                            styles.input,
-                            styles.inputTanggal,
-                            errorLokal?.field === 'waktuMulai' && styles.inputError,
-                            loading && styles.inputNonaktif,
-                        ]}
-                    />
-                    <TextInput
-                        value={jamMulai}
-                        onChangeText={(teks) => {
-                            setJamMulai(teks);
-                            if (errorLokal) setErrorLokal(null);
-                        }}
+                        maxLength={100}
                         editable={!loading}
-                        maxLength={5}
-                        placeholder="08:00"
-                        placeholderTextColor={Colors.light.textSecondary}
-                        keyboardType="numbers-and-punctuation"
-                        accessibilityLabel="Jam mulai"
-                        style={[
-                            styles.input,
-                            styles.inputJam,
-                            errorLokal?.field === 'waktuMulai' && styles.inputError,
-                            loading && styles.inputNonaktif,
-                        ]}
+                        style={styles.input}
                     />
                 </View>
 
-                <View style={styles.labelBaris}>
-                    <Text style={styles.labelOpsional}>
-                        Waktu selesai (opsional)
+                <View style={styles.field}>
+                    <Text style={styles.label}>Lokasi</Text>
+                    <TextInput
+                        value={lokasi}
+                        onChangeText={setLokasi}
+                        placeholder="Contoh: Lab Komputasi B"
+                        placeholderTextColor={Colors.light.textSecondary}
+                        maxLength={100}
+                        editable={!loading}
+                        style={styles.input}
+                    />
+                </View>
+
+                <View style={styles.field}>
+                    <Text style={styles.label}>
+                        Waktu Mulai (YYYY-MM-DD HH:mm)
                     </Text>
-                    {tglSelesai.length > 0 || jamSelesai.length > 0 ? (
-                        <Pressable
-                            onPress={() => {
-                                setTglSelesai('');
-                                setJamSelesai('');
-                                if (errorLokal) setErrorLokal(null);
-                            }}
-                            disabled={loading}
-                            accessibilityRole="button"
-                            accessibilityLabel="Kosongkan waktu selesai"
-                        >
-                            <Text style={styles.kosongkanTeks}>Kosongkan</Text>
-                        </Pressable>
-                    ) : null}
-                </View>
-                <View style={styles.barisInput}>
                     <TextInput
-                        value={tglSelesai}
-                        onChangeText={(teks) => {
-                            setTglSelesai(teks);
-                            if (errorLokal) setErrorLokal(null);
-                        }}
-                        editable={!loading}
-                        maxLength={10}
-                        placeholder="2026-11-14"
+                        value={waktuMulaiTeks}
+                        onChangeText={setWaktuMulaiTeks}
+                        placeholder="2026-11-14 13:00"
                         placeholderTextColor={Colors.light.textSecondary}
-                        keyboardType="numbers-and-punctuation"
-                        accessibilityLabel="Tanggal selesai"
-                        style={[
-                            styles.input,
-                            styles.inputTanggal,
-                            errorLokal?.field === 'waktuSelesai' && styles.inputError,
-                            loading && styles.inputNonaktif,
-                        ]}
+                        editable={!loading}
+                        style={styles.input}
                     />
+                </View>
+
+                <View style={styles.field}>
+                    <Text style={styles.label}>
+                        Waktu Selesai (Opsional, YYYY-MM-DD HH:mm)
+                    </Text>
                     <TextInput
-                        value={jamSelesai}
-                        onChangeText={(teks) => {
-                            setJamSelesai(teks);
-                            if (errorLokal) setErrorLokal(null);
-                        }}
-                        editable={!loading}
-                        maxLength={5}
-                        placeholder="10:00"
+                        value={waktuSelesaiTeks}
+                        onChangeText={setWaktuSelesaiTeks}
+                        placeholder="Kosongkan jika belum ditentukan"
                         placeholderTextColor={Colors.light.textSecondary}
-                        keyboardType="numbers-and-punctuation"
-                        accessibilityLabel="Jam selesai"
-                        style={[
-                            styles.input,
-                            styles.inputJam,
-                            errorLokal?.field === 'waktuSelesai' && styles.inputError,
-                            loading && styles.inputNonaktif,
-                        ]}
+                        editable={!loading}
+                        style={styles.input}
                     />
                 </View>
 
                 {pesanError ? (
-                    <Text
-                        style={styles.error}
-                        accessibilityRole="alert"
-                        accessibilityLiveRegion="polite"
-                    >
-                        {pesanError}
-                    </Text>
+                    <View style={styles.errorBox}>
+                        <Text style={styles.errorText}>{pesanError}</Text>
+                    </View>
                 ) : null}
-
-                <View style={styles.baris}>
-                    <Pressable
-                        onPress={onTutup}
-                        disabled={loading}
-                        accessibilityRole="button"
-                        accessibilityLabel="Batal"
-                        accessibilityState={{ disabled: loading }}
-                        style={({ pressed }) => [
-                            styles.tombol,
-                            styles.tombolSekunder,
-                            pressed && !loading && styles.ditekan,
-                            loading && styles.disabled,
-                        ]}
-                    >
-                        <Text style={styles.tombolSekunderTeks}>Batal</Text>
-                    </Pressable>
-                    <Pressable
-                        onPress={kirim}
-                        disabled={loading}
-                        accessibilityRole="button"
-                        accessibilityLabel={loading ? 'Sedang menyimpan' : labelSimpan}
-                        accessibilityState={{ disabled: loading, busy: loading }}
-                        style={({ pressed }) => [
-                            styles.tombol,
-                            styles.tombolUtama,
-                            pressed && !loading && styles.ditekan,
-                            loading && styles.disabled,
-                        ]}
-                    >
-                        <Text style={styles.tombolUtamaTeks}>
-                            {loading ? 'Menyimpan…' : labelSimpan}
-                        </Text>
-                    </Pressable>
-                </View>
             </ScrollView>
+
+            <View style={styles.actions}>
+                <Pressable
+                    disabled={loading}
+                    onPress={onTutup}
+                    style={[
+                        styles.button,
+                        styles.cancelButton,
+                        loading && styles.disabled,
+                    ]}
+                    accessibilityRole="button"
+                >
+                    <Text style={styles.cancelText}>Batal</Text>
+                </Pressable>
+
+                <Pressable
+                    disabled={loading}
+                    onPress={handleKirim}
+                    style={[
+                        styles.button,
+                        styles.submitButton,
+                        loading && styles.disabled,
+                    ]}
+                    accessibilityRole="button"
+                >
+                    <Text style={styles.submitText}>
+                        {loading
+                            ? 'Menyimpan…'
+                            : mode === 'tambah'
+                              ? 'Simpan Sesi'
+                              : 'Simpan Perubahan'}
+                    </Text>
+                </Pressable>
+            </View>
+        </View>
+    );
+}
+
+export function SesiFormSheet({
+    visible,
+    mode,
+    sesiAwal = null,
+    loading,
+    errorPesan,
+    onSubmit,
+    onTutup,
+}: SesiFormSheetProps) {
+    return (
+        <BottomSheet
+            visible={visible}
+            onTutup={() => {
+                if (!loading) onTutup();
+            }}
+            nonaktifTutup={loading}
+            denganKeyboard
+            accessibilityLabelTutup="Tutup form sesi"
+        >
+            {visible ? (
+                <SesiFormSheetIsi
+                    key={`${mode}-${sesiAwal?.idSesi ?? 'baru'}`}
+                    mode={mode}
+                    sesiAwal={sesiAwal}
+                    loading={loading}
+                    errorPesan={errorPesan}
+                    onSubmit={onSubmit}
+                    onTutup={onTutup}
+                />
+            ) : null}
         </BottomSheet>
     );
 }
 
 const styles = StyleSheet.create({
-    judul: {
-        fontSize: 20,
+    container: {
+        gap: 16,
+    },
+    title: {
+        fontSize: 18,
         fontWeight: '700',
         color: Colors.light.text,
-        marginBottom: 12,
+    },
+    formBody: {
+        gap: 14,
+        paddingBottom: 8,
+    },
+    field: {
+        gap: 6,
     },
     label: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: Colors.light.text,
-        marginTop: 10,
-        marginBottom: 6,
-    },
-    labelBaris: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: 10,
-        marginBottom: 6,
-    },
-    labelOpsional: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: Colors.light.text,
-    },
-    kosongkanTeks: {
         fontSize: 13,
         fontWeight: '600',
-        color: Colors.light.primary,
+        color: Colors.light.text,
     },
-    barisInput: {
+    input: {
+        minHeight: 46,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        backgroundColor: Colors.light.background,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        fontSize: 14,
+        color: Colors.light.text,
+    },
+    errorBox: {
+        padding: 12,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: Colors.light.danger,
+        backgroundColor: '#FEE2E2',
+    },
+    errorText: {
+        fontSize: 13,
+        color: Colors.light.danger,
+    },
+    actions: {
         flexDirection: 'row',
         gap: 10,
     },
-    input: {
-        minHeight: 48,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        borderRadius: 12,
-        paddingHorizontal: 14,
-        fontSize: 15,
-        color: Colors.light.text,
-        backgroundColor: Colors.light.backgroundElement,
-    },
-    inputTanggal: {
-        flex: 3,
-    },
-    inputJam: {
-        flex: 2,
-    },
-    inputError: {
-        borderColor: Colors.light.danger,
-    },
-    inputNonaktif: {
-        backgroundColor: Colors.light.background,
-        color: Colors.light.textSecondary,
-    },
-    error: {
-        marginTop: 10,
-        fontSize: 13,
-        lineHeight: 18,
-        color: Colors.light.danger,
-    },
-    baris: {
-        flexDirection: 'row',
-        gap: 12,
-        marginTop: 20,
-    },
-    tombol: {
+    button: {
         flex: 1,
-        minHeight: 48,
-        borderRadius: 12,
+        minHeight: 46,
+        borderRadius: 10,
         alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 12,
+        paddingHorizontal: 14,
     },
-    tombolSekunder: {
+    cancelButton: {
+        borderWidth: 1,
+        borderColor: Colors.light.border,
         backgroundColor: Colors.light.background,
     },
-    tombolUtama: {
+    submitButton: {
         backgroundColor: Colors.light.primary,
     },
-    ditekan: {
-        opacity: 0.75,
-    },
-    disabled: {
-        opacity: 0.6,
-    },
-    tombolSekunderTeks: {
-        fontSize: 15,
+    cancelText: {
+        fontSize: 14,
         fontWeight: '600',
         color: Colors.light.text,
     },
-    tombolUtamaTeks: {
-        fontSize: 15,
-        fontWeight: '700',
+    submitText: {
+        fontSize: 14,
+        fontWeight: '600',
         color: Colors.light.backgroundElement,
+    },
+    disabled: {
+        opacity: 0.6,
     },
 });
