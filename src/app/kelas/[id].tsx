@@ -1,9 +1,14 @@
 import { KelasFormSheet } from '@/components/asisten/kelas-form-sheet';
+import {
+    SesiFormSheet,
+    type NilaiFormSesi,
+} from '@/components/asisten/sesi-form-sheet';
 import { TambahPesertaSheet } from '@/components/asisten/tambah-peserta-sheet';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { LoadingState } from '@/components/ui/loading-state';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useKelasAsisten } from '@/hooks/use-kelas-asisten';
@@ -14,10 +19,16 @@ import {
     tambahPesertaByKode,
     ubahStatusPeserta,
 } from '@/services/peserta-service';
-import type { Keanggotaan } from '@/types';
+import {
+    arsipkanSesi,
+    buatSesi,
+    listenSesiKelas,
+    ubahSesi,
+} from '@/services/sesi-service';
+import type { Keanggotaan, Sesi } from '@/types';
 import { formatWaktu } from '@/utils/format-waktu';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
     Alert,
     Pressable,
@@ -49,6 +60,71 @@ export default function DetailKelasScreen() {
 
     const kelasAktif = kelas.find((item) => item.idKelas === kelasId) ?? null;
 
+    const [stateSesi, setStateSesi] = useState<{
+        kelasId: string;
+        retryKey: number;
+        sesi: Sesi[];
+        loading: boolean;
+        error: string | null;
+    } | null>(null);
+    const [retrySesiKey, setRetrySesiKey] = useState(0);
+
+    const cobaLagiSesi = useCallback(() => {
+        setRetrySesiKey((prev) => prev + 1);
+    }, []);
+
+    useEffect(() => {
+        if (!kelasId) {
+            return;
+        }
+
+        const idKelasAktif = kelasId;
+        const retryAktif = retrySesiKey;
+        let aktif = true;
+
+        const unsubscribe = listenSesiKelas(
+            idKelasAktif,
+            (daftarSesi) => {
+                if (!aktif) return;
+                setStateSesi({
+                    kelasId: idKelasAktif,
+                    retryKey: retryAktif,
+                    sesi: daftarSesi,
+                    loading: false,
+                    error: null,
+                });
+            },
+            (error) => {
+                if (!aktif) return;
+                setStateSesi({
+                    kelasId: idKelasAktif,
+                    retryKey: retryAktif,
+                    sesi: [],
+                    loading: false,
+                    error:
+                        error.message.trim().length > 0
+                            ? error.message
+                            : 'Gagal memuat daftar sesi kelas.',
+                });
+            },
+        );
+
+        return () => {
+            aktif = false;
+            unsubscribe();
+        };
+    }, [kelasId, retrySesiKey]);
+
+    const stateSesiAktif =
+        kelasId &&
+        stateSesi?.kelasId === kelasId &&
+        stateSesi.retryKey === retrySesiKey
+            ? stateSesi
+            : null;
+    const sesiKelas = stateSesiAktif?.sesi ?? [];
+    const loadingSesi = kelasId ? (stateSesiAktif?.loading ?? true) : false;
+    const errorSesi = stateSesiAktif?.error ?? null;
+
     const [editTerbuka, setEditTerbuka] = useState(false);
     const [loadingEdit, setLoadingEdit] = useState(false);
     const [errorEdit, setErrorEdit] = useState<string | null>(null);
@@ -65,6 +141,17 @@ export default function DetailKelasScreen() {
     const [pesertaDinonaktifkan, setPesertaDinonaktifkan] =
         useState<Keanggotaan | null>(null);
     const [loadingStatusPeserta, setLoadingStatusPeserta] = useState(false);
+
+    const [formSesiTerbuka, setFormSesiTerbuka] = useState(false);
+    const [modeFormSesi, setModeFormSesi] = useState<'tambah' | 'ubah'>(
+        'tambah',
+    );
+    const [sesiDiedit, setSesiDiedit] = useState<Sesi | null>(null);
+    const [loadingSimpanSesi, setLoadingSimpanSesi] = useState(false);
+    const [errorFormSesi, setErrorFormSesi] = useState<string | null>(null);
+
+    const [sesiDiarsipkan, setSesiDiarsipkan] = useState<Sesi | null>(null);
+    const [loadingArsipSesi, setLoadingArsipSesi] = useState(false);
 
     const handleUbahKelas = async (namaPraktikum: string) => {
         if (!kelasAktif) return;
@@ -144,6 +231,60 @@ export default function DetailKelasScreen() {
         if (!hasil.ok) {
             Alert.alert('Gagal mengaktifkan peserta', hasil.pesan);
         }
+    };
+
+    const handleSimpanSesi = async (nilai: NilaiFormSesi) => {
+        if (!kelasAktif || loadingSimpanSesi) return;
+        setLoadingSimpanSesi(true);
+        setErrorFormSesi(null);
+
+        const hasil =
+            modeFormSesi === 'tambah'
+                ? await buatSesi({
+                      kelasId: kelasAktif.idKelas,
+                      judul: nilai.judul,
+                      lokasi: nilai.lokasi,
+                      waktuMulai: nilai.waktuMulai,
+                      waktuSelesai: nilai.waktuSelesai,
+                  })
+                : sesiDiedit
+                  ? await ubahSesi(sesiDiedit.idSesi, {
+                        judul: nilai.judul,
+                        lokasi: nilai.lokasi,
+                        waktuMulai: nilai.waktuMulai,
+                        waktuSelesai: nilai.waktuSelesai,
+                    })
+                  : null;
+
+        setLoadingSimpanSesi(false);
+
+        if (!hasil) {
+            setErrorFormSesi('Sesi yang akan diubah tidak ditemukan.');
+            return;
+        }
+
+        if (!hasil.ok) {
+            setErrorFormSesi(hasil.pesan);
+            return;
+        }
+
+        setFormSesiTerbuka(false);
+        setSesiDiedit(null);
+    };
+
+    const handleKonfirmasiArsipSesi = async () => {
+        if (!sesiDiarsipkan || loadingArsipSesi) return;
+        setLoadingArsipSesi(true);
+
+        const hasil = await arsipkanSesi(sesiDiarsipkan.idSesi);
+        setLoadingArsipSesi(false);
+
+        if (!hasil.ok) {
+            Alert.alert('Gagal mengarsipkan sesi', hasil.pesan);
+            return;
+        }
+
+        setSesiDiarsipkan(null);
     };
 
     if (loadingKelas) {
@@ -266,6 +407,138 @@ export default function DetailKelasScreen() {
                         </View>
                     ) : null}
                 </View>
+
+                {/* Daftar Sesi Praktikum */}
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Sesi Praktikum</Text>
+                    {!kelasAktif.diarsipkan ? (
+                        <Pressable
+                            onPress={() => {
+                                setModeFormSesi('tambah');
+                                setSesiDiedit(null);
+                                setErrorFormSesi(null);
+                                setFormSesiTerbuka(true);
+                            }}
+                            accessibilityRole="button"
+                            style={({ pressed }) => [
+                                styles.tombolTambah,
+                                pressed && styles.ditekan,
+                            ]}
+                        >
+                            <Text style={styles.tombolTambahTeks}>
+                                + Tambah sesi
+                            </Text>
+                        </Pressable>
+                    ) : null}
+                </View>
+
+                {loadingSesi ? (
+                    <View style={styles.stateBox}>
+                        <LoadingState
+                            pesan="Memuat sesi praktikum…"
+                            layarPenuh={false}
+                        />
+                    </View>
+                ) : errorSesi ? (
+                    <View style={styles.stateBox}>
+                        <ErrorState
+                            pesan={errorSesi}
+                            onCobaLagi={cobaLagiSesi}
+                            layarPenuh={false}
+                        />
+                    </View>
+                ) : sesiKelas.length === 0 ? (
+                    <EmptyState
+                        judul="Belum ada sesi"
+                        pesan="Tambahkan sesi praktikum untuk mulai mengelola jadwal dan presensi."
+                    />
+                ) : (
+                    <View style={styles.daftarPeserta}>
+                        {sesiKelas.map((item) => (
+                            <Pressable
+                                key={item.idSesi}
+                                onPress={() =>
+                                    router.push({
+                                        pathname: '/sesi/[id]',
+                                        params: { id: item.idSesi },
+                                    })
+                                }
+                                style={({ pressed }) => [
+                                    styles.kartuSesi,
+                                    pressed && styles.ditekan,
+                                ]}
+                            >
+                                <View style={styles.barisAtas}>
+                                    <Text style={styles.namaPeserta}>
+                                        {item.judul}
+                                    </Text>
+                                    <StatusBadge status={item.statusSesi} />
+                                </View>
+
+                                <Text style={styles.meta}>
+                                    Lokasi: {item.lokasi}
+                                </Text>
+                                <Text style={styles.meta}>
+                                    Mulai:{' '}
+                                    {formatWaktu(item.waktuMulai.toISOString())}
+                                    {item.waktuSelesai
+                                        ? ` · Selesai: ${formatWaktu(item.waktuSelesai.toISOString())}`
+                                        : ''}
+                                </Text>
+
+                                <View style={styles.barisTombolSesi}>
+                                    {!kelasAktif.diarsipkan ? (
+                                        <Pressable
+                                            onPress={() => {
+                                                setModeFormSesi('ubah');
+                                                setSesiDiedit(item);
+                                                setErrorFormSesi(null);
+                                                setFormSesiTerbuka(true);
+                                            }}
+                                            accessibilityRole="button"
+                                            style={({ pressed }) => [
+                                                styles.tombolSekunder,
+                                                pressed && styles.ditekan,
+                                            ]}
+                                        >
+                                            <Text
+                                                style={
+                                                    styles.tombolSekunderTeks
+                                                }
+                                            >
+                                                Ubah
+                                            </Text>
+                                        </Pressable>
+                                    ) : null}
+
+                                    {item.statusSesi !== 'DIBUKA' ? (
+                                        <Pressable
+                                            onPress={() =>
+                                                setSesiDiarsipkan(item)
+                                            }
+                                            accessibilityRole="button"
+                                            style={({ pressed }) => [
+                                                styles.tombolBahaya,
+                                                pressed && styles.ditekan,
+                                            ]}
+                                        >
+                                            <Text
+                                                style={styles.tombolBahayaTeks}
+                                            >
+                                                Arsipkan
+                                            </Text>
+                                        </Pressable>
+                                    ) : null}
+
+                                    <View style={styles.spacer} />
+                                    <Text style={styles.lihatDetailTeks}>
+                                        Detail sesi ›
+                                    </Text>
+                                </View>
+                            </Pressable>
+                        ))}
+                    </View>
+                )}
 
                 {/* Daftar Peserta */}
                 <View style={styles.sectionHeader}>
@@ -417,6 +690,38 @@ export default function DetailKelasScreen() {
                 }}
             />
 
+            <SesiFormSheet
+                visible={formSesiTerbuka}
+                mode={modeFormSesi}
+                sesiAwal={sesiDiedit}
+                loading={loadingSimpanSesi}
+                errorPesan={errorFormSesi}
+                onSubmit={handleSimpanSesi}
+                onTutup={() => {
+                    if (!loadingSimpanSesi) {
+                        setFormSesiTerbuka(false);
+                        setSesiDiedit(null);
+                    }
+                }}
+            />
+
+            <ConfirmSheet
+                visible={sesiDiarsipkan !== null}
+                judul="Arsipkan sesi?"
+                pesan={
+                    sesiDiarsipkan
+                        ? `Sesi "${sesiDiarsipkan.judul}" akan diarsipkan. Riwayat presensi dan izin tetap tersimpan, tetapi sesi tidak tampil di jadwal aktif.`
+                        : ''
+                }
+                labelKonfirmasi="Arsipkan"
+                labelLoading="Mengarsipkan…"
+                loading={loadingArsipSesi}
+                onKonfirmasi={handleKonfirmasiArsipSesi}
+                onBatal={() => {
+                    if (!loadingArsipSesi) setSesiDiarsipkan(null);
+                }}
+            />
+
             <ConfirmSheet
                 visible={arsipTerbuka}
                 judul="Arsipkan kelas?"
@@ -536,6 +841,31 @@ const styles = StyleSheet.create({
     daftarPeserta: {
         gap: 10,
     },
+    kartuSesi: {
+        gap: 8,
+        padding: 14,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        backgroundColor: Colors.light.backgroundElement,
+    },
+    barisTombolSesi: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: 4,
+        paddingTop: 10,
+        borderTopWidth: 1,
+        borderTopColor: Colors.light.border,
+    },
+    spacer: {
+        flex: 1,
+    },
+    lihatDetailTeks: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: Colors.light.primary,
+    },
     kartuPeserta: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -562,6 +892,7 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
     },
     namaPeserta: {
+        flex: 1,
         fontSize: 15,
         fontWeight: '600',
         color: Colors.light.text,

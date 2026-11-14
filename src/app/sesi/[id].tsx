@@ -1,15 +1,23 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import {
+    ActivityIndicator,
+    Pressable,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from 'react-native';
 
 import { PanelAksiAsisten } from '@/components/asisten/panel-aksi-asisten';
-import { DetailSesi } from '@/components/shared/detail-sesi';
 import { PanelAksiPraktikan } from '@/components/praktikan/panel-aksi-praktikan';
+import { DetailSesi } from '@/components/shared/detail-sesi';
 import { AppButton } from '@/components/ui/app-button';
 import { InfoSheet } from '@/components/ui/info-sheet';
-import { useApp } from '@/hooks/use-app';
-import { formatWaktu } from '@/utils/format-waktu';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/hooks/use-auth';
+import { useSesiDetail } from '@/hooks/use-sesi-detail';
 
 export default function DetailSesiScreen() {
     const { id } = useLocalSearchParams<{
@@ -17,29 +25,81 @@ export default function DetailSesiScreen() {
     }>();
 
     const router = useRouter();
-
-    const {
-        getSesiById,
-        penggunaAktif,
-        getPresensiBySesi,
-    } = useApp();
-
-    const [caraMemindaiTerbuka, setCaraMemindaiTerbuka] =
-        useState(false);
+    const { pengguna, peran, loading: authLoading } = useAuth();
+    const [caraMemindaiTerbuka, setCaraMemindaiTerbuka] = useState(false);
 
     const idSesi = Array.isArray(id) ? id[0] : id;
-    const sesi = idSesi ? getSesiById(idSesi) : undefined;
+    const {
+        sesi,
+        kelas,
+        loading: sesiLoading,
+        error,
+        muatUlang,
+    } = useSesiDetail(idSesi ?? null);
 
-    if (!penggunaAktif) {
+    if (authLoading) {
+        return (
+            <View style={styles.centerBox}>
+                <ActivityIndicator
+                    size="large"
+                    color={Colors.light.primary}
+                />
+                <Text style={styles.description}>Memuat sesi akun...</Text>
+            </View>
+        );
+    }
+
+    if (!pengguna) {
         return <Redirect href="/" />;
+    }
+
+    if (sesiLoading) {
+        return (
+            <View style={styles.centerBox}>
+                <ActivityIndicator
+                    size="large"
+                    color={Colors.light.primary}
+                />
+                <Text style={styles.description}>Memuat detail sesi...</Text>
+            </View>
+        );
+    }
+
+    if (error) {
+        return (
+            <ScrollView
+                style={styles.screen}
+                contentContainerStyle={styles.container}
+            >
+                <Pressable
+                    onPress={() => router.back()}
+                    style={styles.backButton}
+                >
+                    <Text style={styles.backText}>‹ Kembali</Text>
+                </Pressable>
+
+                <Text style={styles.title}>Gagal memuat detail sesi</Text>
+                <Text style={styles.description}>{error}</Text>
+
+                <AppButton
+                    title="Coba Lagi"
+                    fullWidth
+                    onPress={muatUlang}
+                />
+            </ScrollView>
+        );
     }
 
     if (!sesi) {
         return (
-            <ScrollView contentContainerStyle={styles.container}>
+            <ScrollView
+                style={styles.screen}
+                contentContainerStyle={styles.container}
+            >
                 <Text style={styles.title}>Sesi tidak ditemukan</Text>
                 <Text style={styles.description}>
-                    Data sesi yang kamu cari tidak tersedia.
+                    Data sesi yang kamu cari tidak tersedia atau tidak dapat
+                    diakses.
                 </Text>
 
                 <Pressable onPress={() => router.back()}>
@@ -49,22 +109,18 @@ export default function DetailSesiScreen() {
         );
     }
 
-    const presensiPraktikan =
-        penggunaAktif.peran === 'PRAKTIKAN'
-            ? getPresensiBySesi(sesi.idSesi).find(
-                (presensi) =>
-                    presensi.idPengguna === penggunaAktif.idPengguna,
-            )
-            : undefined;
-
-    const waktuPresensi = presensiPraktikan
-        ? formatWaktu(presensiPraktikan.waktuHadir)
-        : undefined;
-
+    const dataDiarsipkan = Boolean(sesi.diarsipkan || kelas?.diarsipkan);
     return (
         <ScrollView
             style={styles.screen}
             contentContainerStyle={styles.container}
+            refreshControl={
+                <RefreshControl
+                    refreshing={false}
+                    onRefresh={muatUlang}
+                    tintColor={Colors.light.primary}
+                />
+            }
         >
             <Pressable
                 onPress={() => router.back()}
@@ -73,23 +129,30 @@ export default function DetailSesiScreen() {
                 <Text style={styles.backText}>‹ Kembali ke jadwal</Text>
             </Pressable>
 
+            {dataDiarsipkan ? (
+                <View style={styles.arsipBanner}>
+                    <Text style={styles.arsipTitle}>Data Diarsipkan</Text>
+                    <Text style={styles.arsipText}>
+                        {kelas?.diarsipkan
+                            ? 'Kelas induk telah diarsipkan. Perubahan jadwal, pembukaan sesi, presensi baru, dan pengajuan baru dinonaktifkan.'
+                            : 'Sesi ini telah diarsipkan dan hanya tersedia sebagai riwayat.'}
+                    </Text>
+                </View>
+            ) : null}
+
             <DetailSesi
-                namaPraktikum={sesi.namaPraktikum}
-                kelasLab={sesi.kelasLab}
-                waktu={sesi.waktu}
-                statusSesi={sesi.statusSesi}
+                sesi={sesi}
+                namaPraktikum={kelas?.namaPraktikum}
             />
 
-            {penggunaAktif.peran === 'ASISTEN' && (
-                <PanelAksiAsisten sesi={sesi} />
-            )}
+            {peran === 'ASISTEN' && <PanelAksiAsisten sesi={sesi} />}
 
-            {penggunaAktif.peran === 'PRAKTIKAN' && (
+            {peran === 'PRAKTIKAN' && (
                 <>
                     <PanelAksiPraktikan
                         statusSesi={sesi.statusSesi}
-                        sudahPresensi={Boolean(presensiPraktikan)}
-                        waktuPresensi={waktuPresensi}
+                        sudahPresensi={false}
+                        waktuPresensi={undefined}
                         onPressPresensi={() =>
                             router.push({
                                 pathname: '/scan-qr',
@@ -111,7 +174,7 @@ export default function DetailSesiScreen() {
                         pesan={
                             '1. Pastikan sesi berstatus Dibuka.\n' +
                             '2. Tekan Scan QR pada halaman detail.\n' +
-                            '3. Tekan Simulasi Scan pada halaman berikutnya.'
+                            '3. Arahkan kamera ke kode QR yang ditampilkan asisten.'
                         }
                         labelTutup="Mengerti"
                         onTutup={() => setCaraMemindaiTerbuka(false)}
@@ -133,6 +196,14 @@ const styles = StyleSheet.create({
         paddingBottom: 32,
         gap: 20,
     },
+    centerBox: {
+        flex: 1,
+        backgroundColor: Colors.light.background,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+        gap: 12,
+    },
     title: {
         fontSize: 22,
         fontWeight: '700',
@@ -149,5 +220,23 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '600',
         color: Colors.light.primary,
+    },
+    arsipBanner: {
+        padding: 14,
+        borderRadius: 12,
+        backgroundColor: Colors.light.backgroundSelected,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        gap: 4,
+    },
+    arsipTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: Colors.light.text,
+    },
+    arsipText: {
+        fontSize: 13,
+        lineHeight: 19,
+        color: Colors.light.textSecondary,
     },
 });
