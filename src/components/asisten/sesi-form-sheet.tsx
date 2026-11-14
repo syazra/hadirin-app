@@ -5,7 +5,7 @@ import {
     MAKS_TEKS_SESI,
     validasiSesi,
 } from '@/utils/validasi-sesi';
-import { useRef, useState } from 'react';
+import { ComponentRef, useRef, useState } from 'react';
 import {
     Pressable,
     ScrollView,
@@ -97,7 +97,7 @@ export function SesiFormSheet({
         pesan: string;
     } | null>(null);
 
-    const inputJudulRef = useRef<TextInput>(null);
+    const inputJudulRef = useRef<ComponentRef<typeof TextInput>>(null);
     const [prevVisible, setPrevVisible] = useState(visible);
     const [prevNilaiAwal, setPrevNilaiAwal] = useState(nilaiAwal);
 

@@ -1,6 +1,6 @@
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Colors } from '@/constants/theme';
-import { useRef, useState } from 'react';
+import { ComponentRef, useRef, useState } from 'react';
 import {
     Pressable,
     StyleSheet,
@@ -34,8 +34,8 @@ export function TambahPesertaSheet({
     const [kode, setKode] = useState('');
     const [errorLokal, setErrorLokal] = useState<string | null>(null);
     const [fokus, setFokus] = useState(false);
-    const inputRef = useRef<TextInput>(null);
-
+    const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
+    
     const [prevVisible, setPrevVisible] = useState(visible);
 
     if (visible !== prevVisible) {
