@@ -1,11 +1,12 @@
+import { BottomSheet } from '@/components/ui/bottom-sheet';
+import { Colors } from '@/constants/theme';
 import {
-    Modal,
+    ActivityIndicator,
     Pressable,
     StyleSheet,
     Text,
     View,
 } from 'react-native';
-import { Colors } from '@/constants/theme';
 
 type ConfirmSheetProps = {
     visible: boolean;
@@ -16,6 +17,8 @@ type ConfirmSheetProps = {
     labelKonfirmasi?: string;
     labelBatal?: string;
     loading?: boolean;
+    disabled?: boolean;
+    labelLoading?: string;
 };
 
 export function ConfirmSheet({
@@ -27,90 +30,69 @@ export function ConfirmSheet({
     labelKonfirmasi = 'Ya, lanjutkan',
     labelBatal = 'Batal',
     loading = false,
+    disabled = false,
+    labelLoading = 'Memproses...',
 }: ConfirmSheetProps) {
+    const konfirmasiNonaktif = loading || disabled;
+
     return (
-        <Modal
+        <BottomSheet
             visible={visible}
-            transparent
-            animationType="slide"
-            onRequestClose={onBatal}
-            statusBarTranslucent
+            onTutup={onBatal}
+            nonaktifTutup={loading}
+            accessibilityLabelTutup="Tutup konfirmasi"
         >
-            <View style={styles.overlay}>
+            <View style={styles.konten}>
+                <Text style={styles.title}>{judul}</Text>
+                <Text style={styles.message}>{pesan}</Text>
+
                 <Pressable
-                    style={[StyleSheet.absoluteFill, styles.backdrop]}
-                    onPress={onBatal}
+                    onPress={onKonfirmasi}
+                    disabled={konfirmasiNonaktif}
                     accessibilityRole="button"
-                    accessibilityLabel="Tutup konfirmasi"
-                />
-
-                <View
-                    style={styles.sheet}
-                    accessibilityViewIsModal
+                    accessibilityLabel={loading ? labelLoading : labelKonfirmasi}
+                    accessibilityState={{ disabled: konfirmasiNonaktif, busy: loading }}
+                    style={({ pressed }) => [
+                        styles.confirmButton,
+                        pressed && !konfirmasiNonaktif && styles.pressed,
+                        konfirmasiNonaktif && styles.disabled,
+                    ]}
                 >
-                    <View style={styles.handle} />
+                    {loading ? (
+                        <View style={styles.loadingRow}>
+                            <ActivityIndicator
+                                size="small"
+                                color={Colors.light.backgroundElement}
+                            />
+                            <Text style={styles.confirmText}>{labelLoading}</Text>
+                        </View>
+                    ) : (
+                        <Text style={styles.confirmText}>{labelKonfirmasi}</Text>
+                    )}
+                </Pressable>
 
-                    <Text style={styles.title}>{judul}</Text>
-                    <Text style={styles.message}>{pesan}</Text>
-
-                    <Pressable
-                        onPress={onKonfirmasi}
-                        disabled={loading}
-                        accessibilityRole="button"
-                        style={({ pressed }) => [
-                            styles.confirmButton,
-                            pressed && !loading && styles.pressed,
-                            loading && styles.disabled,
-                        ]}
-                    >
-                        <Text style={styles.confirmText}>
-                            {loading ? 'Memproses...' : labelKonfirmasi}
-                        </Text>
-                    </Pressable>
-
-                    <Pressable
-                        onPress={onBatal}
-                        disabled={loading}
-                        accessibilityRole="button"
-                        style={({ pressed }) => [
-                            styles.cancelButton,
-                            pressed && !loading && styles.pressed,
-                        ]}
-                    >
-                        <Text style={styles.cancelText}>{labelBatal}</Text>
-                    </Pressable>
-                </View>
+                <Pressable
+                    onPress={onBatal}
+                    disabled={loading}
+                    accessibilityRole="button"
+                    accessibilityLabel={labelBatal}
+                    accessibilityState={{ disabled: loading }}
+                    style={({ pressed }) => [
+                        styles.cancelButton,
+                        pressed && !loading && styles.pressed,
+                        loading && styles.disabled,
+                    ]}
+                >
+                    <Text style={styles.cancelText}>{labelBatal}</Text>
+                </Pressable>
             </View>
-        </Modal>
+        </BottomSheet>
     );
 }
 
 const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        justifyContent: 'flex-end',
-        backgroundColor: 'transparent',
-    },
-    backdrop: {
-        backgroundColor: Colors.light.overlay,
-        opacity: 0.45,
-    },
-    sheet: {
-        backgroundColor: Colors.light.card,
-        paddingHorizontal: 24,
-        paddingTop: 12,
-        paddingBottom: 28,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
+    konten: {
         gap: 14,
-    },
-    handle: {
-        alignSelf: 'center',
-        width: 40,
-        height: 4,
-        borderRadius: 999,
-        backgroundColor: Colors.light.border,
-        marginBottom: 8,
     },
     title: {
         fontSize: 20,
@@ -130,6 +112,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: 16,
+    },
+    loadingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
     confirmText: {
         color: Colors.light.backgroundElement,
