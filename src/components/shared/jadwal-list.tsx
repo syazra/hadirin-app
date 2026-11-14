@@ -28,10 +28,7 @@ export function JadwalList({
             {sesi.map((item) => (
                 <SesiCard
                     key={item.idSesi}
-                    namaPraktikum={item.namaPraktikum}
-                    kelasLab={item.kelasLab}
-                    waktu={item.waktu}
-                    statusSesi={item.statusSesi}
+                    sesi={item}
                     onPress={() => onPilihSesi(item.idSesi)}
                 />
             ))}

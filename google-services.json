@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "943082570829",
+    "project_id": "ppk-hadirin",
+    "storage_bucket": "ppk-hadirin.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:943082570829:android:09743e39145a3a93dc0804",
+        "android_client_info": {
+          "package_name": "com.aqillazhr.hadirin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAiB2xjWf0Lnt_1ofurl2nX9bfg06wk8mY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Colors } from '@/constants/theme';
-import type { ItemRekapSesi } from '@/types';
+import type { ItemRekapSesi } from '@/types/legacy';
 import { formatWaktu } from '@/utils/format-waktu';
 
 export type RekapItemProps = ItemRekapSesi;

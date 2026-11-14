@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Colors } from '@/constants/theme';
-import type { ItemRiwayatKehadiran } from '@/types';
+import type { ItemRiwayatKehadiran } from '@/types/legacy';
 import { formatWaktu } from '@/utils/format-waktu';
 
 export type RiwayatItemProps = ItemRiwayatKehadiran;

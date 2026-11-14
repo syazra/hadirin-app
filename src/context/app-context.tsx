@@ -10,7 +10,7 @@ import {
 import { dummyPengguna } from '@/data/dummy-pengguna';
 import { dummyPresensi } from '@/data/dummy-presensi';
 import { dummySesi } from '@/data/dummy-sesi';
-import type { AppContextValue, AppState, HasilPresensi, Presensi } from '@/types';
+import type { AppContextValue, AppState, HasilPresensi, Presensi } from '@/types/legacy';
 import { bacaPayloadQr } from '@/utils/qr-payload';
 
 type AppAction =
