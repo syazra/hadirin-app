@@ -1,4 +1,4 @@
-import type { Sesi } from '@/types';
+import type { Sesi } from '@/types/legacy';
 
 export function buatPayloadQr(sesi: Sesi): string {
   return `hadirin:${sesi.idSesi}:${sesi.kodeQr}`;

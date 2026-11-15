@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { STATUS_SESI } from '@/constants/status-sesi';
-import type { StatusSesi } from '@/types';
+import type { StatusSesi } from '@/types/legacy';
 
 export type StatusSesiBadge = StatusSesi;
 

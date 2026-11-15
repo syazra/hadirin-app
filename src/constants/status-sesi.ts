@@ -1,5 +1,5 @@
 import { Colors } from '@/constants/theme';
-import type { StatusSesi } from '@/types';
+import type { StatusSesi } from '@/types/legacy';
 
 export const STATUS_SESI = {
   BELUM_DIBUKA: {

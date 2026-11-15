@@ -1,4 +1,4 @@
-import type { Presensi } from '@/types';
+import type { Presensi } from '@/types/legacy';
 
 // Sesi A (S001) berlangsung Senin, 08.00–10.00 WIB.
 // Presensi awal lebih lama dari demo; presensi berikutnya memakai jam perangkat.
