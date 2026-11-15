@@ -4,10 +4,12 @@ import { StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '@/components/ui/app-button';
 import { PresensiBerhasilSheet } from '@/components/praktikan/presensi-berhasil-sheet';
 import { Colors, Spacing } from '@/constants/theme';
-import { useApp } from '@/hooks/use-app';
-import type { HasilPresensi } from '@/types/legacy';
 import { LayarPersiapan } from '@/components/shared/layar-persiapan';
-import { buatPayloadQr } from '@/utils/qr-payload';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { catatPresensiDariQr } from '@/services/presensi-service';
+import type { Hasil } from '@/types';
+import { bacaPayloadQr } from '@/utils/qr-payload';
+
 
 export interface ScannerQrProps {
   idSesi: string;
@@ -22,13 +24,13 @@ type HasilTampilan = {
   waktuPresensi?: string;
 };
 
-function buatPesanHasil(hasil: HasilPresensi): HasilTampilan {
+function buatPesanHasil(hasil: Hasil<unknown>): HasilTampilan {
   if (hasil.ok) {
     return {
       berhasil: true,
       judul: 'Presensi berhasil',
       pesan: 'Kehadiranmu berhasil dicatat.',
-      waktuPresensi: new Date().toISOString(),
+      waktuPresensi: undefined,
     };
   }
 
@@ -51,6 +53,42 @@ function buatPesanHasil(hasil: HasilPresensi): HasilTampilan {
         judul: 'Sudah presensi',
         pesan: 'Kehadiranmu sudah tercatat sebelumnya.',
       };
+    case 'ADA_IZIN':
+      return {
+        berhasil: false,
+        judul: 'Ada pengajuan izin',
+        pesan: 'Kamu memiliki pengajuan izin untuk sesi ini.'
+      };
+    case 'BUKAN_ANGGOTA':
+      return {
+        berhasil: false,
+        judul: 'Bukan anggota kelas',
+        pesan: 'Akunmu tidak terdaftar sebagai anggota aktif kelas ini.'
+      };
+    case 'DATA_DIARSIPKAN':
+      return {
+        berhasil: false,
+        judul: 'Sesi tidak tersedia',
+        pesan: 'Kelas atau sesi sudah diarsipkan.'
+      };
+    case 'JARINGAN':
+      return {
+        berhasil: false,
+        judul: 'Koneksi bermasalah',
+        pesan: 'Periksa koneksi internet, lalu coba kembali.',
+      };
+    case 'TIDAK_BERWENANG':
+      return {
+        berhasil: false,
+        judul: 'Akses ditolak',
+        pesan: 'Kamu tidak memiliki izin untuk melakukan presensi.',
+      };
+    case 'AUTENTIKASI_GAGAL':
+      return {
+        berhasil: false,
+        judul: 'Sesi login berakhir',
+        pesan: 'Silakan login kembali.',
+      };
     default:
       return {
         berhasil: false,
@@ -64,68 +102,52 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
   const [hasilTampilan, setHasilTampilan] = useState<HasilTampilan | null>(null);
   const [sheetTerbuka, setSheetTerbuka] = useState(false);
   const [sedangMemproses, setSedangMemproses] = useState(false);
+  const [sudahDipindai, setSudahDipindai] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
 
-  const { penggunaAktif, getSesiById, catatPresensiDariQr } = useApp();
-  const sesi = getSesiById(idSesi);
+  async function prosesScan(payloadQr: string) {
+    const qr = bacaPayloadQr(payloadQr);
 
-  if (!sesi) {
-    return (
-      <LayarPersiapan
-        judul="Sesi tidak ditemukan"
-        pesan="Pilih sesi praktikum yang tersedia."
-      />
-    );
-  }
+    if (!qr || qr.idSesi !== idSesi) {
+      setHasilTampilan({
+        berhasil: false,
+        judul: 'QR tidak sesuai',
+        pesan: 'QR bukan untuk sesi praktikum ini.',
+      });
+      setSheetTerbuka(true);
+      setSudahDipindai(true);
+      return;
+    }
+    if (sedangMemproses || sudahDipindai) return;
 
-  if (!penggunaAktif || penggunaAktif.peran !== 'PRAKTIKAN') {
-    return (
-      <LayarPersiapan
-        judul="Akses tidak tersedia"
-        pesan="Halaman ini hanya dapat digunakan oleh praktikan."
-      />
-    );
-  }
-
-  function prosesSimulasi() {
-    if (sedangMemproses || !sesi || !penggunaAktif) return;
-
+    setSudahDipindai(true);
     setSedangMemproses(true);
 
     try {
-      // Kamera ditunda, masih berupa Simulasi Scan (PRS-9).
-      const payloadQr = buatPayloadQr(sesi);
-      const hasil = catatPresensiDariQr(payloadQr, penggunaAktif.idPengguna);
-
+      const hasil = await catatPresensiDariQr(payloadQr);
       setHasilTampilan(buatPesanHasil(hasil));
     } catch {
-      setHasilTampilan({
-        berhasil: false,
-        judul: 'Presensi gagal',
-        pesan: 'Terjadi kendala saat memproses presensi. Silakan coba lagi.',
-      });
+      setHasilTampilan({ berhasil: false, judul: 'Presensi gagal', pesan: 'Terjadi kendala saat memproses presensi.' });
+    } finally {
+      setSedangMemproses(false);
+      setSheetTerbuka(true);
     }
-
-    setSheetTerbuka(true);
-    setSedangMemproses(false);
   }
 
   function tutupHasil() {
     const berhasil = hasilTampilan?.berhasil ?? false;
-
     setSheetTerbuka(false);
     setHasilTampilan(null);
-
     if (berhasil) onBerhasil();
+    else setSudahDipindai(false);
   }
 
-  if (sesi.statusSesi !== 'DIBUKA') {
+  if (!permission) return <LayarPersiapan judul="Memeriksa kamera" pesan="Mohon tunggu sebentar." />;
+
+  if (!permission.granted) {
     return (
-      <LayarPersiapan
-        judul="Presensi belum tersedia"
-        pesan={sesi.statusSesi === 'BELUM_DIBUKA'
-          ? 'Sesi belum dibuka oleh asisten.'
-          : 'Sesi praktikum sudah ditutup.'}
-      >
+      <LayarPersiapan judul="Izin kamera diperlukan" pesan="Izinkan akses kamera untuk memindai QR presensi.">
+        <AppButton title="Izinkan kamera" fullWidth onPress={requestPermission} />
         <AppButton title="Kembali" variant="outline" fullWidth onPress={onBatal} />
       </LayarPersiapan>
     );
@@ -134,41 +156,21 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.title}>Simulasi Scan QR</Text>
-        <Text style={styles.subtitle}>
-          Tekan tombol di bawah untuk menyimulasikan pemindaian QR
-          sesi praktikum.
-        </Text>
+        <Text style={styles.title}>Scan QR Presensi</Text>
+        <Text style={styles.subtitle}>Arahkan kamera ke QR yang ditampilkan oleh asisten.</Text>
       </View>
 
       <View style={styles.qrCard}>
-        <Text style={styles.qrIcon}>▦</Text>
-        <Text style={styles.qrTitle}>QR Praktikum</Text>
-        <Text style={styles.qrInfo}>{sesi.namaPraktikum}</Text>
-        <Text style={styles.qrInfo}>{sesi.kelasLab}</Text>
-        <Text style={styles.simulasiLabel}>Mode simulasi</Text>
+        <CameraView style={{ width: '100%', height: 300 }} facing="back" barcodeScannerSettings={{ barcodeTypes: ['qr'] }} onBarcodeScanned={sudahDipindai ? undefined : ({ data }) => { void prosesScan(data); }} />
+        {sedangMemproses && <Text style={styles.qrInfo}>Memproses presensi...</Text>}
       </View>
 
       <View style={styles.actions}>
-        <AppButton
-          title={sedangMemproses ? 'Memproses...' : 'Simulasi Scan'}
-          onPress={prosesSimulasi}
-          loading={sedangMemproses}
-          disabled={sedangMemproses}
-          fullWidth
-        />
         <AppButton title="Kembali" variant="outline" fullWidth onPress={onBatal} />
       </View>
 
       {hasilTampilan && (
-        <PresensiBerhasilSheet
-          visible={sheetTerbuka}
-          berhasil={hasilTampilan.berhasil}
-          judul={hasilTampilan.judul}
-          pesan={hasilTampilan.pesan}
-          waktuPresensi={hasilTampilan.waktuPresensi}
-          onClose={tutupHasil}
-        />
+        <PresensiBerhasilSheet visible={sheetTerbuka} berhasil={hasilTampilan.berhasil} judul={hasilTampilan.judul} pesan={hasilTampilan.pesan} waktuPresensi={hasilTampilan.waktuPresensi} onClose={tutupHasil} />
       )}
     </View>
   );

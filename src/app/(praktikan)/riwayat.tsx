@@ -4,22 +4,22 @@ import { RiwayatItem } from '@/components/praktikan/riwayat-item';
 import { EmptyState } from '@/components/ui/empty-state';
 import { LayarPersiapan } from '@/components/shared/layar-persiapan';
 import { Colors, Spacing } from '@/constants/theme';
-import { useApp } from '@/hooks/use-app';
+import { useAuth } from '@/hooks/use-auth';
 import { useRiwayatKehadiran } from '@/hooks/use-riwayat-kehadiran';
 
 
 export default function RiwayatScreen() {
-  const { penggunaAktif } = useApp();
-  const riwayat = useRiwayatKehadiran(penggunaAktif?.idPengguna ?? '');
-  const jumlahHadir = riwayat.filter((item) => item.presensi !== null).length;
+  const { pengguna } = useAuth();
+  const { riwayat, loading, error } = useRiwayatKehadiran(pengguna?.uid ?? '');
+  const jumlahHadir = riwayat.length;
 
-  if (!penggunaAktif || penggunaAktif.peran !== 'PRAKTIKAN') {
-    return (
-      <LayarPersiapan
-        judul="Riwayat kehadiran"
-        pesan="Pilih identitas praktikan untuk melihat riwayat presensi."
-      />
-    );
+  if (!pengguna || pengguna.peran !== 'PRAKTIKAN') {
+      return (
+          <LayarPersiapan
+              judul="Riwayat kehadiran"
+              pesan="Masuk sebagai praktikan untuk melihat riwayat presensi."
+          />
+      );
   }
 
   return (
@@ -27,7 +27,7 @@ export default function RiwayatScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Riwayat Kehadiran</Text>
         <Text style={styles.subtitle}>
-          Halo, {penggunaAktif.nama}. Berikut catatan kehadiranmu.
+          Halo, {pengguna.nama}. Berikut catatan kehadiranmu.
         </Text>
       </View>
 
@@ -40,17 +40,21 @@ export default function RiwayatScreen() {
       
       <Text style={styles.label}>Riwayat Presensi</Text>
 
-      {riwayat.length > 0 ? (
-        <View style={styles.daftar}>
-          {riwayat.map((item) => (
-            <RiwayatItem key={item.sesi.idSesi} {...item} />
-          ))}
-        </View>
+      {loading ? (
+          <Text>Memuat riwayat presensi...</Text>
+      ) : error ? (
+          <Text>{error}</Text>
+      ) : riwayat.length > 0 ? (
+          <View style={styles.daftar}>
+              {riwayat.map((item) => (
+                  <RiwayatItem key={item.presensi.idPresensi} {...item} />
+              ))}
+          </View>
       ) : (
-        <EmptyState
-          judul="Belum ada catatan kehadiran"
-          pesan="Presensi yang kamu lakukan akan muncul di sini."
-        />
+          <EmptyState
+              judul="Belum ada catatan kehadiran"
+              pesan="Presensi yang kamu lakukan akan muncul di sini."
+          />
       )}
     </ScrollView>
   );
