@@ -4,39 +4,104 @@ import { Colors, Spacing } from '@/constants/theme';
 
 export interface RingkasanHadirProps {
   jumlahHadir: number;
+  jumlahIzin?: number;
+  jumlahBelumHadir?: number;
+  jumlahIzinMenunggu?: number;
   label?: string;
   satuan?: string;
 }
 
 export function RingkasanHadir({
   jumlahHadir,
-  label = 'Jumlah hadir',
+  jumlahIzin = 0,
+  jumlahBelumHadir = 0,
+  jumlahIzinMenunggu = 0,
+  label = 'Ringkasan Kehadiran',
   satuan = 'praktikan',
 }: RingkasanHadirProps) {
   return (
     <View
       accessible
-      accessibilityLabel={`${label}: ${jumlahHadir} ${satuan}`}
+      accessibilityLabel={`${label}: ${jumlahHadir} hadir, ${jumlahIzin} izin disetujui, ${jumlahBelumHadir} belum hadir ${satuan}`}
       accessibilityLiveRegion="polite"
       style={styles.container}
     >
       <Text style={styles.label}>{label}</Text>
-      <View style={styles.total}>
-        <Text style={styles.count}>{jumlahHadir}</Text>
-        <Text style={styles.unit}>{satuan}</Text>
+
+      <View style={styles.grid}>
+        <View style={styles.statBox}>
+          <Text style={styles.countHadir}>{jumlahHadir}</Text>
+          <Text style={styles.statLabel}>Hadir</Text>
+        </View>
+
+        <View style={styles.statBox}>
+          <Text style={styles.countIzin}>{jumlahIzin}</Text>
+          <Text style={styles.statLabel}>Izin Disetujui</Text>
+        </View>
+
+        <View style={styles.statBox}>
+          <Text style={styles.countBelum}>{jumlahBelumHadir}</Text>
+          <Text style={styles.statLabel}>Belum Hadir</Text>
+        </View>
       </View>
+
+      {jumlahIzinMenunggu > 0 && (
+        <Text style={styles.catatan}>
+          {jumlahIzinMenunggu} pengajuan izin masih menunggu pemeriksaan.
+        </Text>
+      )}
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     padding: Spacing.four,
-    gap: Spacing.two,
+    gap: Spacing.three,
     borderRadius: 16,
     backgroundColor: Colors.light.accentSoft,
   },
-  label: { color: Colors.light.text, fontSize: 16, fontWeight: '600' },
-  total: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: Spacing.two },
-  count: { color: Colors.light.text, fontSize: 32, fontWeight: '700' },
-  unit: { color: Colors.light.text, fontSize: 16 },
+  label: {
+    color: Colors.light.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  grid: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  statBox: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.light.card,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    gap: 4,
+  },
+  countHadir: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.light.success,
+  },
+  countIzin: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.light.primary,
+  },
+  countBelum: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.light.textSecondary,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.light.textSecondary,
+  },
+  catatan: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#B45309',
+  },
 });
