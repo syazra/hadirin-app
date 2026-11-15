@@ -28,7 +28,10 @@ function gagal(
   return { ok: false, alasan, pesan };
 }
 
-function petakanError(error: unknown): Hasil<never> {
+function petakanError(
+  error: unknown,
+  sedangMenulisPresensi = false,
+): Hasil<never> {
   if (
     typeof error === 'object' &&
     error !== null &&
@@ -40,6 +43,12 @@ function petakanError(error: unknown): Hasil<never> {
 
     switch (kode) {
       case 'permission-denied':
+        if (sedangMenulisPresensi) {
+          return gagal(
+            'QR_TIDAK_VALID',
+            'Kode QR tidak valid atau ditolak oleh server.',
+          );
+        }
         return gagal(
           'TIDAK_BERWENANG',
           'Anda tidak memiliki izin melakukan presensi.',
@@ -129,8 +138,8 @@ function petakanPresensi(
  * Mencatat presensi praktikan melalui QR.
  *
  * ID dokumen presensi: sesiId_uid.
- * Memastikan sesi aktif, QR valid, keanggotaan aktif,
- * belum presensi, dan tidak memiliki izin yang masih berlaku.
+ * Praktikan tidak membaca dokumen rahasia sesi/{id}/rahasia/qr;
+ * validasi kecocokan kodeQr dilakukan oleh Firestore Security Rules.
  */
 export async function catatPresensiDariQr(
   payloadQr: string,
@@ -152,6 +161,7 @@ export async function catatPresensiDariQr(
   }
 
   const { idSesi, kodeQr } = hasilBaca;
+  let sedangMenulisPresensi = false;
 
   try {
     const { auth, db } = getFirebaseServices();
@@ -168,11 +178,12 @@ export async function catatPresensiDariQr(
 
     const sesiRef = doc(db, 'sesi', idSesi);
     const profilRef = doc(db, 'pengguna', uid);
-    const qrRef = doc(db, 'sesi', idSesi, 'rahasia', 'qr');
 
     const hasilTransaksi = await runTransaction(
       db,
       async (tx) => {
+        sedangMenulisPresensi = false;
+
         // Baca sesi dan profil terlebih dahulu.
         const [sesiSnap, profilSnap] = await Promise.all([
           tx.get(sesiRef),
@@ -228,24 +239,22 @@ export async function catatPresensiDariQr(
           `${idSesi}_${uid}`,
         );
 
-        // Baca semua dokumen sebelum melakukan penulisan.
+        // Baca semua dokumen yang berhak diakses sebelum melakukan penulisan.
+        // Dokumen rahasia/qr TIDAK dibaca dari klien; validasi dilakukan Rules.
         const [
           kelasSnap,
           anggotaSnap,
-          qrSnap,
           presensiSnap,
           izinSnap,
         ] = await Promise.all([
           tx.get(kelasRef),
           tx.get(anggotaRef),
-          tx.get(qrRef),
           tx.get(presensiRef),
           tx.get(izinRef),
         ]);
 
         const kelasData = kelasSnap.data();
         const anggotaData = anggotaSnap.data();
-        const qrData = qrSnap.data();
         const izinData = izinSnap.data();
 
         if (!kelasSnap.exists() || !kelasData) {
@@ -296,23 +305,6 @@ export async function catatPresensiDariQr(
           );
         }
 
-        if (
-          !qrSnap.exists() ||
-          typeof qrData?.kodeQr !== 'string'
-        ) {
-          return gagal(
-            'QR_TIDAK_VALID',
-            'Kode QR sesi tidak ditemukan.',
-          );
-        }
-
-        if (qrData.kodeQr !== kodeQr) {
-          return gagal(
-            'QR_TIDAK_VALID',
-            'Kode QR tidak cocok dengan sesi ini.',
-          );
-        }
-
         if (presensiSnap.exists()) {
           return gagal(
             'SUDAH_PRESENSI',
@@ -333,11 +325,14 @@ export async function catatPresensiDariQr(
         }
 
         // Izin DITOLAK tidak menghalangi praktikan melakukan presensi.
+        // kodeQr dikirim untuk divalidasi Rules terhadap sesi/{idSesi}/rahasia/qr.
+        sedangMenulisPresensi = true;
         tx.set(presensiRef, {
           sesiId: idSesi,
           kelasId,
           uid,
           waktuHadir: serverTimestamp(),
+          kodeQr,
         });
 
         return {
@@ -347,7 +342,7 @@ export async function catatPresensiDariQr(
             sesiId: idSesi,
             kelasId,
             uid,
-            waktuHadir: new Date(),
+            waktuHadir: null,
           },
         } satisfies Hasil<Presensi>;
       },
@@ -355,7 +350,7 @@ export async function catatPresensiDariQr(
 
     return hasilTransaksi;
   } catch (error) {
-    return petakanError(error);
+    return petakanError(error, sedangMenulisPresensi);
   }
 }
 
@@ -367,6 +362,12 @@ export function listenPresensiSesi(
   callback: (presensi: Presensi[]) => void,
   onError: (error: Error) => void,
 ): () => void {
+  const idBersih = sesiId.trim();
+  if (!idBersih) {
+    callback([]);
+    return () => {};
+  }
+
   if (!isFirebaseAvailable) {
     onError(
       new Error(
@@ -380,7 +381,7 @@ export function listenPresensiSesi(
 
   const q = query(
     collection(db, 'presensi'),
-    where('sesiId', '==', sesiId),
+    where('sesiId', '==', idBersih),
   );
 
   return onSnapshot(
@@ -410,6 +411,12 @@ export function listenPresensiPengguna(
   callback: (presensi: Presensi[]) => void,
   onError: (error: Error) => void,
 ): () => void {
+  const uidBersih = uid.trim();
+  if (!uidBersih) {
+    callback([]);
+    return () => {};
+  }
+
   if (!isFirebaseAvailable) {
     onError(
       new Error(
@@ -423,7 +430,7 @@ export function listenPresensiPengguna(
 
   const q = query(
     collection(db, 'presensi'),
-    where('uid', '==', uid),
+    where('uid', '==', uidBersih),
   );
 
   return onSnapshot(
