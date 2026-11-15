@@ -222,6 +222,7 @@ export function listenKelasAsisten(
     uid: string,
     callback: (kelas: Kelas[]) => void,
     onError: (error: Error) => void,
+    sertakanArsip = false,
 ): () => void {
     const uidBersih = uid.trim();
     if (!uidBersih) {
@@ -237,11 +238,16 @@ export function listenKelasAsisten(
     }
 
     const { db } = getFirebaseServices();
-    const q = query(
-        collection(db, 'kelas'),
-        where('asistenUid', '==', uidBersih),
-        where('diarsipkan', '==', false),
-    );
+    const q = sertakanArsip
+        ? query(
+              collection(db, 'kelas'),
+              where('asistenUid', '==', uidBersih),
+          )
+        : query(
+              collection(db, 'kelas'),
+              where('asistenUid', '==', uidBersih),
+              where('diarsipkan', '==', false),
+          );
 
     return onSnapshot(
         q,
