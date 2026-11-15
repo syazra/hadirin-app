@@ -14,12 +14,12 @@ export default function RiwayatScreen() {
   const jumlahHadir = riwayat.length;
 
   if (!pengguna || pengguna.peran !== 'PRAKTIKAN') {
-      return (
-          <LayarPersiapan
-              judul="Riwayat kehadiran"
-              pesan="Masuk sebagai praktikan untuk melihat riwayat presensi."
-          />
-      );
+    return (
+      <LayarPersiapan
+        judul="Riwayat kehadiran"
+        pesan="Masuk sebagai praktikan untuk melihat riwayat presensi."
+      />
+    );
   }
 
   return (
@@ -37,24 +37,35 @@ export default function RiwayatScreen() {
         </View>
       )}
 
-      
+
       <Text style={styles.label}>Riwayat Presensi</Text>
 
       {loading ? (
-          <Text>Memuat riwayat presensi...</Text>
-      ) : error ? (
-          <Text>{error}</Text>
+        <Text>Memuat riwayat presensi...</Text>
       ) : riwayat.length > 0 ? (
+        <>
+          {error && (
+            <Text style={styles.error}>
+              {error}
+            </Text>
+          )}
+
           <View style={styles.daftar}>
-              {riwayat.map((item) => (
-                  <RiwayatItem key={item.presensi.idPresensi} {...item} />
-              ))}
+            {riwayat.map((item) => (
+              <RiwayatItem
+                key={item.presensi.idPresensi}
+                {...item}
+              />
+            ))}
           </View>
+        </>
+      ) : error ? (
+        <Text style={styles.error}>{error}</Text>
       ) : (
-          <EmptyState
-              judul="Belum ada catatan kehadiran"
-              pesan="Presensi yang kamu lakukan akan muncul di sini."
-          />
+        <EmptyState
+          judul="Belum ada catatan kehadiran"
+          pesan="Presensi yang kamu lakukan akan muncul di sini."
+        />
       )}
     </ScrollView>
   );
@@ -75,4 +86,5 @@ const styles = StyleSheet.create({
   keterangan: { fontSize: 14, color: Colors.light.backgroundElement },
   label: { fontSize: 16, fontWeight: '700', color: Colors.light.text },
   daftar: { gap: 12 },
+  error: { color: Colors.light.danger, fontSize: 12, lineHeight: 18 },
 });
