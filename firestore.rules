@@ -487,6 +487,34 @@ service cloud.firestore {
 
     // Izin and all other collections remain denied here; access is handled by
     // their own issue/owner so this fix does not widen the permission surface.
+    match /izin/{izinId} {
+      allow get: if (
+        isPraktikan()
+        && (
+          (resource == null && izinId.matches('^.+_' + request.auth.uid + '$'))
+          || (
+            resource != null
+            && resource.data.uid == request.auth.uid
+            && izinId == resource.data.sesiId + '_' + request.auth.uid
+          )
+        )
+      ) || (
+        resource != null
+        && resource.data.sesiId is string
+        && sesiDimilikiAsisten(resource.data.sesiId)
+      );
+
+      allow list: if (
+        isPraktikan()
+        && resource.data.uid == request.auth.uid
+      ) || (
+        resource.data.sesiId is string
+        && sesiDimilikiAsisten(resource.data.sesiId)
+      );
+
+      allow create, update, delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
