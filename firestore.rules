@@ -1,0 +1,494 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function pathPengguna(uid) {
+      return /databases/$(database)/documents/pengguna/$(uid);
+    }
+
+    function pathKelas(kelasId) {
+      return /databases/$(database)/documents/kelas/$(kelasId);
+    }
+
+    function pathAnggota(kelasId, uid) {
+      return /databases/$(database)/documents/keanggotaan/$(kelasId + '_' + uid);
+    }
+
+    function pathSesi(sesiId) {
+      return /databases/$(database)/documents/sesi/$(sesiId);
+    }
+
+    function pathQr(sesiId) {
+      return /databases/$(database)/documents/sesi/$(sesiId)/rahasia/qr;
+    }
+
+    function pathPresensi(sesiId, uid) {
+      return /databases/$(database)/documents/presensi/$(sesiId + '_' + uid);
+    }
+
+    function pathIzin(sesiId, uid) {
+      return /databases/$(database)/documents/izin/$(sesiId + '_' + uid);
+    }
+
+    function teksValid(nilai, batasMaks) {
+      return nilai is string
+        && nilai.size() > 0
+        && nilai.size() <= batasMaks
+        && nilai.matches('.*\\S.*');
+    }
+
+    function peranValid(peran) {
+      return signedIn()
+        && get(pathPengguna(request.auth.uid)).data.peran == peran;
+    }
+
+    function isAsisten() {
+      return peranValid('ASISTEN');
+    }
+
+    function isPraktikan() {
+      return peranValid('PRAKTIKAN');
+    }
+
+    function isPemilikKelas(kelasId) {
+      return isAsisten()
+        && get(pathKelas(kelasId)).data.asistenUid == request.auth.uid;
+    }
+
+    function kelasAktif(kelasId) {
+      return get(pathKelas(kelasId)).data.diarsipkan == false;
+    }
+
+    function anggotaAktif(kelasId, uid) {
+      return get(pathAnggota(kelasId, uid)).data.kelasId == kelasId
+        && get(pathAnggota(kelasId, uid)).data.uid == uid
+        && get(pathAnggota(kelasId, uid)).data.status == 'AKTIF';
+    }
+
+    function punyaRiwayatPresensi(sesiId, uid) {
+      return exists(pathPresensi(sesiId, uid));
+    }
+
+    function punyaRiwayatIzin(sesiId, uid) {
+      return exists(pathIzin(sesiId, uid));
+    }
+
+    function kelasDimilikiAsistenDiData(data) {
+      return data.kelasId is string && isPemilikKelas(data.kelasId);
+    }
+
+    function sesiDimilikiAsisten(sesiId) {
+      return isAsisten()
+        && get(pathSesi(sesiId)).data.kelasId is string
+        && isPemilikKelas(get(pathSesi(sesiId)).data.kelasId);
+    }
+
+    function praktikanDapatBacaSesi(sesiId, kelasId, diarsipkan) {
+      return isPraktikan()
+        && (
+          (
+            diarsipkan == false
+            && kelasAktif(kelasId)
+            && anggotaAktif(kelasId, request.auth.uid)
+          )
+          || punyaRiwayatPresensi(sesiId, request.auth.uid)
+          || punyaRiwayatIzin(sesiId, request.auth.uid)
+        );
+    }
+
+    function classDataValid(data) {
+      return data.keys().hasAll([
+          'namaPraktikum', 'asistenUid', 'diarsipkan', 'dibuatPada'
+        ])
+        && data.keys().hasOnly([
+          'namaPraktikum', 'asistenUid', 'diarsipkan', 'dibuatPada'
+        ])
+        && teksValid(data.namaPraktikum, 100)
+        && data.asistenUid is string
+        && data.diarsipkan is bool
+        && data.dibuatPada is timestamp;
+    }
+
+    function sesiDataValid(data) {
+      return data.keys().hasAll([
+          'kelasId', 'judul', 'lokasi', 'waktuMulai', 'waktuSelesai',
+          'statusSesi', 'diarsipkan'
+        ])
+        && data.keys().hasOnly([
+          'kelasId', 'judul', 'lokasi', 'waktuMulai', 'waktuSelesai',
+          'statusSesi', 'diarsipkan'
+        ])
+        && data.kelasId is string
+        && teksValid(data.judul, 100)
+        && teksValid(data.lokasi, 100)
+        && data.waktuMulai is timestamp
+        && (
+          data.waktuSelesai == null
+          || (data.waktuSelesai is timestamp && data.waktuSelesai > data.waktuMulai)
+        )
+        && data.statusSesi in ['BELUM_DIBUKA', 'DIBUKA', 'DITUTUP']
+        && data.diarsipkan is bool;
+    }
+
+    function kodeQrValid(kodeQr) {
+      return kodeQr is string && kodeQr.matches('^[0-9a-f]{32}$');
+    }
+
+    function profilBaruValid(uid) {
+      return signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasAll([
+          'nama', 'nim', 'email', 'peran', 'kodePeserta', 'dibuatPada'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'nama', 'nim', 'email', 'peran', 'kodePeserta', 'dibuatPada'
+        ])
+        && teksValid(request.resource.data.nama, 100)
+        && teksValid(request.resource.data.nim, 32)
+        && request.resource.data.email is string
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.peran == 'PRAKTIKAN'
+        && request.resource.data.kodePeserta is string
+        && request.resource.data.kodePeserta.matches('^[A-Z0-9]{8}$')
+        && request.resource.data.dibuatPada == request.time
+        && existsAfter(
+          /databases/$(database)/documents/kodePeserta/$(request.resource.data.kodePeserta)
+        )
+        && getAfter(
+          /databases/$(database)/documents/kodePeserta/$(request.resource.data.kodePeserta)
+        ).data.uid == uid
+        && getAfter(
+          /databases/$(database)/documents/kodePeserta/$(request.resource.data.kodePeserta)
+        ).data.nama == request.resource.data.nama
+        && getAfter(
+          /databases/$(database)/documents/kodePeserta/$(request.resource.data.kodePeserta)
+        ).data.nim == request.resource.data.nim;
+    }
+
+    function mappingBaruValid(kode) {
+      return signedIn()
+        && request.resource.data.keys().hasAll(['uid', 'nama', 'nim'])
+        && request.resource.data.keys().hasOnly(['uid', 'nama', 'nim'])
+        && request.resource.data.uid == request.auth.uid
+        && teksValid(request.resource.data.nama, 100)
+        && teksValid(request.resource.data.nim, 32)
+        && existsAfter(pathPengguna(request.auth.uid))
+        && getAfter(pathPengguna(request.auth.uid)).data.kodePeserta == kode
+        && getAfter(pathPengguna(request.auth.uid)).data.nama == request.resource.data.nama
+        && getAfter(pathPengguna(request.auth.uid)).data.nim == request.resource.data.nim;
+    }
+
+    function kelasBaruValid() {
+      return isAsisten()
+        && classDataValid(request.resource.data)
+        && request.resource.data.asistenUid == request.auth.uid
+        && request.resource.data.diarsipkan == false
+        && request.resource.data.dibuatPada == request.time;
+    }
+
+    function kelasUpdateValid() {
+      return isAsisten()
+        && resource.data.asistenUid == request.auth.uid
+        && resource.data.diarsipkan == false
+        && request.resource.data.asistenUid == resource.data.asistenUid
+        && request.resource.data.dibuatPada == resource.data.dibuatPada
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'namaPraktikum', 'diarsipkan'
+        ])
+        && request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'namaPraktikum', 'diarsipkan'
+        ])
+        && (
+          (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['namaPraktikum'])
+            && teksValid(request.resource.data.namaPraktikum, 100)
+          )
+          || (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['diarsipkan'])
+            && request.resource.data.diarsipkan == true
+          )
+        );
+    }
+
+    function anggotaBaruValid(anggotaId) {
+      return isAsisten()
+        && request.resource.data.keys().hasAll(['kelasId', 'uid', 'nama', 'nim', 'status'])
+        && request.resource.data.keys().hasOnly(['kelasId', 'uid', 'nama', 'nim', 'status'])
+        && request.resource.data.kelasId is string
+        && request.resource.data.uid is string
+        && anggotaId == request.resource.data.kelasId + '_' + request.resource.data.uid
+        && isPemilikKelas(request.resource.data.kelasId)
+        && kelasAktif(request.resource.data.kelasId)
+        && request.resource.data.status == 'AKTIF'
+        && exists(pathPengguna(request.resource.data.uid))
+        && get(pathPengguna(request.resource.data.uid)).data.peran == 'PRAKTIKAN'
+        && request.resource.data.nama == get(pathPengguna(request.resource.data.uid)).data.nama
+        && request.resource.data.nim == get(pathPengguna(request.resource.data.uid)).data.nim;
+    }
+
+    function anggotaStatusUpdateValid(anggotaId) {
+      return isAsisten()
+        && resource.data.kelasId is string
+        && resource.data.uid is string
+        && anggotaId == resource.data.kelasId + '_' + resource.data.uid
+        && isPemilikKelas(resource.data.kelasId)
+        && kelasAktif(resource.data.kelasId)
+        && get(pathPengguna(resource.data.uid)).data.peran == 'PRAKTIKAN'
+        && request.resource.data.kelasId == resource.data.kelasId
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.nama == resource.data.nama
+        && request.resource.data.nim == resource.data.nim
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasAny(['status'])
+        && request.resource.data.status in ['AKTIF', 'NONAKTIF'];
+    }
+
+    function sesiBaruValid(sesiId) {
+      return isAsisten()
+        && sesiDataValid(request.resource.data)
+        && request.resource.data.statusSesi == 'BELUM_DIBUKA'
+        && request.resource.data.diarsipkan == false
+        && isPemilikKelas(request.resource.data.kelasId)
+        && kelasAktif(request.resource.data.kelasId)
+        && existsAfter(pathQr(sesiId))
+        && kodeQrValid(getAfter(pathQr(sesiId)).data.kodeQr);
+    }
+
+    function sesiJadwalUpdateValid() {
+      return !kelasDiarsipkan(resource.data.kelasId)
+        && request.resource.data.kelasId == resource.data.kelasId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'judul', 'lokasi', 'waktuMulai', 'waktuSelesai'
+        ])
+        && request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'judul', 'lokasi', 'waktuMulai', 'waktuSelesai'
+        ])
+        && sesiDataValid(request.resource.data);
+    }
+
+    function kelasDiarsipkan(kelasId) {
+      return get(pathKelas(kelasId)).data.diarsipkan == true;
+    }
+
+    function sesiStatusUpdateValid() {
+      return request.resource.data.kelasId == resource.data.kelasId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statusSesi'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasAny(['statusSesi'])
+        && (
+          (
+            resource.data.statusSesi == 'BELUM_DIBUKA'
+            && request.resource.data.statusSesi == 'DIBUKA'
+            && !kelasDiarsipkan(resource.data.kelasId)
+          )
+          || (
+            resource.data.statusSesi == 'DIBUKA'
+            && request.resource.data.statusSesi == 'DITUTUP'
+          )
+        );
+    }
+
+    function sesiArsipUpdateValid() {
+      return request.resource.data.kelasId == resource.data.kelasId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['diarsipkan'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasAny(['diarsipkan'])
+        && resource.data.diarsipkan == false
+        && request.resource.data.diarsipkan == true
+        && resource.data.statusSesi != 'DIBUKA';
+    }
+
+    function presensiBaruValid(presensiId) {
+      let sesiId = request.resource.data.sesiId;
+      let kelasId = request.resource.data.kelasId;
+      let uid = request.auth.uid;
+      return isPraktikan()
+        && request.resource.data.keys().hasAll([
+          'sesiId', 'kelasId', 'uid', 'waktuHadir', 'kodeQr'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'sesiId', 'kelasId', 'uid', 'waktuHadir', 'kodeQr'
+        ])
+        && sesiId is string
+        && kelasId is string
+        && request.resource.data.uid == uid
+        && presensiId == sesiId + '_' + uid
+        && request.resource.data.waktuHadir == request.time
+        && kodeQrValid(request.resource.data.kodeQr)
+        && exists(pathSesi(sesiId))
+        && get(pathSesi(sesiId)).data.kelasId == kelasId
+        && get(pathSesi(sesiId)).data.statusSesi == 'DIBUKA'
+        && get(pathSesi(sesiId)).data.diarsipkan == false
+        && kelasAktif(kelasId)
+        && anggotaAktif(kelasId, uid)
+        && exists(pathQr(sesiId))
+        && get(pathQr(sesiId)).data.kodeQr == request.resource.data.kodeQr
+        && !exists(pathPresensi(sesiId, uid))
+        && (
+          !existsAfter(pathIzin(sesiId, uid))
+          || getAfter(pathIzin(sesiId, uid)).data.statusIzin == 'DITOLAK'
+        );
+    }
+
+    function presensiMilikPraktikan(data, presensiId) {
+      return data.keys().hasAll(['uid', 'sesiId'])
+        && isPraktikan()
+        && data.uid == request.auth.uid
+        && data.sesiId is string
+        && presensiId == data.sesiId + '_' + request.auth.uid;
+    }
+
+    function presensiDapatDilihatPraktikan(data) {
+      return data.keys().hasAll(['uid'])
+        && isPraktikan()
+        && data.uid == request.auth.uid;
+    }
+
+    function presensiBisaDibacaAsisten(data) {
+      return data.keys().hasAll(['sesiId'])
+        && data.sesiId is string
+        && sesiDimilikiAsisten(data.sesiId);
+    }
+
+    function presensiIdKosongMilikPraktikan(presensiId) {
+      return isPraktikan()
+        && presensiId.matches('^.+_' + request.auth.uid + '$');
+    }
+
+    function kodeMilikSendiri(kode) {
+      return signedIn()
+        && exists(pathPengguna(request.auth.uid))
+        && get(pathPengguna(request.auth.uid)).data.kodePeserta == kode;
+    }
+
+    match /pengguna/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list: if false;
+      allow create: if profilBaruValid(uid);
+      allow update, delete: if false;
+    }
+
+    match /kodePeserta/{kode} {
+      allow get: if isAsisten() || kodeMilikSendiri(kode);
+      allow list: if false;
+      allow create: if mappingBaruValid(kode);
+      allow update, delete: if false;
+    }
+
+    match /kelas/{kelasId} {
+      allow get: if (
+          isAsisten() && resource.data.asistenUid == request.auth.uid
+        ) || (
+          isPraktikan() && exists(pathAnggota(kelasId, request.auth.uid))
+        );
+      allow list: if isAsisten() && resource.data.asistenUid == request.auth.uid;
+      allow create: if kelasBaruValid();
+      allow update: if kelasUpdateValid();
+      allow delete: if false;
+    }
+
+    match /keanggotaan/{anggotaId} {
+      // A missing deterministic membership lookup reveals no document data and is
+      // required by the assistant's add-or-reactivate flow.
+      allow get: if (
+          resource == null && isAsisten()
+        ) || (
+          resource != null
+          && isAsisten()
+          && isPemilikKelas(resource.data.kelasId)
+        ) || (
+          resource != null
+          && isPraktikan()
+          && resource.data.uid == request.auth.uid
+          && anggotaId == resource.data.kelasId + '_' + request.auth.uid
+        );
+      allow list: if (
+          resource.data.uid == request.auth.uid
+          && resource.data.status == 'AKTIF'
+        ) || (
+          isAsisten()
+          && resource.data.kelasId is string
+          && isPemilikKelas(resource.data.kelasId)
+        );
+      allow create: if anggotaBaruValid(anggotaId);
+      allow update: if anggotaStatusUpdateValid(anggotaId);
+      allow delete: if false;
+    }
+
+    match /sesi/{sesiId} {
+      allow get: if (
+          isAsisten() && isPemilikKelas(resource.data.kelasId)
+        ) || praktikanDapatBacaSesi(
+          sesiId,
+          resource.data.kelasId,
+          resource.data.diarsipkan
+        );
+      allow list: if (
+          isAsisten() && isPemilikKelas(resource.data.kelasId)
+        ) || (
+          praktikanDapatBacaSesi(
+            sesiId,
+            resource.data.kelasId,
+            resource.data.diarsipkan
+          )
+          && resource.data.diarsipkan == false
+          && kelasAktif(resource.data.kelasId)
+          && anggotaAktif(resource.data.kelasId, request.auth.uid)
+        );
+      allow create: if sesiBaruValid(sesiId);
+      allow update: if isAsisten()
+        && isPemilikKelas(resource.data.kelasId)
+        && resource.data.diarsipkan == false
+        && (
+          sesiJadwalUpdateValid()
+          || sesiStatusUpdateValid()
+          || sesiArsipUpdateValid()
+        );
+      allow delete: if false;
+
+      match /rahasia/{rahasiaId} {
+        allow get: if rahasiaId == 'qr'
+          && sesiDimilikiAsisten(sesiId);
+        allow list: if false;
+        allow create: if rahasiaId == 'qr'
+          && isAsisten()
+          && !exists(pathSesi(sesiId))
+          && existsAfter(pathSesi(sesiId))
+          && !exists(pathQr(sesiId))
+          && getAfter(pathSesi(sesiId)).data.kelasId is string
+          && isPemilikKelas(getAfter(pathSesi(sesiId)).data.kelasId)
+          && getAfter(pathSesi(sesiId)).data.statusSesi == 'BELUM_DIBUKA'
+          && getAfter(pathSesi(sesiId)).data.diarsipkan == false
+          && request.resource.data.keys().hasAll(['kodeQr'])
+          && request.resource.data.keys().hasOnly(['kodeQr'])
+          && kodeQrValid(request.resource.data.kodeQr);
+        allow update, delete: if false;
+      }
+    }
+
+    match /presensi/{presensiId} {
+      allow get: if (
+          resource == null && presensiIdKosongMilikPraktikan(presensiId)
+        ) || (
+          resource != null
+          && presensiMilikPraktikan(resource.data, presensiId)
+        ) || (
+          resource != null
+          && presensiBisaDibacaAsisten(resource.data)
+        );
+      allow list: if presensiDapatDilihatPraktikan(resource.data)
+        || presensiBisaDibacaAsisten(resource.data);
+      allow create: if presensiBaruValid(presensiId);
+      allow update, delete: if false;
+    }
+
+    // Izin and all other collections remain denied here; access is handled by
+    // their own issue/owner so this fix does not widen the permission surface.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

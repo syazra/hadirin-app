@@ -1,4 +1,4 @@
-import type { Sesi } from '@/types';
+import type { Sesi } from '@/types/legacy';
 
 // Sesi A/B/C dipetakan ke S001/S002/S003; ID, jadwal, dan kode QR tetap.
 export const dummySesi: Sesi[] = [

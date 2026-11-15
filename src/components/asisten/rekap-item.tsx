@@ -1,29 +1,61 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { StatusBadge } from '@/components/ui/status-badge';
 import { Colors } from '@/constants/theme';
-import type { ItemRekapSesi } from '@/types';
+import type { ItemRekapSesi } from '@/hooks/use-rekap-sesi';
 import { formatWaktu } from '@/utils/format-waktu';
 
 export type RekapItemProps = ItemRekapSesi;
 
-export function RekapItem({ pengguna, presensi }: RekapItemProps) {
-  const waktu = formatWaktu(presensi.waktuHadir);
+export function RekapItem({
+  nama,
+  nim,
+  statusKeanggotaan,
+  statusRekap,
+  waktuHadir,
+  izin,
+}: RekapItemProps) {
+  const teksWaktu =
+    statusRekap === 'HADIR'
+      ? waktuHadir
+        ? formatWaktu(waktuHadir.toISOString())
+        : 'Memproses waktu...'
+      : statusRekap === 'IZIN'
+        ? izin?.waktuPeriksa
+          ? `Disetujui · ${formatWaktu(izin.waktuPeriksa.toISOString())}`
+          : 'Izin disetujui'
+        : null;
+
+  const tampilkanStatusIzinTerpisah =
+    izin !== null &&
+    (izin.statusIzin === 'MENUNGGU' || izin.statusIzin === 'DITOLAK');
 
   return (
     <View style={styles.card}>
       <View style={styles.avatar}>
-        <Text style={styles.initial}>
-          {pengguna.nama.charAt(0).toUpperCase()}
-        </Text>
+        <Text style={styles.initial}>{nama.charAt(0).toUpperCase()}</Text>
       </View>
 
       <View style={styles.info}>
-        <Text style={styles.nama}>{pengguna.nama}</Text>
-        <Text style={styles.id}>{pengguna.idPengguna}</Text>
+        <View style={styles.namaRow}>
+          <Text style={styles.nama} numberOfLines={1}>
+            {nama}
+          </Text>
+          {statusKeanggotaan === 'NONAKTIF' && (
+            <View style={styles.nonaktifTag}>
+              <Text style={styles.nonaktifText}>Nonaktif</Text>
+            </View>
+          )}
+        </View>
+        <Text style={styles.nim}>{nim}</Text>
+        {teksWaktu && <Text style={styles.waktu}>{teksWaktu}</Text>}
       </View>
 
-      <View style={styles.badge}>
-        <Text style={styles.waktu}>{waktu}</Text>
+      <View style={styles.badges}>
+        <StatusBadge status={statusRekap} />
+        {tampilkanStatusIzinTerpisah && izin && (
+          <StatusBadge status={izin.statusIzin} />
+        )}
       </View>
     </View>
   );
@@ -53,14 +85,44 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.light.primary,
   },
-  info: { flex: 1, gap: 3 },
-  nama: { fontSize: 14, fontWeight: '600', color: Colors.light.text },
-  id: { fontSize: 12, color: Colors.light.textSecondary },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: Colors.light.successSoft,
+  info: {
+    flex: 1,
+    gap: 3,
   },
-  waktu: { fontSize: 12, fontWeight: '600', color: Colors.light.success },
+  namaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  nama: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.light.text,
+    flexShrink: 1,
+  },
+  nonaktifTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: Colors.light.backgroundSelected,
+  },
+  nonaktifText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.light.textSecondary,
+  },
+  nim: {
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+  },
+  waktu: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Colors.light.success,
+    marginTop: 2,
+  },
+  badges: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
 });

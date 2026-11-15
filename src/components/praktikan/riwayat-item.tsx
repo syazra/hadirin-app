@@ -1,23 +1,22 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Colors } from '@/constants/theme';
-import type { ItemRiwayatKehadiran } from '@/types';
+import type { Sesi, Presensi } from '@/types';
 import { formatWaktu } from '@/utils/format-waktu';
 
-export type RiwayatItemProps = ItemRiwayatKehadiran;
+export type RiwayatItemProps = { sesi: Sesi; presensi: Presensi };
 
 
 export function RiwayatItem({ sesi, presensi }: RiwayatItemProps) {
-  if (!presensi) return null;
-  const waktu = formatWaktu(presensi.waktuHadir);
+  const waktu = presensi.waktuHadir ? formatWaktu(presensi.waktuHadir.toISOString()) : 'Menunggu konfirmasi server';
 
   return (
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.info}>
-          <Text style={styles.nama}>{sesi.namaPraktikum}</Text>
-          <Text style={styles.lokasi}>{sesi.kelasLab}</Text>
-          <Text style={styles.jadwal}>{sesi.waktu}</Text>
+          <Text style={styles.nama}>{sesi.judul}</Text>
+          <Text style={styles.lokasi}>{sesi.lokasi}</Text>
+          <Text style={styles.jadwal}>{formatWaktu(sesi.waktuMulai.toISOString())}</Text>
         </View>
         <View style={[styles.badge, styles.hadir]}>
           <Text style={[styles.status, styles.teksHadir]}>Hadir</Text>
