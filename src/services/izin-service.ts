@@ -187,14 +187,57 @@ export async function putuskanIzin(
   idIzin: string,
   status: 'DISETUJUI' | 'DITOLAK',
 ): Promise<Hasil> {
-  void idIzin;
-  void status;
+  if (!idIzin || !['DISETUJUI', 'DITOLAK'].includes(status)) {
+    return { ok: false, alasan: 'INPUT_TIDAK_VALID', pesan: 'Data keputusan tidak valid.' };
+  }
 
-  return {
-    ok: false,
-    alasan: 'TIDAK_DIKENAL',
-    pesan: 'Keputusan izin merupakan implementasi B07.',
-  };
+  try {
+    const { auth, db } = getFirebaseServices();
+    const user = auth.currentUser;
+    if (!user) return { ok: false, alasan: 'AUTENTIKASI_GAGAL', pesan: 'Silakan login kembali.' };
+
+    const izinRef = doc(db, 'izin', idIzin);
+
+    await runTransaction(db, async (transaction) => {
+      const izinSnap = await transaction.get(izinRef);
+      if (!izinSnap.exists()) throw new Error('DATA_TIDAK_DITEMUKAN');
+
+      const izin = izinSnap.data();
+      if (izin.statusIzin !== 'MENUNGGU') throw new Error('SUDAH_DIPUTUSKAN');
+
+      const sesiRef = doc(db, 'sesi', String(izin.sesiId));
+      const sesiSnap = await transaction.get(sesiRef);
+      if (!sesiSnap.exists()) throw new Error('DATA_TIDAK_DITEMUKAN');
+
+      const sesi = sesiSnap.data();
+      if (String(sesi.kelasId) !== String(izin.kelasId)) throw new Error('TIDAK_BERWENANG');
+
+      const kelasRef = doc(db, 'kelas', String(sesi.kelasId));
+      const kelasSnap = await transaction.get(kelasRef);
+      if (!kelasSnap.exists()) throw new Error('DATA_TIDAK_DITEMUKAN');
+
+      if (kelasSnap.data().asistenUid !== user.uid) throw new Error('TIDAK_BERWENANG');
+
+      transaction.update(izinRef, {
+        statusIzin: status,
+        diperiksaOleh: user.uid,
+        waktuPeriksa: serverTimestamp(),
+      });
+    });
+
+    return { ok: true, data: undefined };
+  } catch (error) {
+    const kode = pesanError(error);
+    const pesan: Record<string, string> = {
+      DATA_TIDAK_DITEMUKAN: 'Data izin, sesi, atau kelas tidak ditemukan.',
+      SUDAH_DIPUTUSKAN: 'Pengajuan ini sudah diputuskan sebelumnya.',
+      TIDAK_BERWENANG: 'Kamu bukan asisten pemilik kelas ini.',
+      'firestore/permission-denied': 'Keputusan ditolak oleh aturan keamanan Firestore.',
+    };
+
+    const alasan: AlasanGagal = kode in pesan ? kode as AlasanGagal : 'JARINGAN';
+    return { ok: false, alasan, pesan: pesan[kode] ?? 'Keputusan izin gagal disimpan.' };
+  }
 }
 
 function listenIzin(

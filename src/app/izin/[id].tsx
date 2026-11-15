@@ -13,6 +13,8 @@ import { STATUS_IZIN } from '@/constants/status-izin';
 import { Colors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useIzinPengguna } from '@/hooks/use-izin-pengguna';
+import { DetailIzinAsisten } from '@/components/asisten/detail-izin-asisten';
+import { useIzinAsisten } from '@/hooks/use-izin-asisten';
 
 function formatTanggal(nilai: unknown): string {
   if (!nilai) return 'Belum tersedia';
@@ -45,12 +47,18 @@ export default function DetailIzinScreen() {
   const { pengguna } = useAuth();
 
   const uid = pengguna?.uid ?? null;
-  const { izin, loading, error } = useIzinPengguna(uid);
-
-  const dataIzin = useMemo(
-    () => izin.find((item) => item.idIzin === id),
-    [izin, id],
+  const { izin: izinPraktikan, loading: loadingPraktikan, error: errorPraktikan } = useIzinPengguna(
+    pengguna?.peran === 'PRAKTIKAN' ? uid : null,
   );
+  const { izin: izinAsisten, loading: loadingAsisten, error: errorAsisten } = useIzinAsisten(
+    pengguna?.peran === 'ASISTEN' ? uid : null,
+  );
+
+  const izin = pengguna?.peran === 'ASISTEN' ? izinAsisten : izinPraktikan;
+  const loading = pengguna?.peran === 'ASISTEN' ? loadingAsisten : loadingPraktikan;
+  const error = pengguna?.peran === 'ASISTEN' ? errorAsisten : errorPraktikan;
+
+  const dataIzin = useMemo(() => izin.find((item) => item.idIzin === id), [izin, id]);
 
   if (loading) {
     return (
@@ -82,6 +90,27 @@ export default function DetailIzinScreen() {
   }
 
   const status = STATUS_IZIN[dataIzin.statusIzin];
+  if (pengguna?.peran === 'ASISTEN') {
+    return (
+      <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Pemeriksaan Pengajuan Izin</Text>
+          <Text style={styles.subtitle}>Periksa alasan dan tentukan keputusan izin praktikan.</Text>
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Status Pengajuan</Text>
+          <View style={[styles.statusBadge, { backgroundColor: status.background }]}>
+            <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
+          </View>
+          <Text style={styles.label}>Waktu pengajuan</Text>
+          <Text style={styles.value}>{formatTanggal(dataIzin.dibuatPada)}</Text>
+          <Text style={styles.label}>Waktu pemeriksaan</Text>
+          <Text style={styles.value}>{formatTanggal(dataIzin.waktuPeriksa)}</Text>
+        </View>
+        <DetailIzinAsisten izin={dataIzin} />
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView
