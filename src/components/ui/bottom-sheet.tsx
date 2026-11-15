@@ -1,5 +1,5 @@
 import { Colors } from '@/constants/theme';
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import {
     Animated,
     Easing,
@@ -36,33 +36,19 @@ export function BottomSheet({
 }: BottomSheetProps) {
     const insets = useSafeAreaInsets();
     const [modalVisible, setModalVisible] = useState(visible);
-    const [prevVisible, setPrevVisible] = useState(visible);
-    const [anim] = useState(() => new Animated.Value(visible ? 1 : 0));
-
-    if (visible !== prevVisible) {
-        setPrevVisible(visible);
-        if (visible) {
-            setModalVisible(true);
-        }
-    }
-
-    const jalankanAnimasiMasuk = () => {
-        anim.setValue(0);
-        Animated.timing(anim, {
-            toValue: 1,
-            duration: 240,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-        }).start();
-        onSetelahTampil?.();
-    };
+    const anim = useRef(new Animated.Value(visible ? 1 : 0)).current;
 
     useEffect(() => {
-        if (!visible && modalVisible) {
+        anim.stopAnimation();
+
+        if (visible) {
+            anim.setValue(0);
+            setModalVisible(true);
+        } else if (modalVisible) {
             Animated.timing(anim, {
                 toValue: 0,
                 duration: 180,
-                easing: Easing.in(Easing.cubic),
+                easing: Easing.in(Easing.quad),
                 useNativeDriver: true,
             }).start(({ finished }) => {
                 if (finished) {
@@ -72,6 +58,22 @@ export function BottomSheet({
         }
     }, [visible, modalVisible, anim]);
 
+    const jalankanAnimasiMasuk = () => {
+        requestAnimationFrame(() => {
+            anim.stopAnimation();
+            Animated.timing(anim, {
+                toValue: 1,
+                duration: 220,
+                easing: Easing.out(Easing.quad),
+                useNativeDriver: true,
+            }).start(({ finished }) => {
+                if (finished) {
+                    onSetelahTampil?.();
+                }
+            });
+        });
+    };
+
     const backdropOpacity = anim.interpolate({
         inputRange: [0, 1],
         outputRange: [0, 0.45],
@@ -79,7 +81,7 @@ export function BottomSheet({
 
     const sheetTranslateY = anim.interpolate({
         inputRange: [0, 1],
-        outputRange: [320, 0],
+        outputRange: [360, 0],
     });
 
     const tutup = () => {
