@@ -1,6 +1,10 @@
 {
   "name": "hadirin-rules-tests",
   "private": true,
+  "scripts": {
+    "test:b07": "tsx --test presensi-izin.rules.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^6.0.0",
     "@types/node": "^26.6.6",
