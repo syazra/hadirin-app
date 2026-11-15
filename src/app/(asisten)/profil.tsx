@@ -1,15 +1,21 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-export default function KelasScreen() {
+import { ProfilCard } from '@/components/shared/profil-card';
+import { Colors, Spacing } from '@/constants/theme';
+import { useAuth } from '@/hooks/use-auth';
+
+export default function ProfilAsistenScreen() {
+    const { pengguna } = useAuth();
+
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Profil Asisten</Text>
-            <Text>Stub halaman kelas. Menunggu implementasi Shafa.</Text>
+            {pengguna?.peran === 'ASISTEN' ? <ProfilCard pengguna={pengguna} /> : null}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20 },
-    title: { fontSize: 20, fontWeight: '700' },
+    container: { flex: 1, gap: Spacing.three, padding: Spacing.four, backgroundColor: Colors.light.background },
+    title: { color: Colors.light.text, fontSize: 20, fontWeight: '700' },
 });
