@@ -1,86 +1,282 @@
-import type {
-    Hasil,
-    Presensi,
-} from '@/types';
+import {
+  collection,
+  doc,
+  onSnapshot,
+  query,
+  runTransaction,
+  serverTimestamp,
+  where,
+} from '@react-native-firebase/firestore';
+
+import {
+  getFirebaseServices,
+  isFirebaseAvailable,
+} from '@/lib/firebase';
+import { bacaPayloadQr } from '@/utils/qr-payload';
+import type { AlasanGagal, Hasil, Presensi } from '@/types';
+
+function gagal(alasan: AlasanGagal, pesan: string): Hasil<never> {
+  return { ok: false, alasan, pesan };
+}
+
+function petakanError(error: unknown): Hasil<never> {
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const kode = String((error as { code: unknown }).code)
+      .replace(/^firestore\//, '');
+
+    switch (kode) {
+      case 'permission-denied':
+        return gagal('TIDAK_BERWENANG', 'Anda tidak memiliki izin melakukan presensi.');
+      case 'unauthenticated':
+        return gagal('AUTENTIKASI_GAGAL', 'Silakan login kembali.');
+      case 'unavailable':
+      case 'network-request-failed':
+        return gagal('JARINGAN', 'Koneksi terganggu. Periksa jaringan lalu coba lagi.');
+      case 'deadline-exceeded':
+        return gagal('TIMEOUT', 'Permintaan presensi melewati batas waktu.');
+      case 'not-found':
+        return gagal('DATA_TIDAK_DITEMUKAN', 'Data sesi tidak ditemukan.');
+      default:
+        break;
+    }
+  }
+
+  return gagal(
+    'TIDAK_DIKENAL',
+    error instanceof Error ? error.message : 'Terjadi kesalahan saat mencatat presensi.',
+  );
+}
+
+function konversiTanggal(nilai: unknown): Date | null {
+  if (nilai instanceof Date) return nilai;
+  if (
+    typeof nilai === 'object' &&
+    nilai !== null &&
+    'toDate' in nilai &&
+    typeof nilai.toDate === 'function'
+  ) {
+    const tanggal = (nilai.toDate as () => Date)();
+    return Number.isNaN(tanggal.getTime()) ? null : tanggal;
+  }
+  return null;
+}
+
+type SnapshotMinimal = {
+  id: string;
+  data: () => Record<string, unknown> | undefined;
+};
+
+function petakanPresensi(snapshot: SnapshotMinimal): Presensi | null {
+  const data = snapshot.data();
+  if (!data) return null;
+
+  return {
+    idPresensi: snapshot.id,
+    sesiId: typeof data.sesiId === 'string' ? data.sesiId : '',
+    kelasId: typeof data.kelasId === 'string' ? data.kelasId : '',
+    uid: typeof data.uid === 'string' ? data.uid : '',
+    waktuHadir: konversiTanggal(data.waktuHadir),
+  };
+}
 
 /**
- * Stub Tahap 0.
- * Pencatatan presensi belum diimplementasikan.
+ * Mencatat presensi dari QR.
+ * ID dokumen presensi menggunakan format sesiId_uid.
  */
 export async function catatPresensiDariQr(
-    payloadQr: string,
+  payloadQr: string,
 ): Promise<Hasil<Presensi>> {
-    void payloadQr;
+  if (!isFirebaseAvailable) {
+    return gagal('TIDAK_DIKENAL', 'Firebase Hadir.in saat ini hanya tersedia di Android.');
+  }
 
-    return {
-        ok: false,
-        alasan: 'TIDAK_DIKENAL',
-        pesan: 'Service presensi belum diimplementasikan.',
-    };
+  const hasilBaca = bacaPayloadQr(payloadQr);
+  if (!hasilBaca) {
+    return gagal('QR_TIDAK_VALID', 'Format QR tidak valid.');
+  }
+
+  const { idSesi, kodeQr } = hasilBaca;
+
+  try {
+    const { auth, db } = getFirebaseServices();
+    const user = auth.currentUser;
+
+    if (!user) {
+      return gagal('AUTENTIKASI_GAGAL', 'Silakan login terlebih dahulu.');
+    }
+
+    const uid = user.uid;
+    const sesiRef = doc(db, 'sesi', idSesi);
+    const qrRef = doc(db, 'sesi', idSesi, 'rahasia', 'qr');
+
+    const hasilTransaksi = await runTransaction(db, async (tx) => {
+      // Semua dokumen dibaca terlebih dahulu sebelum melakukan penulisan.
+      const sesiSnap = await tx.get(sesiRef);
+      if (!sesiSnap.exists()) {
+        return gagal('DATA_TIDAK_DITEMUKAN', 'Sesi tidak ditemukan.');
+      }
+
+      const sesiData = sesiSnap.data();
+      const kelasId = sesiData?.kelasId;
+
+      if (typeof kelasId !== 'string' || !kelasId) {
+        return gagal('DATA_TIDAK_DITEMUKAN', 'Data kelas pada sesi tidak valid.');
+      }
+
+      const kelasRef = doc(db, 'kelas', kelasId);
+      const keanggotaanRef = doc(db, 'keanggotaan', `${kelasId}_${uid}`);
+      const presensiRef = doc(db, 'presensi', `${idSesi}_${uid}`);
+      const izinRef = doc(db, 'izin', `${idSesi}_${uid}`);
+
+      const [kelasSnap, anggotaSnap, qrSnap, presensiSnap, izinSnap] =
+        await Promise.all([
+          tx.get(kelasRef),
+          tx.get(keanggotaanRef),
+          tx.get(qrRef),
+          tx.get(presensiRef),
+          tx.get(izinRef),
+        ]);
+
+      const kelasData = kelasSnap.data();
+      const anggotaData = anggotaSnap.data();
+      const qrData = qrSnap.data();
+      const izinData = izinSnap.data();
+
+      if (!kelasSnap.exists() || !kelasData) {
+        return gagal('DATA_TIDAK_DITEMUKAN', 'Kelas tidak ditemukan.');
+      }
+
+      if (sesiData?.diarsipkan === true || kelasData.diarsipkan === true) {
+        return gagal('DATA_DIARSIPKAN', 'Sesi atau kelas sudah diarsipkan.');
+      }
+
+      if (sesiData?.statusSesi === 'BELUM_DIBUKA') {
+        return gagal('BELUM_DIBUKA', 'Sesi praktikum belum dibuka.');
+      }
+
+      if (sesiData?.statusSesi === 'DITUTUP') {
+        return gagal('SUDAH_DITUTUP', 'Sesi praktikum sudah ditutup.');
+      }
+
+      if (sesiData?.statusSesi !== 'DIBUKA') {
+        return gagal('INPUT_TIDAK_VALID', 'Status sesi tidak valid.');
+      }
+
+      if (!anggotaSnap.exists() || anggotaData?.status !== 'AKTIF') {
+        return gagal('BUKAN_ANGGOTA', 'Anda bukan anggota aktif kelas ini.');
+      }
+
+      if (!qrSnap.exists() || typeof qrData?.kodeQr !== 'string') {
+        return gagal('QR_TIDAK_VALID', 'Kode QR sesi tidak ditemukan.');
+      }
+
+      if (qrData.kodeQr !== kodeQr) {
+        return gagal('QR_TIDAK_VALID', 'Kode QR tidak cocok dengan sesi ini.');
+      }
+
+      if (presensiSnap.exists()) {
+        return gagal('SUDAH_HADIR', 'Anda sudah melakukan presensi pada sesi ini.');
+      }
+
+      const statusIzin = izinData?.statusIzin;
+
+      if (statusIzin === 'MENUNGGU' || statusIzin === 'DISETUJUI') {
+        return gagal(
+          'ADA_IZIN',
+          'Presensi tidak dapat dilakukan karena pengajuan izin masih menunggu atau sudah disetujui.',
+        );
+      }
+
+      // Izin DITOLAK tidak menghalangi praktikan untuk melakukan presensi.
+      const waktuHadir = new Date();
+
+      tx.set(presensiRef, {
+        sesiId: idSesi,
+        kelasId,
+        uid,
+        waktuHadir: serverTimestamp(),
+      });
+
+      return {
+        ok: true,
+        data: {
+          idPresensi: `${idSesi}_${uid}`,
+          sesiId: idSesi,
+          kelasId,
+          uid,
+          waktuHadir,
+        },
+      } satisfies Hasil<Presensi>;
+    });
+
+    return hasilTransaksi;
+  } catch (error) {
+    return petakanError(error);
+  }
 }
 
 /**
  * Mendengarkan daftar presensi berdasarkan sesi.
  */
 export function listenPresensiSesi(
-    sesiId: string,
-    callback: (presensi: Presensi[]) => void,
-    onError: (error: Error) => void,
+  sesiId: string,
+  callback: (presensi: Presensi[]) => void,
+  onError: (error: Error) => void,
 ): () => void {
-    void onError;
+  if (!isFirebaseAvailable) {
+    onError(new Error('Firebase Hadir.in saat ini hanya tersedia di Android.'));
+    return () => {};
+  }
 
-    let aktif = true;
+  const { db } = getFirebaseServices();
+  const q = query(
+    collection(db, 'presensi'),
+    where('sesiId', '==', sesiId),
+  );
 
-    const dataContoh: Presensi[] = [
-        {
-            idPresensi: `stub-presensi-${sesiId}`,
-            sesiId,
-            kelasId: 'stub-kelas-1',
-            uid: 'stub-praktikan-1',
-            waktuHadir: null,
-        },
-    ];
-
-    Promise.resolve().then(() => {
-        if (aktif) {
-            callback(dataContoh);
-        }
-    });
-
-    return () => {
-        aktif = false;
-    };
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const daftar: Presensi[] = [];
+      for (const item of snapshot.docs) {
+        const presensi = petakanPresensi(item);
+        if (presensi) daftar.push(presensi);
+      }
+      callback(daftar);
+    },
+    onError,
+  );
 }
 
 /**
  * Mendengarkan riwayat presensi berdasarkan pengguna.
  */
 export function listenPresensiPengguna(
-    uid: string,
-    callback: (presensi: Presensi[]) => void,
-    onError: (error: Error) => void,
+  uid: string,
+  callback: (presensi: Presensi[]) => void,
+  onError: (error: Error) => void,
 ): () => void {
-    void onError;
+  if (!isFirebaseAvailable) {
+    onError(new Error('Firebase Hadir.in saat ini hanya tersedia di Android.'));
+    return () => {};
+  }
 
-    let aktif = true;
+  const { db } = getFirebaseServices();
+  const q = query(
+    collection(db, 'presensi'),
+    where('uid', '==', uid),
+  );
 
-    const dataContoh: Presensi[] = [
-        {
-            idPresensi: 'stub-presensi-1',
-            sesiId: 'stub-sesi-1',
-            kelasId: 'stub-kelas-1',
-            uid,
-            waktuHadir: null,
-        },
-    ];
-
-    Promise.resolve().then(() => {
-        if (aktif) {
-            callback(dataContoh);
-        }
-    });
-
-    return () => {
-        aktif = false;
-    };
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const daftar: Presensi[] = [];
+      for (const item of snapshot.docs) {
+        const presensi = petakanPresensi(item);
+        if (presensi) daftar.push(presensi);
+      }
+      callback(daftar);
+    },
+    onError,
+  );
 }

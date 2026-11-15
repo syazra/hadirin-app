@@ -18,6 +18,7 @@ import { InfoSheet } from '@/components/ui/info-sheet';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useSesiDetail } from '@/hooks/use-sesi-detail';
+import { useIzinPengguna } from '@/hooks/use-izin-pengguna';
 
 export default function DetailSesiScreen() {
     const { id } = useLocalSearchParams<{
@@ -26,6 +27,7 @@ export default function DetailSesiScreen() {
 
     const router = useRouter();
     const { pengguna, peran, loading: authLoading } = useAuth();
+    const { izin, loading: izinLoading } = useIzinPengguna(pengguna?.uid ?? null);
     const [caraMemindaiTerbuka, setCaraMemindaiTerbuka] = useState(false);
 
     const idSesi = Array.isArray(id) ? id[0] : id;
@@ -156,12 +158,22 @@ export default function DetailSesiScreen() {
                 <>
                     <PanelAksiPraktikan
                         statusSesi={sesi.statusSesi}
+                        statusIzin={
+                            izin.find((item) => item.sesiId === sesi.idSesi)?.statusIzin ?? null
+                        }
+                        izinLoading={izinLoading}
                         sudahPresensi={false}
                         waktuPresensi={undefined}
                         onPressPresensi={() =>
                             router.push({
                                 pathname: '/scan-qr',
                                 params: { idSesi: sesi.idSesi },
+                            })
+                        }
+                        onPressAjukanIzin={() =>
+                            router.push({
+                                pathname: '/izin/ajukan',
+                                params: { sesiId: sesi.idSesi },
                             })
                         }
                     />
