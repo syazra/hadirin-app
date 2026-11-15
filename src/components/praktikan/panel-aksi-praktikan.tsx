@@ -3,8 +3,8 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 import { AppButton } from '@/components/ui/app-button';
-import type { StatusSesi } from '@/types/legacy';
 import type { StatusIzin } from '@/types';
+import type { StatusSesi } from '@/types';
 
 type PanelAksiPraktikanProps = {
     statusSesi: StatusSesi;
@@ -83,9 +83,9 @@ export function PanelAksiPraktikan({
     }
 
     const bolehAjukanIzin =
-        sesiDibuka &&
-        !sudahPresensi &&
-        !statusIzin;
+      statusSesi !== 'DITUTUP' &&
+      !sudahPresensi &&
+      !statusIzin;
 
     return (
         <View style={styles.container}>

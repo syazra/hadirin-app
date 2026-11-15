@@ -14,7 +14,14 @@ type TextFieldProps = {
 };
 
 export function TextField({
-    label, value, onChangeText, placeholder, error, multiline, maxLength, editable = true,
+    label,
+    value,
+    onChangeText,
+    placeholder,
+    error,
+    multiline,
+    maxLength,
+    editable = true,
 }: TextFieldProps) {
     return (
         <View style={styles.container}>
