@@ -113,3 +113,37 @@ hadirin-app/
 ├── app.json / package.json
 └── README.md
 ```
+
+## Proxy klasifikasi izin (Sprint 2 — S2-05)
+
+Klasifikasi alasan izin dijalankan melalui serverless function di `proxy-gemini/`. Aplikasi hanya mengirim `idIzin` dan Firebase ID token; proxy memeriksa token, peran asisten, serta kepemilikan kelas sebelum membaca alasan dari Firestore. Proxy mengirim alasan tersimpan ke Gemini dan hanya mengubah `kategoriAi`, `statusAi`, `modelAi`, serta `waktuAi`. Hasil klasifikasi tidak mengambil keputusan izin.
+
+### Konfigurasi server
+
+Deploy direktori `proxy-gemini/` sebagai root proyek Vercel. Tambahkan environment variables berikut pada konfigurasi server Vercel dan lingkungan lokal server. Nilai rahasia hanya disimpan di Vercel atau file lokal yang diabaikan Git, bukan di aplikasi Expo.
+
+| Variable | Isi |
+|---|---|
+| `FIREBASE_PROJECT_ID` | ID proyek Firebase Hadir.in |
+| `FIREBASE_CLIENT_EMAIL` | Email service account Firebase Admin |
+| `FIREBASE_PRIVATE_KEY` | Private key service account; newline dapat ditulis sebagai `\n` |
+| `GEMINI_API_KEY` | API key Gemini khusus server |
+| `GEMINI_MODEL` | Nama model Gemini yang tersedia untuk project/key tim |
+
+Nama variable tanpa nilai contoh tersedia di `proxy-gemini/.env.example`. Pastikan model dan akses kuota yang dipilih tersedia pada akun Gemini tim sebelum deploy.
+
+### Konfigurasi aplikasi
+
+Atur `EXPO_PUBLIC_GEMINI_PROXY_URL` ke URL publik deployment proxy pada `.env.local` di root aplikasi, misalnya `https://<deployment>.vercel.app`. URL ini bukan rahasia. Jangan menaruh API key Gemini atau kredensial Firebase Admin di environment Expo.
+
+Client memanggil `POST /api/klasifikasi-izin` dengan header `Authorization: Bearer <Firebase ID token>` dan JSON `{ "idIzin": "<id izin>" }`. Keberhasilan mengembalikan `{ "ok": true, "data": { "kategori": "KESEHATAN" } }`; kategori valid adalah `KESEHATAN`, `KELUARGA`, `AKADEMIK`, `LAINNYA`, atau `TIDAK_JELAS`. Respons gagal memakai `{ "ok": false, "alasan": "...", "pesan": "..." }`. Proxy membatasi permintaan Gemini hingga 15 detik dan hasil sukses digunakan kembali dari Firestore.
+
+### Pemeriksaan proxy
+
+Jalankan dari direktori `proxy-gemini/`:
+
+```bash
+npm install
+npm run typecheck
+npm test
+```
