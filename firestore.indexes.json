@@ -46,6 +46,16 @@
   //     ]
   //   },
   // ]
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "sesi",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "kelasId", "order": "ASCENDING" },
+        { "fieldPath": "diarsipkan", "order": "ASCENDING" },
+        { "fieldPath": "waktuMulai", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

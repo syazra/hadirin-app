@@ -463,6 +463,50 @@ test('ACC-RULE-08: jadwal hanya menampilkan sesi kelas milik asisten atau kelas 
     )));
 });
 
+test('ACC-RULE-14: pemilik kelas bisa memperbaiki status peserta lama agar jadwal kedua akun sinkron', async () => {
+    await siapkanDataAkses();
+    const idAnggota = `kelas-a_${UID_PRAKTIKAN_BARU}`;
+    await testEnv.withSecurityRulesDisabled(async (admin) => {
+        await setDoc(doc(admin.firestore(), 'keanggotaan', idAnggota), {
+            kelasId: 'kelas-a', uid: UID_PRAKTIKAN_BARU,
+            nama: 'Praktikan Baru', nim: UID_PRAKTIKAN_BARU,
+        });
+    });
+
+    const dbAsisten = context(UID_ASISTEN_A);
+    const dbPraktikan = context(UID_PRAKTIKAN_BARU);
+    const anggotaAktif = query(
+        collection(dbPraktikan, 'keanggotaan'),
+        where('uid', '==', UID_PRAKTIKAN_BARU),
+        where('status', '==', 'AKTIF'),
+    );
+    assert.equal((await getDocs(anggotaAktif)).empty, true);
+
+    await assertFails(updateDoc(doc(dbPraktikan, 'keanggotaan', idAnggota), { status: 'AKTIF' }));
+    await assertFails(updateDoc(doc(context(UID_ASISTEN_B), 'keanggotaan', idAnggota), { status: 'AKTIF' }));
+    const anggotaRef = doc(dbAsisten, 'keanggotaan', idAnggota);
+    await assertFails(updateDoc(anggotaRef, { status: 'aktif' }));
+    await assertFails(updateDoc(anggotaRef, { status: 'AKTIF', nama: 'Nama diubah' }));
+    await assertSucceeds(updateDoc(anggotaRef, { status: 'AKTIF' }));
+
+    const anggota = await getDocs(anggotaAktif);
+    assert.deepEqual(anggota.docs.map((snap) => snap.id), [idAnggota]);
+    const kelasId = anggota.docs[0].data().kelasId;
+    assert.equal(kelasId, 'kelas-a');
+    const kelas = await assertSucceeds(getDoc(doc(dbPraktikan, 'kelas', kelasId)));
+    assert.equal(kelas.data()?.diarsipkan, false);
+
+    const jadwal = (db: typeof dbPraktikan) => getDocs(query(
+        collection(db, 'sesi'),
+        where('kelasId', '==', kelasId),
+        where('diarsipkan', '==', false),
+        orderBy('waktuMulai', 'asc'),
+    ));
+    const [sesiAsisten, sesiPraktikan] = await Promise.all([jadwal(dbAsisten), jadwal(dbPraktikan)]);
+    assert.deepEqual(sesiPraktikan.docs.map((snap) => snap.id).sort(), ['sesi-a', 'sesi-izin']);
+    assert.deepEqual(sesiPraktikan.docs.map((snap) => snap.id), sesiAsisten.docs.map((snap) => snap.id));
+});
+
 test('ACC-RULE-09: sesi dibuat bersama QR oleh pemilik, lalu status hanya bergerak maju', async () => {
     await siapkanDataAkses();
     const db = context(UID_ASISTEN_A);

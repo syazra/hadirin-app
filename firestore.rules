@@ -238,13 +238,13 @@ service cloud.firestore {
         && anggotaId == resource.data.kelasId + '_' + resource.data.uid
         && isPemilikKelas(resource.data.kelasId)
         && kelasAktif(resource.data.kelasId)
+        && get(pathPengguna(resource.data.uid)).data.peran == 'PRAKTIKAN'
         && request.resource.data.kelasId == resource.data.kelasId
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.nama == resource.data.nama
         && request.resource.data.nim == resource.data.nim
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
         && request.resource.data.diff(resource.data).affectedKeys().hasAny(['status'])
-        && resource.data.status in ['AKTIF', 'NONAKTIF']
         && request.resource.data.status in ['AKTIF', 'NONAKTIF'];
     }
 
