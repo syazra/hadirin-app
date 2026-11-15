@@ -99,6 +99,69 @@ function dbSebagai(uid: string) {
   }).firestore();
 }
 
+async function siapkanDataPresensiIzin(
+  opsi: {
+    statusSesi?: string;
+    statusAnggota?: string;
+    diarsipkan?: boolean;
+    statusIzin?: string | null;
+    sudahPresensi?: boolean;
+  } = {},
+) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+
+    await setDoc(doc(db, 'sesi', ID_SESI), {
+      kelasId: ID_KELAS,
+      judul: 'Pertemuan 1',
+      lokasi: 'Lab',
+      waktuMulai: new Date(),
+      waktuSelesai: null,
+      statusSesi: opsi.statusSesi ?? 'DIBUKA',
+      diarsipkan: opsi.diarsipkan ?? false,
+    });
+
+    await setDoc(doc(db, 'kelas', ID_KELAS), {
+      namaPraktikum: 'Pemrograman',
+      asistenUid: 'asisten-01',
+      diarsipkan: opsi.diarsipkan ?? false,
+      dibuatPada: new Date(),
+    });
+
+    await setDoc(
+      doc(db, 'keanggotaan', `${ID_KELAS}_praktikan-01`),
+      {
+        kelasId: ID_KELAS,
+        uid: 'praktikan-01',
+        nama: 'Praktikan Test',
+        nim: '1234567890',
+        status: opsi.statusAnggota ?? 'AKTIF',
+      },
+    );
+
+    await setDoc(
+      doc(db, 'sesi', ID_SESI, 'rahasia', 'qr'),
+      { kodeQr: 'QR-VALID-123' },
+    );
+
+    if (opsi.statusIzin) {
+      await setDoc(doc(db, 'izin', ID_IZIN), {
+        ...dataIzin(),
+        statusIzin: opsi.statusIzin,
+      });
+    }
+
+    if (opsi.sudahPresensi) {
+      await setDoc(doc(db, 'presensi', ID_IZIN), {
+        sesiId: ID_SESI,
+        kelasId: ID_KELAS,
+        uid: 'praktikan-01',
+        waktuHadir: new Date(),
+      });
+    }
+  });
+}
+
 async function putuskan(
   uid: string,
   status: 'DISETUJUI' | 'DITOLAK',
@@ -205,4 +268,330 @@ test('B07-11: keputusan menyimpan UID pemeriksa dan waktu server', async () => {
     assert.equal(snapshot.data()?.diperiksaOleh, 'asisten-01');
     assert.ok(snapshot.data()?.waktuPeriksa);
   });
+});
+
+// ==========================================
+// B04 — PRESENSI DAN RIWAYAT
+// ==========================================
+
+test('B04-01: praktikan aktif dapat membuat presensi sendiri', async () => {
+  await siapkanDataPresensiIzin();
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertSucceeds(
+    setDoc(doc(db, 'presensi', ID_IZIN), {
+      sesiId: ID_SESI,
+      kelasId: ID_KELAS,
+      uid: 'praktikan-01',
+      waktuHadir: serverTimestamp(),
+    }),
+  );
+});
+
+test('B04-02: presensi dengan UID orang lain ditolak', async () => {
+  await siapkanDataPresensiIzin();
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'presensi', ID_IZIN), {
+      sesiId: ID_SESI,
+      kelasId: ID_KELAS,
+      uid: 'praktikan-lain',
+      waktuHadir: serverTimestamp(),
+    }),
+  );
+});
+
+test('B04-03: presensi pada sesi yang belum dibuka ditolak', async () => {
+  await siapkanDataPresensiIzin({ statusSesi: 'BELUM_DIBUKA' });
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'presensi', ID_IZIN), {
+      sesiId: ID_SESI,
+      kelasId: ID_KELAS,
+      uid: 'praktikan-01',
+      waktuHadir: serverTimestamp(),
+    }),
+  );
+});
+
+test('B04-04: presensi pada sesi yang sudah ditutup ditolak', async () => {
+  await siapkanDataPresensiIzin({ statusSesi: 'DITUTUP' });
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'presensi', ID_IZIN), {
+      sesiId: ID_SESI,
+      kelasId: ID_KELAS,
+      uid: 'praktikan-01',
+      waktuHadir: serverTimestamp(),
+    }),
+  );
+});
+
+test('B04-05: anggota nonaktif tidak dapat melakukan presensi', async () => {
+  await siapkanDataPresensiIzin({ statusAnggota: 'NONAKTIF' });
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'presensi', ID_IZIN), {
+      sesiId: ID_SESI,
+      kelasId: ID_KELAS,
+      uid: 'praktikan-01',
+      waktuHadir: serverTimestamp(),
+    }),
+  );
+});
+
+test('B04-06: presensi kedua pada sesi yang sama ditolak', async () => {
+  await siapkanDataPresensiIzin({ sudahPresensi: true });
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'presensi', ID_IZIN), {
+      sesiId: ID_SESI,
+      kelasId: ID_KELAS,
+      uid: 'praktikan-01',
+      waktuHadir: serverTimestamp(),
+    }),
+  );
+});
+
+test('B04-07: presensi saat izin masih MENUNGGU ditolak', async () => {
+  await siapkanDataPresensiIzin({ statusIzin: 'MENUNGGU' });
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'presensi', ID_IZIN), {
+      sesiId: ID_SESI,
+      kelasId: ID_KELAS,
+      uid: 'praktikan-01',
+      waktuHadir: serverTimestamp(),
+    }),
+  );
+});
+
+test('B04-08: presensi saat izin DISETUJUI ditolak', async () => {
+  await siapkanDataPresensiIzin({ statusIzin: 'DISETUJUI' });
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'presensi', ID_IZIN), {
+      sesiId: ID_SESI,
+      kelasId: ID_KELAS,
+      uid: 'praktikan-01',
+      waktuHadir: serverTimestamp(),
+    }),
+  );
+});
+
+test('B04-09: izin DITOLAK tidak menghalangi presensi', async () => {
+  await siapkanDataPresensiIzin({ statusIzin: 'DITOLAK' });
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertSucceeds(
+    setDoc(doc(db, 'presensi', ID_IZIN), {
+      sesiId: ID_SESI,
+      kelasId: ID_KELAS,
+      uid: 'praktikan-01',
+      waktuHadir: serverTimestamp(),
+    }),
+  );
+});
+
+test('B04-10: praktikan tidak dapat membaca dokumen rahasia QR', async () => {
+  await siapkanDataPresensiIzin();
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    getDoc(doc(db, 'sesi', ID_SESI, 'rahasia', 'qr')),
+  );
+});
+
+test('B04-11: praktikan tidak dapat membaca riwayat akun lain', async () => {
+  await siapkanDataPresensiIzin();
+
+  const db = dbSebagai('praktikan-01');
+
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), 'presensi', 'sesi-01_praktikan-lain'),
+      {
+        sesiId: ID_SESI,
+        kelasId: ID_KELAS,
+        uid: 'praktikan-lain',
+        waktuHadir: new Date(),
+      },
+    );
+  });
+
+  await assertFails(
+    getDoc(doc(db, 'presensi', 'sesi-01_praktikan-lain')),
+  );
+});
+
+
+// ==========================================
+// B06 — PENGAJUAN IZIN
+// ==========================================
+
+test('B06-01: praktikan aktif dapat mengajukan izin', async () => {
+  await siapkanDataPresensiIzin();
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertSucceeds(
+    setDoc(doc(db, 'izin', ID_IZIN), {
+      ...dataIzin(),
+      dibuatPada: serverTimestamp(),
+    }),
+  );
+});
+
+test('B06-02: pengajuan izin dengan UID orang lain ditolak', async () => {
+  await siapkanDataPresensiIzin();
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'izin', ID_IZIN), {
+      ...dataIzin(),
+      uid: 'praktikan-lain',
+      dibuatPada: serverTimestamp(),
+    }),
+  );
+});
+
+test('B06-03: asisten tidak dapat mengajukan izin sebagai praktikan', async () => {
+  await siapkanDataPresensiIzin();
+
+  const db = dbSebagai('asisten-01');
+
+  await assertFails(
+    setDoc(doc(db, 'izin', ID_IZIN), {
+      ...dataIzin(),
+      uid: 'asisten-01',
+      dibuatPada: serverTimestamp(),
+    }),
+  );
+});
+
+test('B06-04: anggota nonaktif tidak dapat mengajukan izin', async () => {
+  await siapkanDataPresensiIzin({ statusAnggota: 'NONAKTIF' });
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'izin', ID_IZIN), {
+      ...dataIzin(),
+      dibuatPada: serverTimestamp(),
+    }),
+  );
+});
+
+test('B06-05: pengajuan izin pada sesi yang ditutup ditolak', async () => {
+  await siapkanDataPresensiIzin({ statusSesi: 'DITUTUP' });
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'izin', ID_IZIN), {
+      ...dataIzin(),
+      dibuatPada: serverTimestamp(),
+    }),
+  );
+});
+
+test('B06-06: pengajuan izin pada kelas atau sesi arsip ditolak', async () => {
+  await siapkanDataPresensiIzin({ diarsipkan: true });
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'izin', ID_IZIN), {
+      ...dataIzin(),
+      dibuatPada: serverTimestamp(),
+    }),
+  );
+});
+
+test('B06-07: pengajuan izin dengan ID yang berbeda dari sesi_UID ditolak', async () => {
+  await siapkanDataPresensiIzin();
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'izin', 'id-izin-acak'), {
+      ...dataIzin(),
+      dibuatPada: serverTimestamp(),
+    }),
+  );
+});
+
+test('B06-08: pengajuan izin kedua pada sesi yang sama ditolak', async () => {
+  await siapkanDataPresensiIzin({ statusIzin: 'MENUNGGU' });
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'izin', ID_IZIN), {
+      ...dataIzin(),
+      dibuatPada: serverTimestamp(),
+    }),
+  );
+});
+
+test('B06-09: pengajuan izin setelah presensi ditolak', async () => {
+  await siapkanDataPresensiIzin({ sudahPresensi: true });
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'izin', ID_IZIN), {
+      ...dataIzin(),
+      dibuatPada: serverTimestamp(),
+    }),
+  );
+});
+
+test('B06-10: status awal izin harus MENUNGGU', async () => {
+  await siapkanDataPresensiIzin();
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'izin', ID_IZIN), {
+      ...dataIzin(),
+      statusIzin: 'DISETUJUI',
+      dibuatPada: serverTimestamp(),
+    }),
+  );
+});
+
+test('B06-11: field AI dan pemeriksaan harus kosong saat pengajuan', async () => {
+  await siapkanDataPresensiIzin();
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'izin', ID_IZIN), {
+      ...dataIzin(),
+      kategoriAi: 'KESEHATAN',
+      statusAi: 'SUKSES',
+      modelAi: 'model-test',
+      waktuAi: serverTimestamp(),
+      dibuatPada: serverTimestamp(),
+    }),
+  );
 });
