@@ -47,7 +47,11 @@ interface StateRekap {
     presensi: boolean;
     izin: boolean;
   };
-  error: string | null;
+  errors: {
+    peserta: string | null;
+    presensi: string | null;
+    izin: string | null;
+  };
 }
 
 const STATE_AWAL: StateRekap = {
@@ -56,7 +60,7 @@ const STATE_AWAL: StateRekap = {
   presensi: [],
   izin: [],
   siap: { peserta: false, presensi: false, izin: false },
-  error: null,
+  errors: { peserta: null, presensi: null, izin: null },
 };
 
 const REKAP_KOSONG: RekapSesi = {
@@ -100,16 +104,8 @@ export function useRekapSesi(
             presensi: [],
             izin: [],
             siap: { peserta: false, presensi: false, izin: false },
-            error: null,
+            errors: { peserta: null, presensi: null, izin: null },
           };
-
-    const tanganiError = (err: Error) => {
-      setState((prev) => ({
-        ...buatStateBaru(prev),
-        siap: { peserta: true, presensi: true, izin: true },
-        error: err.message || 'Gagal memuat data rekap sesi.',
-      }));
-    };
 
     const unsubPeserta = listenPesertaKelas(
       idKelas,
@@ -120,11 +116,23 @@ export function useRekapSesi(
             ...base,
             peserta: data,
             siap: { ...base.siap, peserta: true },
-            error: null,
+            errors: { ...base.errors, peserta: null },
           };
         });
       },
-      tanganiError,
+      (err) => {
+        setState((prev) => {
+          const base = buatStateBaru(prev);
+          return {
+            ...base,
+            siap: { ...base.siap, peserta: true },
+            errors: {
+              ...base.errors,
+              peserta: err.message || 'Gagal memuat daftar peserta.',
+            },
+          };
+        });
+      },
     );
 
     const unsubPresensi = listenPresensiSesi(
@@ -136,11 +144,23 @@ export function useRekapSesi(
             ...base,
             presensi: data,
             siap: { ...base.siap, presensi: true },
-            error: null,
+            errors: { ...base.errors, presensi: null },
           };
         });
       },
-      tanganiError,
+      (err) => {
+        setState((prev) => {
+          const base = buatStateBaru(prev);
+          return {
+            ...base,
+            siap: { ...base.siap, presensi: true },
+            errors: {
+              ...base.errors,
+              presensi: err.message || 'Gagal memuat data presensi sesi.',
+            },
+          };
+        });
+      },
     );
 
     const unsubIzin = listenIzinSesi(
@@ -152,11 +172,23 @@ export function useRekapSesi(
             ...base,
             izin: data,
             siap: { ...base.siap, izin: true },
-            error: null,
+            errors: { ...base.errors, izin: null },
           };
         });
       },
-      tanganiError,
+      (err) => {
+        setState((prev) => {
+          const base = buatStateBaru(prev);
+          return {
+            ...base,
+            siap: { ...base.siap, izin: true },
+            errors: {
+              ...base.errors,
+              izin: err.message || 'Gagal memuat data izin sesi.',
+            },
+          };
+        });
+      },
     );
 
     return () => {
@@ -178,8 +210,17 @@ export function useRekapSesi(
       };
     }
 
-    const { peserta, presensi, izin, siap, error } = state;
+    const { peserta, presensi, izin, siap, errors } = state;
     const loading = !siap.peserta || !siap.presensi || !siap.izin;
+    const error = errors.peserta ?? errors.presensi ?? errors.izin ?? null;
+
+    if (error) {
+      return {
+        ...REKAP_KOSONG,
+        loading,
+        error,
+      };
+    }
 
     const mapPresensi = new Map<string, Presensi>();
     for (const item of presensi) {
@@ -290,7 +331,7 @@ export function useRekapSesi(
       jumlahBelumHadir: daftarBelumHadir.length,
       totalPeserta: daftarRekap.length,
       loading,
-      error,
+      error: null,
     };
   }, [kunciAktif, state]);
 }
