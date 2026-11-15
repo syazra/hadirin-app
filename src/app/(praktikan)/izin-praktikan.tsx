@@ -1,154 +1,103 @@
-<<<<<<< HEAD
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
-import { AppButton } from '@/components/ui/app-button';
-import { IzinItem } from '@/components/praktikan/izin-item';
+import { STATUS_IZIN } from '@/constants/status-izin';
 import { Colors, Spacing } from '@/constants/theme';
-import type { StatusIzin } from '@/constants/status-izin';
-
-const dataIzin: {
-  id: string;
-  namaSesi: string;
-  waktuSesi: string;
-  status: StatusIzin;
-}[] = [
-  {
-    id: 'izin-001',
-    namaSesi: 'Praktikum Pemrograman Mobile',
-    waktuSesi: 'Senin, 19 Oktober 2026 • 09.00 WIB',
-    status: 'MENUNGGU',
-  },
-  {
-    id: 'izin-002',
-    namaSesi: 'Praktikum Basis Data',
-    waktuSesi: 'Rabu, 21 Oktober 2026 • 13.00 WIB',
-    status: 'DISETUJUI',
-  },
-  {
-    id: 'izin-003',
-    namaSesi: 'Praktikum Kecerdasan Buatan',
-    waktuSesi: 'Jumat, 23 Oktober 2026 • 10.00 WIB',
-    status: 'DITOLAK',
-  },
-];
+import { useAuth } from '@/hooks/use-auth';
+import { useIzinPengguna } from '@/hooks/use-izin-pengguna';
 
 export default function IzinPraktikanScreen() {
   const router = useRouter();
+  const { pengguna } = useAuth();
+  const { izin, loading, error } = useIzinPengguna(pengguna?.uid);
 
   return (
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.container}
-      showsVerticalScrollIndicator={false}
     >
-      <View style={styles.heading}>
-        <Text style={styles.title}>Pengajuan Izin</Text>
-        <Text style={styles.subtitle}>Pantau pengajuan izin dan keputusan dari asisten praktikum.</Text>
-      </View>
+      <Text style={styles.title}>Riwayat Pengajuan Izin</Text>
+      <Text style={styles.subtitle}>
+        Pantau status pengajuan izin praktikum kamu.
+      </Text>
 
-      <AppButton
-        title="+ Ajukan Izin"
-        onPress={() => router.push('/izin/ajukan')}
-        fullWidth
-      />
-
-      <View style={styles.section}>
-        <View style={styles.sectionHeading}>
-          <Text style={styles.sectionTitle}>Riwayat Pengajuan</Text>
-          <Text style={styles.count}>{dataIzin.length} pengajuan</Text>
+      {loading ? (
+        <ActivityIndicator color={Colors.light.primary} />
+      ) : error ? (
+        <Text style={styles.error}>{error}</Text>
+      ) : izin.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyTitle}>Belum ada pengajuan izin</Text>
+          <Text style={styles.subtitle}>
+            Pengajuan izin yang kamu kirim akan muncul di sini.
+          </Text>
         </View>
+      ) : (
+        izin.map((item) => {
+          const status = STATUS_IZIN[item.statusIzin];
 
-        {dataIzin.length > 0 ? (
-          dataIzin.map((item) => (
-            <IzinItem
-              key={item.id}
-              namaSesi={item.namaSesi}
-              waktuSesi={item.waktuSesi}
-              status={item.status}
-              onPress={() => router.push(`/izin/${item.id}`)}
-            />
-          ))
-        ) : (
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>Belum ada pengajuan izin</Text>
-            <Text style={styles.emptyDescription}>Pengajuan izin yang kamu buat akan muncul di halaman ini.</Text>
-          </View>
-        )}
-      </View>
+          return (
+            <Pressable
+              key={item.idIzin}
+              style={styles.card}
+              onPress={() =>
+                router.push({
+                  pathname: '/izin/[id]',
+                  params: { id: item.idIzin },
+                })
+              }
+            >
+              <Text style={styles.cardTitle}>Pengajuan Izin</Text>
+              <Text style={styles.info}>Sesi: {item.sesiId}</Text>
+              <Text style={styles.info} numberOfLines={2}>
+                Alasan: {item.alasan}
+              </Text>
+
+              <View
+                style={[
+                  styles.badge,
+                  { backgroundColor: status.background },
+                ]}
+              >
+                <Text style={{ color: status.color, fontWeight: '700' }}>
+                  {status.label}
+                </Text>
+              </View>
+
+              <Text style={styles.detail}>Lihat detail →</Text>
+            </Pressable>
+          );
+        })
+      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: Colors.light.background,
-  },
-  container: {
+  screen: { flex: 1, backgroundColor: Colors.light.background },
+  container: { padding: Spacing.three, gap: Spacing.three },
+  title: { fontSize: 22, fontWeight: '700', color: Colors.light.text },
+  subtitle: { fontSize: 13, color: Colors.light.textSecondary },
+  card: {
     padding: Spacing.three,
-    gap: Spacing.four,
-  },
-  heading: {
-    gap: Spacing.two,
-  },
-  title: {
-    color: Colors.light.text,
-    fontSize: 23,
-    fontWeight: '700',
-  },
-  subtitle: {
-    color: Colors.light.textSecondary,
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  section: {
-    gap: Spacing.three,
-  },
-  sectionHeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  sectionTitle: {
-    color: Colors.light.text,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  count: {
-    color: Colors.light.textSecondary,
-    fontSize: 12,
-  },
-  empty: {
-    padding: Spacing.four,
-    alignItems: 'center',
     borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
     backgroundColor: Colors.light.card,
-    gap: Spacing.two,
+    gap: 9,
   },
-  emptyTitle: {
-    color: Colors.light.text,
-    fontWeight: '700',
-  },
-  emptyDescription: {
-    color: Colors.light.textSecondary,
-    fontSize: 12,
-    textAlign: 'center',
-  },
-=======
-import { StyleSheet, Text, View } from 'react-native';
-
-export default function KelasScreen() {
-    return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Izin Praktikan</Text>
-            <Text>Stub halaman kelas. Menunggu implementasi Binar.</Text>
-        </View>
-    );
-}
-
-const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20 },
-    title: { fontSize: 20, fontWeight: '700' },
->>>>>>> origin/develop
+  cardTitle: { fontSize: 15, fontWeight: '700', color: Colors.light.text },
+  info: { fontSize: 13, color: Colors.light.textSecondary },
+  badge: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20 },
+  detail: { color: Colors.light.primary, fontSize: 12, fontWeight: '600' },
+  empty: { padding: 20, alignItems: 'center', gap: 8 },
+  emptyTitle: { fontSize: 15, fontWeight: '700', color: Colors.light.text },
+  error: { color: Colors.light.danger },
 });

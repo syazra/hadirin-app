@@ -54,20 +54,13 @@ export default function PraktikanLayout() {
           ),
         }}
       />
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/develop
       <Tabs.Screen
         name="izin-praktikan"
         options={{
           title: 'Izin',
           tabBarIcon: ({ color, size }) => (
             <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8}>
-<<<<<<< HEAD
               <Path d="M8 3h8a2 2 0 0 1 2 2v16H6V5a2 2 0 0 1 2-2Zm2 5h4m-4 4h4m-4 4h4" />
-=======
-              <Path d="M7 3h10v18H7zM9 8h6m-6 4h6m-6 4h4" />
             </Svg>
           ),
         }}
@@ -80,7 +73,6 @@ export default function PraktikanLayout() {
           tabBarIcon: ({ color, size }) => (
             <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8}>
               <Path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0" />
->>>>>>> origin/develop
             </Svg>
           ),
         }}

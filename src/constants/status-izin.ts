@@ -1,8 +1,12 @@
 import { Colors } from '@/constants/theme';
+import type { StatusIzin } from '@/types';
 
-export type StatusIzin = 'MENUNGGU' | 'DISETUJUI' | 'DITOLAK';
+export { type StatusIzin };
 
-export const STATUS_IZIN = {
+export const STATUS_IZIN: Record<
+  StatusIzin,
+  { label: string; color: string; background: string }
+> = {
   MENUNGGU: {
     label: 'Menunggu',
     color: Colors.light.warning,
@@ -18,4 +22,4 @@ export const STATUS_IZIN = {
     color: Colors.light.danger,
     background: Colors.light.dangerSoft,
   },
-} as const;
+};

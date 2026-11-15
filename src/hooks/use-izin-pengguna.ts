@@ -1,61 +1,69 @@
 import { useEffect, useState } from 'react';
-
+import type { Izin } from '@/types';
 import { listenIzinPengguna } from '@/services/izin-service';
 
-import type { Izin } from '@/types';
-
 interface StateIzin {
-    uid: string;
-    data: Izin[];
-    loading: boolean;
-    error: string | null;
+  uid: string | null;
+  izin: Izin[];
+  loading: boolean;
+  error: string | null;
 }
 
-export function useIzinPengguna(uid: string | null) {
-    const [state, setState] = useState<StateIzin | null>(null);
+export function useIzinPengguna(uid: string | null | undefined) {
+  const [state, setState] = useState<StateIzin>({
+    uid: null,
+    izin: [],
+    loading: true,
+    error: null,
+  });
 
-    useEffect(() => {
-        if (!uid) return;
+  useEffect(() => {
+    if (!uid) return;
 
-        const uidAktif = uid;
-        let aktif = true;
+    let aktif = true;
 
-        const unsubscribe = listenIzinPengguna(
-            uidAktif,
-            (data) => {
-                if (!aktif) return;
+    const unsubscribe = listenIzinPengguna(
+      uid,
+      (data) => {
+        if (!aktif) return;
 
-                setState({
-                    uid: uidAktif,
-                    data,
-                    loading: false,
-                    error: null,
-                });
-            },
-            (error) => {
-                if (!aktif) return;
+        setState({
+          uid,
+          izin: data,
+          loading: false,
+          error: null,
+        });
+      },
+      (err) => {
+        if (!aktif) return;
 
-                setState({
-                    uid: uidAktif,
-                    data: [],
-                    loading: false,
-                    error: error.message,
-                });
-            },
-        );
+        setState({
+          uid,
+          izin: [],
+          loading: false,
+          error: err.message,
+        });
+      },
+    );
 
-        return () => {
-            aktif = false;
-            unsubscribe();
-        };
-    }, [uid]);
-
-    const stateAktif =
-        uid && state?.uid === uid ? state : null;
-
-    return {
-        izin: stateAktif?.data ?? [],
-        loading: uid ? stateAktif?.loading ?? true : false,
-        error: stateAktif?.error ?? null,
+    return () => {
+      aktif = false;
+      unsubscribe();
     };
+  }, [uid]);
+
+  // Jangan tampilkan data akun sebelumnya ketika UID berubah.
+  if (!uid) {
+    return { izin: [], loading: false, error: null };
+  }
+
+  if (state.uid !== uid) {
+    return { izin: [], loading: true, error: null };
+  }
+
+  return {
+    izin: state.izin,
+    loading: state.loading,
+    error: state.error,
+  };
 }

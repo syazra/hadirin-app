@@ -1,23 +1,87 @@
-<<<<<<< HEAD
 import { useLocalSearchParams } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { KategoriAiBadge } from '@/components/praktikan/kategori-ai-badge';
-import { STATUS_IZIN, type StatusIzin } from '@/constants/status-izin';
+import { STATUS_IZIN } from '@/constants/status-izin';
 import { Colors, Spacing } from '@/constants/theme';
+import { useAuth } from '@/hooks/use-auth';
+import { useIzinPengguna } from '@/hooks/use-izin-pengguna';
 
-const dataContoh = {
-  sesi: 'Praktikum Pemrograman Mobile',
-  waktu: 'Senin, 19 Oktober 2026 • 09.00 WIB',
-  alasan: 'Saya sedang sakit dan perlu beristirahat sehingga tidak dapat mengikuti praktikum.',
-  status: 'MENUNGGU' as StatusIzin,
-  kategoriAi: 'Kesehatan',
-  catatanAsisten: '',
-};
+function formatTanggal(nilai: unknown): string {
+  if (!nilai) return 'Belum tersedia';
+
+  let tanggal: Date;
+
+  if (nilai instanceof Date) {
+    tanggal = nilai;
+  } else if (
+    typeof nilai === 'object' &&
+    nilai !== null &&
+    'toDate' in nilai &&
+    typeof nilai.toDate === 'function'
+  ) {
+    tanggal = nilai.toDate();
+  } else {
+    tanggal = new Date(nilai as string | number);
+  }
+
+  if (Number.isNaN(tanggal.getTime())) return 'Belum tersedia';
+
+  return tanggal.toLocaleString('id-ID', {
+    dateStyle: 'long',
+    timeStyle: 'short',
+  });
+}
 
 export default function DetailIzinScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const status = STATUS_IZIN[dataContoh.status];
+  const { pengguna } = useAuth();
+
+  const uid = pengguna?.uid ?? null;
+  const { izin, loading, error } = useIzinPengguna(uid);
+
+  const dataIzin = useMemo(
+    () => izin.find((item) => item.idIzin === id),
+    [izin, id],
+  );
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={Colors.light.primary} />
+        <Text style={styles.muted}>Memuat detail pengajuan...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.error}>Gagal memuat detail izin.</Text>
+        <Text style={styles.muted}>{error}</Text>
+      </View>
+    );
+  }
+
+  if (!dataIzin) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.title}>Pengajuan tidak ditemukan</Text>
+        <Text style={styles.muted}>
+          Data tidak tersedia atau bukan milik akun yang sedang login.
+        </Text>
+      </View>
+    );
+  }
+
+  const status = STATUS_IZIN[dataIzin.statusIzin];
 
   return (
     <ScrollView
@@ -27,51 +91,73 @@ export default function DetailIzinScreen() {
     >
       <View style={styles.header}>
         <Text style={styles.title}>Detail Pengajuan Izin</Text>
-        <Text style={styles.subtitle}>ID Pengajuan: {id}</Text>
+        <Text style={styles.subtitle}>
+          Informasi pengajuan izin praktikum kamu
+        </Text>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Status Pengajuan</Text>
-        <View style={[styles.statusBadge, { backgroundColor: status.background }]}>
+
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: status.background },
+          ]}
+        >
           <Text style={[styles.statusText, { color: status.color }]}>
             {status.label}
           </Text>
         </View>
-        <Text style={styles.statusDescription}>
-          {dataContoh.status === 'MENUNGGU'
+
+        <Text style={styles.description}>
+          {dataIzin.statusIzin === 'MENUNGGU'
             ? 'Pengajuan kamu sedang menunggu pemeriksaan asisten.'
-            : dataContoh.status === 'DISETUJUI'
+            : dataIzin.statusIzin === 'DISETUJUI'
               ? 'Pengajuan izin kamu telah disetujui.'
               : 'Pengajuan izin kamu telah ditolak.'}
         </Text>
+
+        {dataIzin.waktuPeriksa && (
+          <>
+            <Text style={styles.label}>Waktu Pemeriksaan</Text>
+            <Text style={styles.value}>
+              {formatTanggal(dataIzin.waktuPeriksa)}
+            </Text>
+          </>
+        )}
       </View>
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Informasi Praktikum</Text>
-        <Text style={styles.label}>Nama Sesi</Text>
-        <Text style={styles.value}>{dataContoh.sesi}</Text>
 
-        <Text style={styles.label}>Waktu Praktikum</Text>
-        <Text style={styles.value}>{dataContoh.waktu}</Text>
-      </View>
+        <Text style={styles.label}>ID Sesi</Text>
+        <Text style={styles.value}>{dataIzin.sesiId}</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Alasan Izin</Text>
-        <Text style={styles.value}>{dataContoh.alasan}</Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Hasil Klasifikasi AI</Text>
-        <KategoriAiBadge kategori={dataContoh.kategoriAi} />
-        <Text style={styles.note}>
-          Klasifikasi AI hanya informasi pendukung dan bukan keputusan akhir pengajuan.
+        <Text style={styles.label}>Tanggal Pengajuan</Text>
+        <Text style={styles.value}>
+          {formatTanggal(dataIzin.dibuatPada)}
         </Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Catatan Asisten</Text>
-        <Text style={styles.value}>
-          {dataContoh.catatanAsisten || 'Belum ada catatan dari asisten.'}
+        <Text style={styles.sectionTitle}>Alasan Izin</Text>
+        <Text style={styles.value}>{dataIzin.alasan}</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Hasil Klasifikasi AI</Text>
+        <Text style={styles.label}>
+          Status AI: {dataIzin.statusAi}
+        </Text>
+
+        <KategoriAiBadge
+          kategori={dataIzin.kategoriAi ?? 'TIDAK_JELAS'}
+        />
+
+        <Text style={styles.note}>
+          Klasifikasi AI hanya informasi pendukung dan bukan keputusan
+          akhir pengajuan izin.
         </Text>
       </View>
     </ScrollView>
@@ -87,6 +173,14 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     paddingBottom: Spacing.five,
     gap: Spacing.three,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.three,
+    gap: 10,
+    backgroundColor: Colors.light.background,
   },
   header: {
     gap: 6,
@@ -124,7 +218,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  statusDescription: {
+  description: {
     color: Colors.light.textSecondary,
     fontSize: 12,
     lineHeight: 18,
@@ -143,20 +237,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
-=======
-import { StyleSheet, Text, View } from 'react-native';
-
-export default function KelasScreen() {
-    return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Detail Izin</Text>
-            <Text>Stub halaman kelas. Menunggu implementasi Binar.</Text>
-        </View>
-    );
-}
-
-const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20 },
-    title: { fontSize: 20, fontWeight: '700' },
->>>>>>> origin/develop
+  muted: {
+    color: Colors.light.textSecondary,
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  error: {
+    color: Colors.light.danger,
+    fontSize: 15,
+    fontWeight: '700',
+  },
 });

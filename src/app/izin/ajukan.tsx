@@ -1,21 +1,32 @@
-<<<<<<< HEAD
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { FormIzin } from '@/components/praktikan/form-izin';
 import { Colors, Spacing } from '@/constants/theme';
-import { useApp } from '@/hooks/use-app';
-import type { Sesi } from '@/types';
+import { ajukanIzin } from '@/services/izin-service';
 
 export default function AjukanIzinScreen() {
-  const { sesi } = useApp();
-  const [sesiTerpilih, setSesiTerpilih] = useState<Sesi | null>(null);
+  const router = useRouter();
+  const { sesiId } = useLocalSearchParams<{ sesiId: string }>();
+  const [loading, setLoading] = useState(false);
 
-  function kirimPengajuan(alasan: string) {
+  async function handleSubmit(alasan: string) {
+    if (!sesiId || loading) return;
+
+    setLoading(true);
+    const hasil = await ajukanIzin(sesiId, alasan);
+    setLoading(false);
+
+    if (!hasil.ok) {
+      Alert.alert('Pengajuan gagal', hasil.pesan);
+      return;
+    }
+
     Alert.alert(
-      'Form siap diuji',
-      `Alasan yang dimasukkan:\n\n${alasan}\n\nPengajuan belum disimpan karena integrasi service izin belum tersedia.`,
-      [{ text: 'Mengerti' }],
+      'Pengajuan berhasil',
+      'Pengajuan izin sudah tersimpan dan menunggu pemeriksaan asisten.',
+      [{ text: 'OK', onPress: () => router.back() }],
     );
   }
 
@@ -24,158 +35,24 @@ export default function AjukanIzinScreen() {
       style={styles.screen}
       contentContainerStyle={styles.container}
       keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
     >
-      <View style={styles.header}>
-        <Text style={styles.title}>Ajukan Izin</Text>
-        <Text style={styles.subtitle}>Pilih sesi praktikum yang ingin kamu ajukan izinnya, lalu tuliskan alasan dengan jelas.</Text>
-      </View>
+      <Text style={styles.title}>Ajukan Izin</Text>
+      <Text style={styles.subtitle}>
+        Sampaikan alasan izin dengan jelas. Maksimal 2.000 karakter.
+      </Text>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Pilih Sesi Praktikum</Text>
-
-        {sesi.length > 0 ? (
-          sesi.map((item) => {
-            const terpilih = sesiTerpilih?.idSesi === item.idSesi;
-
-            return (
-              <Pressable
-                key={item.idSesi}
-                onPress={() => setSesiTerpilih(item)}
-                style={[styles.sessionCard, terpilih && styles.sessionSelected]}
-              >
-                <View style={styles.sessionInfo}>
-                  <Text style={styles.sessionName}>{item.namaPraktikum}</Text>
-                  <Text style={styles.sessionDetail}>{item.kelasLab}</Text>
-                  <Text style={styles.sessionDetail}>{item.waktu}</Text>
-                </View>
-
-                <View style={[styles.radio, terpilih && styles.radioSelected]}>
-                  {terpilih ? <View style={styles.radioDot} /> : null}
-                </View>
-              </Pressable>
-            );
-          })
-        ) : (
-          <Text style={styles.emptyText}>Belum ada sesi praktikum tersedia.</Text>
-        )}
-      </View>
-
-      {sesiTerpilih ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Alasan Pengajuan</Text>
-          <FormIzin
-            namaSesi={sesiTerpilih.namaPraktikum}
-            onSubmit={kirimPengajuan}
-          />
-        </View>
-      ) : (
-        <Text style={styles.hint}>Pilih salah satu sesi terlebih dahulu untuk mengisi alasan izin.</Text>
-      )}
+      <FormIzin
+        namaSesi={sesiId ?? 'Sesi praktikum'}
+        loading={loading}
+        onSubmit={handleSubmit}
+      />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: Colors.light.background,
-  },
-  container: {
-    padding: Spacing.three,
-    paddingBottom: Spacing.five,
-    gap: Spacing.four,
-  },
-  header: {
-    gap: Spacing.two,
-  },
-  title: {
-    color: Colors.light.text,
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  subtitle: {
-    color: Colors.light.textSecondary,
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  section: {
-    gap: Spacing.three,
-  },
-  sectionTitle: {
-    color: Colors.light.text,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  sessionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: Spacing.three,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    borderRadius: 14,
-    backgroundColor: Colors.light.card,
-    gap: Spacing.two,
-  },
-  sessionSelected: {
-    borderColor: Colors.light.primary,
-    backgroundColor: Colors.light.primarySoft,
-  },
-  sessionInfo: {
-    flex: 1,
-    gap: 5,
-  },
-  sessionName: {
-    color: Colors.light.text,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  sessionDetail: {
-    color: Colors.light.textSecondary,
-    fontSize: 12,
-  },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: Colors.light.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioSelected: {
-    borderColor: Colors.light.primary,
-  },
-  radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.light.primary,
-  },
-  emptyText: {
-    color: Colors.light.textSecondary,
-    fontSize: 13,
-  },
-  hint: {
-    color: Colors.light.textSecondary,
-    fontSize: 12,
-    lineHeight: 18,
-  },
-=======
-import { StyleSheet, Text, View } from 'react-native';
-
-export default function KelasScreen() {
-    return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Ajukan Izin</Text>
-            <Text>Stub halaman kelas. Menunggu implementasi Binar.</Text>
-        </View>
-    );
-}
-
-const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20 },
-    title: { fontSize: 20, fontWeight: '700' },
->>>>>>> origin/develop
+  screen: { flex: 1, backgroundColor: Colors.light.background },
+  container: { padding: Spacing.three, gap: Spacing.three },
+  title: { fontSize: 23, fontWeight: '700', color: Colors.light.text },
+  subtitle: { fontSize: 13, color: Colors.light.textSecondary, lineHeight: 20 },
 });
