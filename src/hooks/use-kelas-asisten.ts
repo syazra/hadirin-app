@@ -1,6 +1,7 @@
 import { listenKelasAsisten } from '@/services/kelas-service';
+import { listenPesertaKelas } from '@/services/peserta-service';
 import type { Kelas } from '@/types';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 interface StateKelas {
     uid: string;
@@ -29,12 +30,21 @@ function formatPesanError(error: Error): string {
     }
 }
 
-export function useKelasAsisten(uid: string | null) {
+export function useKelasAsisten(
+    uid: string | null,
+    opsi?: { sertakanArsip?: boolean },
+) {
+    const sertakanArsip = opsi?.sertakanArsip ?? false;
+
     const [state, setState] = useState<StateKelas | null>(null);
+    const [pesertaPerKelas, setPesertaPerKelas] = useState<
+        Record<string, number>
+    >({});
     const [retryKey, setRetryKey] = useState(0);
 
     const cobaLagi = useCallback(() => {
         setState(null);
+        setPesertaPerKelas({});
         setRetryKey((prev) => prev + 1);
     }, []);
 
@@ -66,13 +76,14 @@ export function useKelasAsisten(uid: string | null) {
                     error: formatPesanError(error),
                 });
             },
+            sertakanArsip,
         );
 
         return () => {
             aktif = false;
             unsubscribe();
         };
-    }, [uid, retryKey]);
+    }, [uid, retryKey, sertakanArsip]);
 
     const uidBersih = uid?.trim() ?? '';
 
@@ -81,8 +92,58 @@ export function useKelasAsisten(uid: string | null) {
     const stateAktif =
         uidBersih && state?.uid === uidBersih ? state : null;
 
+    const daftarKelas = useMemo(
+        () => stateAktif?.data ?? [],
+        [stateAktif],
+    );
+
+    const kunciKelas = useMemo(
+        () => daftarKelas.map((k) => k.idKelas).join(','),
+        [daftarKelas],
+    );
+
+    useEffect(() => {
+        if (!uidBersih || !kunciKelas) {
+            return;
+        }
+
+        let aktif = true;
+        const daftarId = kunciKelas.split(',');
+
+        const unsubscribers = daftarId.map((idKelas) =>
+            listenPesertaKelas(
+                idKelas,
+                (peserta) => {
+                    if (!aktif) return;
+                    const jumlahAktif = peserta.filter(
+                        (p) => p.status === 'AKTIF',
+                    ).length;
+
+                    setPesertaPerKelas((prev) => ({
+                        ...prev,
+                        [idKelas]: jumlahAktif,
+                    }));
+                },
+                () => {
+                    // Jangan gagalkan daftar kelas jika hitungan peserta gagal dimuat
+                },
+            ),
+        );
+
+        return () => {
+            aktif = false;
+            unsubscribers.forEach((unsub) => unsub());
+        };
+    }, [uidBersih, kunciKelas]);
+
+    const jumlahPesertaPerKelas = useMemo(
+        () => (uidBersih && kunciKelas ? pesertaPerKelas : {}),
+        [uidBersih, kunciKelas, pesertaPerKelas],
+    );
+
     return {
-        kelas: stateAktif?.data ?? [],
+        kelas: daftarKelas,
+        jumlahPesertaPerKelas,
         loading: uidBersih ? stateAktif?.loading ?? true : false,
         error: stateAktif?.error ?? null,
         cobaLagi,
