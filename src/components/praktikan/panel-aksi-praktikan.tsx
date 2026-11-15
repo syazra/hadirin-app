@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 import { AppButton } from '@/components/ui/app-button';
-import type { StatusSesi } from '@/types/legacy';
+import type { StatusSesi } from '@/types';
 
 type PanelAksiPraktikanProps = {
     statusSesi: StatusSesi;
