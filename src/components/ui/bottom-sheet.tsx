@@ -35,52 +35,23 @@ export function BottomSheet({
     children,
 }: BottomSheetProps) {
     const insets = useSafeAreaInsets();
-    const [modalVisible, setModalVisible] = useState(visible);
-    const [prevVisible, setPrevVisible] = useState(visible);
-    const [anim] = useState(() => new Animated.Value(visible ? 1 : 0));
-
-    if (visible !== prevVisible) {
-        setPrevVisible(visible);
-        if (visible) {
-            setModalVisible(true);
-        }
-    }
-
-    const jalankanAnimasiMasuk = () => {
-        anim.setValue(0);
-        Animated.timing(anim, {
-            toValue: 1,
-            duration: 240,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-        }).start();
-        onSetelahTampil?.();
-    };
+    const [slideY] = useState(() => new Animated.Value(visible ? 0 : 280));
 
     useEffect(() => {
-        if (!visible && modalVisible) {
-            Animated.timing(anim, {
+        slideY.stopAnimation();
+
+        if (visible) {
+            slideY.setValue(280);
+            Animated.timing(slideY, {
                 toValue: 0,
-                duration: 180,
-                easing: Easing.in(Easing.cubic),
+                duration: 220,
+                easing: Easing.out(Easing.quad),
                 useNativeDriver: true,
-            }).start(({ finished }) => {
-                if (finished) {
-                    setModalVisible(false);
-                }
-            });
+            }).start();
+        } else {
+            slideY.setValue(280);
         }
-    }, [visible, modalVisible, anim]);
-
-    const backdropOpacity = anim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 0.45],
-    });
-
-    const sheetTranslateY = anim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [320, 0],
-    });
+    }, [visible, slideY]);
 
     const tutup = () => {
         if (!nonaktifTutup) {
@@ -90,29 +61,21 @@ export function BottomSheet({
 
     const konten = (
         <View style={styles.overlay}>
-            <Animated.View
-                style={[
-                    StyleSheet.absoluteFill,
-                    styles.backdrop,
-                    { opacity: backdropOpacity },
-                ]}
-            >
-                <Pressable
-                    style={StyleSheet.absoluteFill}
-                    onPress={tutup}
-                    disabled={nonaktifTutup}
-                    accessibilityRole="button"
-                    accessibilityLabel={accessibilityLabelTutup}
-                    accessibilityState={{ disabled: nonaktifTutup }}
-                />
-            </Animated.View>
+            <Pressable
+                style={[StyleSheet.absoluteFill, styles.backdrop]}
+                onPress={tutup}
+                disabled={nonaktifTutup}
+                accessibilityRole="button"
+                accessibilityLabel={accessibilityLabelTutup}
+                accessibilityState={{ disabled: nonaktifTutup }}
+            />
 
             <Animated.View
                 style={[
                     styles.sheet,
                     {
                         paddingBottom: Math.max(insets.bottom, 16) + 12,
-                        transform: [{ translateY: sheetTranslateY }],
+                        transform: [{ translateY: slideY }],
                     },
                 ]}
                 accessibilityViewIsModal
@@ -125,10 +88,10 @@ export function BottomSheet({
 
     return (
         <Modal
-            visible={modalVisible}
+            visible={visible}
             transparent
-            animationType="none"
-            onShow={jalankanAnimasiMasuk}
+            animationType="fade"
+            onShow={onSetelahTampil}
             onRequestClose={tutup}
             statusBarTranslucent
         >
@@ -154,6 +117,7 @@ const styles = StyleSheet.create({
     },
     backdrop: {
         backgroundColor: Colors.light.overlay,
+        opacity: 0.45,
     },
     sheet: {
         maxHeight: '88%',

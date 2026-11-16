@@ -1,13 +1,13 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-    ActivityIndicator,
-    Pressable,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 import { PanelAksiAsisten } from '@/components/asisten/panel-aksi-asisten';
@@ -16,9 +16,9 @@ import { RingkasanHadir } from '@/components/asisten/ringkasan-hadir';
 import { PanelAksiPraktikan } from '@/components/praktikan/panel-aksi-praktikan';
 import { DetailSesi } from '@/components/shared/detail-sesi';
 import { AppButton } from '@/components/ui/app-button';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
-import { InfoSheet } from '@/components/ui/info-sheet';
 import { LoadingState } from '@/components/ui/loading-state';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
@@ -206,17 +206,27 @@ export default function DetailSesiScreen() {
             onPress={() => setCaraMemindaiTerbuka(true)}
           />
 
-          <InfoSheet
+          <BottomSheet
             visible={caraMemindaiTerbuka}
-            judul="Cara memindai QR"
-            pesan={
-              '1. Pastikan sesi berstatus Dibuka.\n' +
-              '2. Tekan Scan QR pada halaman detail.\n' +
-              '3. Arahkan kamera ke kode QR yang ditampilkan asisten.'
-            }
-            labelTutup="Mengerti"
             onTutup={() => setCaraMemindaiTerbuka(false)}
-          />
+            accessibilityLabelTutup="Tutup panduan memindai QR"
+          >
+            <View style={styles.panduanSheet}>
+              <Text style={styles.panduanTitle}>Cara memindai QR</Text>
+              <Text style={styles.panduanText}>
+                {'1. Pastikan sesi berstatus Dibuka.\n' +
+                  '2. Tekan Scan QR pada halaman detail.\n' +
+                  '3. Arahkan kamera ke kode QR yang ditampilkan asisten.'}
+              </Text>
+              <AppButton
+                title="Mengerti"
+                variant="primary"
+                size="large"
+                fullWidth
+                onPress={() => setCaraMemindaiTerbuka(false)}
+              />
+            </View>
+          </BottomSheet>
         </>
       )}
     </ScrollView>
@@ -287,5 +297,18 @@ const styles = StyleSheet.create({
   },
   rekapList: {
     gap: 10,
+  },
+  panduanSheet: {
+    gap: 14,
+  },
+  panduanTitle: {
+    fontSize: 19,
+    fontWeight: '700',
+    color: Colors.light.text,
+  },
+  panduanText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: Colors.light.textSecondary,
   },
 });
