@@ -544,8 +544,6 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // Izin and all other collections remain denied here; access is handled by
-    // their own issue/owner so this fix does not widen the permission surface.
     match /izin/{izinId} {
       allow get: if (
         isPraktikan()
@@ -567,8 +565,9 @@ service cloud.firestore {
         isPraktikan()
         && resource.data.uid == request.auth.uid
       ) || (
-        resource.data.sesiId is string
-        && sesiDimilikiAsisten(resource.data.sesiId)
+        isAsisten()
+        && resource.data.kelasId is string
+        && isPemilikKelas(resource.data.kelasId)
       );
 
       allow create: if izinBaruValid(izinId);
