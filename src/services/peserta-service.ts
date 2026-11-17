@@ -301,7 +301,7 @@ export function listenPesertaKelas(
                     uid: String(d.uid ?? ''),
                     nama: String(d.nama ?? ''),
                     nim: String(d.nim ?? ''),
-                    status: d.status === 'NONAKTIF' ? 'NONAKTIF' : 'AKTIF',
+                    status: d.status === 'AKTIF' ? 'AKTIF' : 'NONAKTIF',
                 };
             });
 
