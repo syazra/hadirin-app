@@ -774,13 +774,15 @@ export async function tutupSesi(
 }
 
 /**
- * Mendengarkan daftar sesi aktif (tidak diarsipkan) berdasarkan kelas,
- * diurutkan berdasarkan waktuMulai menaik.
+ * Mendengarkan daftar sesi berdasarkan kelas, diurutkan berdasarkan waktuMulai menaik.
+ * Secara default hanya mengambil sesi aktif (diarsipkan === false); sertakanArsip = true
+ * menampilkan seluruh sesi termasuk yang diarsipkan (mode baca saja untuk kelas arsip).
  */
 export function listenSesiKelas(
     idKelas: string,
     callback: (sesi: Sesi[]) => void,
     onError: (error: Error) => void,
+    sertakanArsip = false,
 ): () => void {
     const idKelasRapi = typeof idKelas === 'string' ? idKelas.trim() : '';
     if (idKelasRapi.length === 0) {
@@ -796,12 +798,17 @@ export function listenSesiKelas(
     }
 
     const { db } = getFirebaseServices();
-    const q = query(
-        collection(db, 'sesi'),
-        where('kelasId', '==', idKelasRapi),
-        where('diarsipkan', '==', false),
-        orderBy('waktuMulai', 'asc'),
-    );
+    const q = sertakanArsip
+        ? query(
+              collection(db, 'sesi'),
+              where('kelasId', '==', idKelasRapi),
+          )
+        : query(
+              collection(db, 'sesi'),
+              where('kelasId', '==', idKelasRapi),
+              where('diarsipkan', '==', false),
+              orderBy('waktuMulai', 'asc'),
+          );
 
     return onSnapshot(
         q,
@@ -813,6 +820,11 @@ export function listenSesiKelas(
                     daftarSesi.push(sesi);
                 }
             }
+            if (sertakanArsip) {
+                daftarSesi.sort(
+                    (a, b) => a.waktuMulai.getTime() - b.waktuMulai.getTime(),
+                );
+            }
             callback(daftarSesi);
         },
         (error) => {
@@ -822,8 +834,7 @@ export function listenSesiKelas(
 }
 
 /**
- * Mendengarkan detail sesi berdasarkan ID.
- * Digunakan untuk detail sesi aktif maupun akses riwayat pribadi.
+ * Mendengarkan perubahan satu dokumen sesi secara real-time berdasarkan ID sesi.
  */
 export function listenSesiById(
     idSesi: string,
@@ -849,6 +860,10 @@ export function listenSesiById(
     return onSnapshot(
         sesiRef,
         (docSnap) => {
+            if (!docSnap.exists()) {
+                callback(null);
+                return;
+            }
             callback(petakanDokumenSesi(docSnap));
         },
         (error) => {

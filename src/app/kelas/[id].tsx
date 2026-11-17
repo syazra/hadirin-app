@@ -260,7 +260,10 @@ export default function DetailKelasScreen() {
         loading: loadingKelas,
         error: errorKelas,
         cobaLagi: cobaLagiKelas,
-    } = useKelasAsisten(pengguna?.uid ?? null);
+    } = useKelasAsisten(pengguna?.uid ?? null, {
+        sertakanArsip: true,
+        hitungPeserta: false,
+    });
 
     const {
         peserta,
@@ -318,6 +321,7 @@ export default function DetailKelasScreen() {
                             : 'Gagal memuat daftar sesi kelas.',
                 });
             },
+            true,
         );
 
         return () => {
@@ -367,7 +371,7 @@ export default function DetailKelasScreen() {
     const [loadingArsipSesi, setLoadingArsipSesi] = useState(false);
 
     const handleUbahKelas = async (namaPraktikum: string) => {
-        if (!kelasAktif) return;
+        if (!kelasAktif || kelasAktif.diarsipkan) return;
         setLoadingEdit(true);
         setErrorEdit(null);
 
@@ -383,7 +387,7 @@ export default function DetailKelasScreen() {
     };
 
     const handleArsipkanKelas = async () => {
-        if (!kelasAktif || loadingArsip) return;
+        if (!kelasAktif || kelasAktif.diarsipkan || loadingArsip) return;
         setLoadingArsip(true);
 
         const hasil = await arsipkanKelas(kelasAktif.idKelas);
@@ -395,11 +399,10 @@ export default function DetailKelasScreen() {
         }
 
         setArsipTerbuka(false);
-        router.back();
     };
 
     const handleTambahPeserta = async (kodePeserta: string) => {
-        if (!kelasAktif) return;
+        if (!kelasAktif || kelasAktif.diarsipkan) return;
         setLoadingTambahPeserta(true);
         setErrorTambahPeserta(null);
 
@@ -418,7 +421,14 @@ export default function DetailKelasScreen() {
     };
 
     const handleKonfirmasiNonaktif = async () => {
-        if (!pesertaDinonaktifkan || loadingStatusPeserta) return;
+        if (
+            !kelasAktif ||
+            kelasAktif.diarsipkan ||
+            !pesertaDinonaktifkan ||
+            loadingStatusPeserta
+        ) {
+            return;
+        }
         setLoadingStatusPeserta(true);
 
         const hasil = await nonaktifkanPeserta(
@@ -435,7 +445,7 @@ export default function DetailKelasScreen() {
     };
 
     const handleSimpanSesi = async (nilai: NilaiFormSesi) => {
-        if (!kelasAktif || loadingSimpanSesi) return;
+        if (!kelasAktif || kelasAktif.diarsipkan || loadingSimpanSesi) return;
         setLoadingSimpanSesi(true);
         setErrorFormSesi(null);
 
@@ -474,7 +484,14 @@ export default function DetailKelasScreen() {
     };
 
     const handleKonfirmasiArsipSesi = async () => {
-        if (!sesiDiarsipkan || loadingArsipSesi) return;
+        if (
+            !kelasAktif ||
+            kelasAktif.diarsipkan ||
+            !sesiDiarsipkan ||
+            loadingArsipSesi
+        ) {
+            return;
+        }
         setLoadingArsipSesi(true);
 
         const hasil = await arsipkanSesi(sesiDiarsipkan.idSesi);
@@ -489,6 +506,7 @@ export default function DetailKelasScreen() {
     };
 
     const handleTekanTambah = () => {
+        if (!kelasAktif || kelasAktif.diarsipkan) return;
         if (filter === 'sesi') {
             setModeFormSesi('tambah');
             setSesiDiedit(null);
@@ -525,15 +543,24 @@ export default function DetailKelasScreen() {
                 <View style={styles.container}>
                     <EmptyState
                         judul="Kelas tidak ditemukan"
-                        pesan="Kelas mungkin sudah diarsipkan atau Anda tidak memiliki akses ke kelas ini."
+                        pesan="Kelas tidak tersedia atau Anda tidak memiliki akses ke kelas ini."
                     />
                 </View>
             </>
         );
     }
 
-    // Hanya ambil peserta berstatus AKTIF; yang NONAKTIF diabaikan sepenuhnya
-    const pesertaAktif = peserta.filter((p) => p.status === 'AKTIF');
+    const jumlahPesertaAktif = peserta.filter((p) => p.status === 'AKTIF').length;
+    const daftarPesertaUrut = [...peserta].sort((a, b) => {
+        if (a.status === b.status) return 0;
+        return a.status === 'AKTIF' ? -1 : 1;
+    });
+
+    const jumlahSesiAktif = sesiKelas.filter((s) => !s.diarsipkan).length;
+    const daftarSesiUrut = [...sesiKelas].sort((a, b) => {
+        if (a.diarsipkan === b.diarsipkan) return 0;
+        return a.diarsipkan ? 1 : -1;
+    });
 
     return (
         <>
@@ -543,7 +570,12 @@ export default function DetailKelasScreen() {
             <View style={styles.container}>
                 {/* Bagian atas: tetap diam, tidak ikut tergulir */}
                 <View style={styles.headerTetap}>
-                    <View style={styles.hero}>
+                    <View
+                        style={[
+                            styles.hero,
+                            kelasAktif.diarsipkan && styles.heroDiarsipkan,
+                        ]}
+                    >
                         <View style={styles.heroBarisAtas}>
                             <View style={styles.heroIkon}>
                                 <Text style={styles.heroIkonTeks}>
@@ -592,7 +624,7 @@ export default function DetailKelasScreen() {
                         <View style={styles.heroBarisBawah}>
                             <View style={styles.heroChip}>
                                 <Text style={styles.heroChipAngka}>
-                                    {pesertaAktif.length}
+                                    {jumlahPesertaAktif}
                                 </Text>
                                 <Text style={styles.heroChipLabel}>
                                     Praktikan
@@ -600,7 +632,7 @@ export default function DetailKelasScreen() {
                             </View>
                             <View style={styles.heroChip}>
                                 <Text style={styles.heroChipAngka}>
-                                    {sesiKelas.length}
+                                    {jumlahSesiAktif}
                                 </Text>
                                 <Text style={styles.heroChipLabel}>Sesi</Text>
                             </View>
@@ -649,8 +681,8 @@ export default function DetailKelasScreen() {
 
                     <FilterKelasBar
                         aktif={filter}
-                        jumlahSesi={sesiKelas.length}
-                        jumlahPraktikan={pesertaAktif.length}
+                        jumlahSesi={jumlahSesiAktif}
+                        jumlahPraktikan={jumlahPesertaAktif}
                         onGanti={setFilter}
                         onTambah={
                             kelasAktif.diarsipkan
@@ -685,206 +717,252 @@ export default function DetailKelasScreen() {
                                         layarPenuh={false}
                                     />
                                 </View>
-                            ) : sesiKelas.length === 0 ? (
+                            ) : daftarSesiUrut.length === 0 ? (
                                 <EmptyState
                                     judul="Belum ada sesi"
-                                    pesan="Tambahkan sesi praktikum untuk mulai mengelola jadwal dan presensi."
+                                    pesan={
+                                        kelasAktif.diarsipkan
+                                            ? 'Tidak ada sesi yang tersimpan pada kelas arsip ini.'
+                                            : 'Tambahkan sesi praktikum untuk mulai mengelola jadwal dan presensi.'
+                                    }
                                 />
                             ) : (
                                 <View style={styles.daftarPeserta}>
-                                    {sesiKelas.map((item) => (
-                                        <Pressable
-                                            key={item.idSesi}
-                                            onPress={() =>
-                                                router.push({
-                                                    pathname: '/sesi/[id]',
-                                                    params: { id: item.idSesi },
-                                                })
-                                            }
-                                            accessibilityRole="button"
-                                            accessibilityLabel={`Buka detail sesi ${item.judul}`}
-                                            // Kurangi sensitivitas saat menggulir: jari yang
-                                            // bergeser keluar kartu membatalkan tap, dan efek
-                                            // tekan baru muncul setelah jeda singkat.
-                                            pressRetentionOffset={0}
-                                            unstable_pressDelay={100}
-                                            style={({ pressed }) => [
-                                                styles.kartuSesi,
-                                                pressed && styles.ditekan,
-                                            ]}
-                                        >
-                                            <View
-                                                style={[
-                                                    styles.sesiAksen,
-                                                    item.statusSesi ===
-                                                        'DIBUKA' &&
-                                                        styles.sesiAksenAktif,
+                                    {daftarSesiUrut.map((item) => {
+                                        const sesiTerkunci =
+                                            kelasAktif.diarsipkan ||
+                                            item.diarsipkan;
+
+                                        return (
+                                            <Pressable
+                                                key={item.idSesi}
+                                                onPress={() =>
+                                                    router.push({
+                                                        pathname: '/sesi/[id]',
+                                                        params: {
+                                                            id: item.idSesi,
+                                                        },
+                                                    })
+                                                }
+                                                accessibilityRole="button"
+                                                accessibilityLabel={`Buka detail sesi ${item.judul}`}
+                                                // Kurangi sensitivitas saat menggulir: jari yang
+                                                // bergeser keluar kartu membatalkan tap, dan efek
+                                                // tekan baru muncul setelah jeda singkat.
+                                                pressRetentionOffset={0}
+                                                unstable_pressDelay={100}
+                                                style={({ pressed }) => [
+                                                    styles.kartuSesi,
+                                                    item.diarsipkan &&
+                                                        styles.kartuRedup,
+                                                    pressed && styles.ditekan,
                                                 ]}
-                                            />
-                                            <View style={styles.sesiIsi}>
+                                            >
                                                 <View
-                                                    style={
-                                                        styles.sesiBarisUtama
-                                                    }
-                                                >
-                                                    <View
-                                                        style={[
-                                                            styles.sesiTanggal,
+                                                    style={[
+                                                        styles.sesiAksen,
+                                                        !item.diarsipkan &&
                                                             item.statusSesi ===
                                                                 'DIBUKA' &&
-                                                                styles.sesiTanggalAktif,
-                                                        ]}
-                                                    >
-                                                        <Text
-                                                            style={[
-                                                                styles.sesiTanggalAngka,
-                                                                item.statusSesi ===
-                                                                    'DIBUKA' &&
-                                                                    styles.sesiTanggalAngkaAktif,
-                                                            ]}
-                                                        >
-                                                            {item.waktuMulai.getDate()}
-                                                        </Text>
-                                                        <Text
-                                                            style={
-                                                                styles.sesiTanggalBulan
-                                                            }
-                                                        >
-                                                            {
-                                                                BULAN_SINGKAT[
-                                                                    item.waktuMulai.getMonth()
-                                                                ]
-                                                            }
-                                                        </Text>
-                                                    </View>
-
+                                                            styles.sesiAksenAktif,
+                                                    ]}
+                                                />
+                                                <View style={styles.sesiIsi}>
                                                     <View
-                                                        style={styles.sesiInfo}
-                                                    >
-                                                        <View
-                                                            style={
-                                                                styles.barisAtas
-                                                            }
-                                                        >
-                                                            <Text
-                                                                style={
-                                                                    styles.namaPeserta
-                                                                }
-                                                                numberOfLines={
-                                                                    2
-                                                                }
-                                                            >
-                                                                {item.judul}
-                                                            </Text>
-                                                            <StatusBadge
-                                                                status={
-                                                                    item.statusSesi
-                                                                }
-                                                            />
-                                                        </View>
-                                                        <Text
-                                                            style={styles.meta}
-                                                        >
-                                                            Lokasi:{' '}
-                                                            {item.lokasi}
-                                                        </Text>
-                                                        <Text
-                                                            style={styles.meta}
-                                                        >
-                                                            Mulai:{' '}
-                                                            {formatWaktu(
-                                                                item.waktuMulai.toISOString(),
-                                                            )}
-                                                            {item.waktuSelesai
-                                                                ? ` · Selesai: ${formatWaktu(item.waktuSelesai.toISOString())}`
-                                                                : ''}
-                                                        </Text>
-                                                    </View>
-                                                </View>
-
-                                                <View
-                                                    style={
-                                                        styles.barisTombolSesi
-                                                    }
-                                                >
-                                                    {!kelasAktif.diarsipkan ? (
-                                                        <Pressable
-                                                            onPress={(e) => {
-                                                                e.stopPropagation();
-                                                                setModeFormSesi(
-                                                                    'ubah',
-                                                                );
-                                                                setSesiDiedit(
-                                                                    item,
-                                                                );
-                                                                setErrorFormSesi(
-                                                                    null,
-                                                                );
-                                                                setFormSesiTerbuka(
-                                                                    true,
-                                                                );
-                                                            }}
-                                                            accessibilityRole="button"
-                                                            style={({
-                                                                pressed,
-                                                            }) => [
-                                                                styles.tombolSekunder,
-                                                                pressed &&
-                                                                    styles.ditekan,
-                                                            ]}
-                                                        >
-                                                            <Text
-                                                                style={
-                                                                    styles.tombolSekunderTeks
-                                                                }
-                                                            >
-                                                                Ubah
-                                                            </Text>
-                                                        </Pressable>
-                                                    ) : null}
-
-                                                    {item.statusSesi !==
-                                                    'DIBUKA' ? (
-                                                        <Pressable
-                                                            onPress={(e) => {
-                                                                e.stopPropagation();
-                                                                setSesiDiarsipkan(
-                                                                    item,
-                                                                );
-                                                            }}
-                                                            accessibilityRole="button"
-                                                            style={({
-                                                                pressed,
-                                                            }) => [
-                                                                styles.tombolBahaya,
-                                                                pressed &&
-                                                                    styles.ditekan,
-                                                            ]}
-                                                        >
-                                                            <Text
-                                                                style={
-                                                                    styles.tombolBahayaTeks
-                                                                }
-                                                            >
-                                                                Arsipkan
-                                                            </Text>
-                                                        </Pressable>
-                                                    ) : null}
-
-                                                    <View
-                                                        style={styles.spacer}
-                                                    />
-                                                    <Text
                                                         style={
-                                                            styles.lihatDetailTeks
+                                                            styles.sesiBarisUtama
                                                         }
                                                     >
-                                                        Detail sesi ›
-                                                    </Text>
+                                                        <View
+                                                            style={[
+                                                                styles.sesiTanggal,
+                                                                !item.diarsipkan &&
+                                                                    item.statusSesi ===
+                                                                        'DIBUKA' &&
+                                                                    styles.sesiTanggalAktif,
+                                                            ]}
+                                                        >
+                                                            <Text
+                                                                style={[
+                                                                    styles.sesiTanggalAngka,
+                                                                    !item.diarsipkan &&
+                                                                        item.statusSesi ===
+                                                                            'DIBUKA' &&
+                                                                        styles.sesiTanggalAngkaAktif,
+                                                                ]}
+                                                            >
+                                                                {item.waktuMulai.getDate()}
+                                                            </Text>
+                                                            <Text
+                                                                style={
+                                                                    styles.sesiTanggalBulan
+                                                                }
+                                                            >
+                                                                {
+                                                                    BULAN_SINGKAT[
+                                                                        item.waktuMulai.getMonth()
+                                                                    ]
+                                                                }
+                                                            </Text>
+                                                        </View>
+
+                                                        <View
+                                                            style={
+                                                                styles.sesiInfo
+                                                            }
+                                                        >
+                                                            <View
+                                                                style={
+                                                                    styles.barisAtas
+                                                                }
+                                                            >
+                                                                <Text
+                                                                    style={
+                                                                        styles.namaPeserta
+                                                                    }
+                                                                    numberOfLines={
+                                                                        2
+                                                                    }
+                                                                >
+                                                                    {item.judul}
+                                                                </Text>
+                                                                {item.diarsipkan ? (
+                                                                    <View
+                                                                        style={
+                                                                            styles.badgeRedup
+                                                                        }
+                                                                    >
+                                                                        <Text
+                                                                            style={
+                                                                                styles.badgeRedupTeks
+                                                                            }
+                                                                        >
+                                                                            Diarsipkan
+                                                                        </Text>
+                                                                    </View>
+                                                                ) : (
+                                                                    <StatusBadge
+                                                                        status={
+                                                                            item.statusSesi
+                                                                        }
+                                                                    />
+                                                                )}
+                                                            </View>
+                                                            <Text
+                                                                style={
+                                                                    styles.meta
+                                                                }
+                                                            >
+                                                                Lokasi:{' '}
+                                                                {item.lokasi}
+                                                            </Text>
+                                                            <Text
+                                                                style={
+                                                                    styles.meta
+                                                                }
+                                                            >
+                                                                Mulai:{' '}
+                                                                {formatWaktu(
+                                                                    item.waktuMulai.toISOString(),
+                                                                )}
+                                                                {item.waktuSelesai
+                                                                    ? ` · Selesai: ${formatWaktu(item.waktuSelesai.toISOString())}`
+                                                                    : ''}
+                                                            </Text>
+                                                        </View>
+                                                    </View>
+
+                                                    <View
+                                                        style={
+                                                            styles.barisTombolSesi
+                                                        }
+                                                    >
+                                                        {!sesiTerkunci ? (
+                                                            <Pressable
+                                                                onPress={(
+                                                                    e,
+                                                                ) => {
+                                                                    e.stopPropagation();
+                                                                    setModeFormSesi(
+                                                                        'ubah',
+                                                                    );
+                                                                    setSesiDiedit(
+                                                                        item,
+                                                                    );
+                                                                    setErrorFormSesi(
+                                                                        null,
+                                                                    );
+                                                                    setFormSesiTerbuka(
+                                                                        true,
+                                                                    );
+                                                                }}
+                                                                accessibilityRole="button"
+                                                                style={({
+                                                                    pressed,
+                                                                }) => [
+                                                                    styles.tombolSekunder,
+                                                                    pressed &&
+                                                                        styles.ditekan,
+                                                                ]}
+                                                            >
+                                                                <Text
+                                                                    style={
+                                                                        styles.tombolSekunderTeks
+                                                                    }
+                                                                >
+                                                                    Ubah
+                                                                </Text>
+                                                            </Pressable>
+                                                        ) : null}
+
+                                                        {!sesiTerkunci &&
+                                                        item.statusSesi !==
+                                                            'DIBUKA' ? (
+                                                            <Pressable
+                                                                onPress={(
+                                                                    e,
+                                                                ) => {
+                                                                    e.stopPropagation();
+                                                                    setSesiDiarsipkan(
+                                                                        item,
+                                                                    );
+                                                                }}
+                                                                accessibilityRole="button"
+                                                                style={({
+                                                                    pressed,
+                                                                }) => [
+                                                                    styles.tombolBahaya,
+                                                                    pressed &&
+                                                                        styles.ditekan,
+                                                                ]}
+                                                            >
+                                                                <Text
+                                                                    style={
+                                                                        styles.tombolBahayaTeks
+                                                                    }
+                                                                >
+                                                                    Arsipkan
+                                                                </Text>
+                                                            </Pressable>
+                                                        ) : null}
+
+                                                        <View
+                                                            style={
+                                                                styles.spacer
+                                                            }
+                                                        />
+                                                        <Text
+                                                            style={
+                                                                styles.lihatDetailTeks
+                                                            }
+                                                        >
+                                                            Detail sesi ›
+                                                        </Text>
+                                                    </View>
                                                 </View>
-                                            </View>
-                                        </Pressable>
-                                    ))}
+                                            </Pressable>
+                                        );
+                                    })}
                                 </View>
                             )}
                         </>
@@ -905,73 +983,106 @@ export default function DetailKelasScreen() {
                                         layarPenuh={false}
                                     />
                                 </View>
-                            ) : pesertaAktif.length === 0 ? (
+                            ) : daftarPesertaUrut.length === 0 ? (
                                 <EmptyState
                                     judul="Belum ada peserta"
-                                    pesan="Tambahkan praktikan menggunakan 8 karakter kode peserta dari profil mereka."
+                                    pesan={
+                                        kelasAktif.diarsipkan
+                                            ? 'Tidak ada praktikan yang tersimpan pada kelas arsip ini.'
+                                            : 'Tambahkan praktikan menggunakan 8 karakter kode peserta dari profil mereka.'
+                                    }
                                 />
                             ) : (
                                 <View style={styles.daftarPeserta}>
-                                    {pesertaAktif.map((item) => (
-                                        <View
-                                            key={item.idKeanggotaan}
-                                            style={styles.kartuPeserta}
-                                        >
-                                            <View style={styles.avatar}>
-                                                <Text
-                                                    style={styles.avatarTeks}
-                                                >
-                                                    {buatInisial(item.nama)}
-                                                </Text>
-                                            </View>
+                                    {daftarPesertaUrut.map((item) => {
+                                        const isNonaktif =
+                                            item.status === 'NONAKTIF';
 
-                                            <View style={styles.infoPeserta}>
-                                                <View
-                                                    style={
-                                                        styles.barisNamaPeserta
-                                                    }
-                                                >
+                                        return (
+                                            <View
+                                                key={item.idKeanggotaan}
+                                                style={[
+                                                    styles.kartuPeserta,
+                                                    isNonaktif &&
+                                                        styles.kartuRedup,
+                                                ]}
+                                            >
+                                                <View style={styles.avatar}>
                                                     <Text
                                                         style={
-                                                            styles.namaPeserta
+                                                            styles.avatarTeks
                                                         }
                                                     >
-                                                        {item.nama}
+                                                        {buatInisial(item.nama)}
                                                     </Text>
                                                 </View>
-                                                <Text style={styles.meta}>
-                                                    NIM: {item.nim}
-                                                </Text>
-                                            </View>
 
-                                            {!kelasAktif.diarsipkan ? (
-                                                <Pressable
-                                                    disabled={
-                                                        loadingStatusPeserta
-                                                    }
-                                                    onPress={() =>
-                                                        setPesertaDinonaktifkan(
-                                                            item,
-                                                        )
-                                                    }
-                                                    accessibilityRole="button"
-                                                    style={({ pressed }) => [
-                                                        styles.tombolBahaya,
-                                                        pressed &&
-                                                            styles.ditekan,
-                                                    ]}
+                                                <View
+                                                    style={styles.infoPeserta}
                                                 >
-                                                    <Text
+                                                    <View
                                                         style={
-                                                            styles.tombolBahayaTeks
+                                                            styles.barisNamaPeserta
                                                         }
                                                     >
-                                                        Nonaktifkan
+                                                        <Text
+                                                            style={
+                                                                styles.namaPeserta
+                                                            }
+                                                        >
+                                                            {item.nama}
+                                                        </Text>
+                                                    </View>
+                                                    <Text style={styles.meta}>
+                                                        NIM: {item.nim}
                                                     </Text>
-                                                </Pressable>
-                                            ) : null}
-                                        </View>
-                                    ))}
+                                                </View>
+
+                                                {isNonaktif ? (
+                                                    <View
+                                                        style={
+                                                            styles.badgeRedup
+                                                        }
+                                                    >
+                                                        <Text
+                                                            style={
+                                                                styles.badgeRedupTeks
+                                                            }
+                                                        >
+                                                            Nonaktif
+                                                        </Text>
+                                                    </View>
+                                                ) : !kelasAktif.diarsipkan ? (
+                                                    <Pressable
+                                                        disabled={
+                                                            loadingStatusPeserta
+                                                        }
+                                                        onPress={() =>
+                                                            setPesertaDinonaktifkan(
+                                                                item,
+                                                            )
+                                                        }
+                                                        accessibilityRole="button"
+                                                        style={({
+                                                            pressed,
+                                                        }) => [
+                                                            styles.tombolBahaya,
+                                                            pressed &&
+                                                                styles.ditekan,
+                                                        ]}
+                                                    >
+                                                        <Text
+                                                            style={
+                                                                styles.tombolBahayaTeks
+                                                            }
+                                                        >
+                                                            Nonaktifkan
+                                                        </Text>
+                                                    </Pressable>
+                                                ) : null}
+                                            </View>
+                                        );
+                                    })}
                                 </View>
                             )}
                         </>
@@ -1096,6 +1207,9 @@ const styles = StyleSheet.create({
         borderColor: Colors.light.border,
         backgroundColor: Colors.light.backgroundElement,
     },
+    heroDiarsipkan: {
+        opacity: 0.65,
+    },
     heroBarisAtas: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -1209,6 +1323,21 @@ const styles = StyleSheet.create({
     },
     daftarPeserta: {
         gap: 12,
+    },
+    kartuRedup: {
+        opacity: 0.58,
+    },
+    badgeRedup: {
+        alignSelf: 'flex-start',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 999,
+        backgroundColor: Colors.light.border,
+    },
+    badgeRedupTeks: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: Colors.light.textSecondary,
     },
     kartuSesi: {
         flexDirection: 'row',
