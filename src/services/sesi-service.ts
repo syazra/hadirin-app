@@ -517,21 +517,36 @@ export async function ubahSesi(
                 return errorWaktu;
             }
 
+            // Hanya kirim field yang benar-benar berubah. Aturan Firestore
+            // menolak update yang tidak mengubah apa pun (affectedKeys kosong),
+            // dan penolakan itu muncul sebagai "permission-denied".
             const payloadUpdate: Record<string, unknown> = {};
-            if (judulBaru !== undefined) {
+            if (judulBaru !== undefined && judulBaru !== sesiData.judul) {
                 payloadUpdate.judul = judulBaru;
             }
-            if (lokasiBaru !== undefined) {
+            if (lokasiBaru !== undefined && lokasiBaru !== sesiData.lokasi) {
                 payloadUpdate.lokasi = lokasiBaru;
             }
-            if (data.waktuMulai !== undefined) {
+            if (
+                data.waktuMulai !== undefined &&
+                data.waktuMulai.getTime() !== waktuMulaiLama?.getTime()
+            ) {
                 payloadUpdate.waktuMulai = Timestamp.fromDate(data.waktuMulai);
             }
-            if (data.waktuSelesai !== undefined) {
+            if (
+                data.waktuSelesai !== undefined &&
+                (data.waktuSelesai?.getTime() ?? null) !==
+                    (waktuSelesaiLama?.getTime() ?? null)
+            ) {
                 payloadUpdate.waktuSelesai =
                     data.waktuSelesai !== null
                         ? Timestamp.fromDate(data.waktuSelesai)
                         : null;
+            }
+
+            if (Object.keys(payloadUpdate).length === 0) {
+                // Tidak ada yang berubah: anggap berhasil tanpa menulis ke Firestore.
+                return { ok: true, data: undefined } satisfies Hasil;
             }
 
             tx.update(sesiRef, payloadUpdate);
