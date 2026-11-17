@@ -17,7 +17,6 @@ import { arsipkanKelas, ubahKelas } from '@/services/kelas-service';
 import {
     nonaktifkanPeserta,
     tambahPesertaByKode,
-    ubahStatusPeserta,
 } from '@/services/peserta-service';
 import {
     arsipkanSesi,
@@ -435,18 +434,6 @@ export default function DetailKelasScreen() {
         setPesertaDinonaktifkan(null);
     };
 
-    const handleAktifkanPeserta = async (item: Keanggotaan) => {
-        if (loadingStatusPeserta) return;
-        setLoadingStatusPeserta(true);
-
-        const hasil = await ubahStatusPeserta(item.idKeanggotaan, 'AKTIF');
-        setLoadingStatusPeserta(false);
-
-        if (!hasil.ok) {
-            Alert.alert('Gagal mengaktifkan peserta', hasil.pesan);
-        }
-    };
-
     const handleSimpanSesi = async (nilai: NilaiFormSesi) => {
         if (!kelasAktif || loadingSimpanSesi) return;
         setLoadingSimpanSesi(true);
@@ -545,10 +532,8 @@ export default function DetailKelasScreen() {
         );
     }
 
-    const jumlahAktif = peserta.filter((p) => p.status === 'AKTIF').length;
-    const jumlahNonaktif = peserta.filter(
-        (p) => p.status === 'NONAKTIF',
-    ).length;
+    // Hanya ambil peserta berstatus AKTIF; yang NONAKTIF diabaikan sepenuhnya
+    const pesertaAktif = peserta.filter((p) => p.status === 'AKTIF');
 
     return (
         <>
@@ -607,7 +592,7 @@ export default function DetailKelasScreen() {
                         <View style={styles.heroBarisBawah}>
                             <View style={styles.heroChip}>
                                 <Text style={styles.heroChipAngka}>
-                                    {jumlahAktif}
+                                    {pesertaAktif.length}
                                 </Text>
                                 <Text style={styles.heroChipLabel}>
                                     Praktikan
@@ -619,16 +604,6 @@ export default function DetailKelasScreen() {
                                 </Text>
                                 <Text style={styles.heroChipLabel}>Sesi</Text>
                             </View>
-                            {jumlahNonaktif > 0 ? (
-                                <View style={styles.heroChip}>
-                                    <Text style={styles.heroChipAngka}>
-                                        {jumlahNonaktif}
-                                    </Text>
-                                    <Text style={styles.heroChipLabel}>
-                                        Nonaktif
-                                    </Text>
-                                </View>
-                            ) : null}
 
                             <View style={styles.spacer} />
 
@@ -675,7 +650,7 @@ export default function DetailKelasScreen() {
                     <FilterKelasBar
                         aktif={filter}
                         jumlahSesi={sesiKelas.length}
-                        jumlahPraktikan={peserta.length}
+                        jumlahPraktikan={pesertaAktif.length}
                         onGanti={setFilter}
                         onTambah={
                             kelasAktif.diarsipkan
@@ -930,140 +905,73 @@ export default function DetailKelasScreen() {
                                         layarPenuh={false}
                                     />
                                 </View>
-                            ) : peserta.length === 0 ? (
+                            ) : pesertaAktif.length === 0 ? (
                                 <EmptyState
                                     judul="Belum ada peserta"
                                     pesan="Tambahkan praktikan menggunakan 8 karakter kode peserta dari profil mereka."
                                 />
                             ) : (
                                 <View style={styles.daftarPeserta}>
-                                    {peserta.map((item) => {
-                                        const aktif = item.status === 'AKTIF';
-                                        return (
-                                            <View
-                                                key={item.idKeanggotaan}
-                                                style={[
-                                                    styles.kartuPeserta,
-                                                    !aktif &&
-                                                        styles.kartuPesertaNonaktif,
-                                                ]}
-                                            >
+                                    {pesertaAktif.map((item) => (
+                                        <View
+                                            key={item.idKeanggotaan}
+                                            style={styles.kartuPeserta}
+                                        >
+                                            <View style={styles.avatar}>
+                                                <Text
+                                                    style={styles.avatarTeks}
+                                                >
+                                                    {buatInisial(item.nama)}
+                                                </Text>
+                                            </View>
+
+                                            <View style={styles.infoPeserta}>
                                                 <View
-                                                    style={[
-                                                        styles.avatar,
-                                                        !aktif &&
-                                                            styles.avatarNonaktif,
+                                                    style={
+                                                        styles.barisNamaPeserta
+                                                    }
+                                                >
+                                                    <Text
+                                                        style={
+                                                            styles.namaPeserta
+                                                        }
+                                                    >
+                                                        {item.nama}
+                                                    </Text>
+                                                </View>
+                                                <Text style={styles.meta}>
+                                                    NIM: {item.nim}
+                                                </Text>
+                                            </View>
+
+                                            {!kelasAktif.diarsipkan ? (
+                                                <Pressable
+                                                    disabled={
+                                                        loadingStatusPeserta
+                                                    }
+                                                    onPress={() =>
+                                                        setPesertaDinonaktifkan(
+                                                            item,
+                                                        )
+                                                    }
+                                                    accessibilityRole="button"
+                                                    style={({ pressed }) => [
+                                                        styles.tombolBahaya,
+                                                        pressed &&
+                                                            styles.ditekan,
                                                     ]}
                                                 >
                                                     <Text
-                                                        style={[
-                                                            styles.avatarTeks,
-                                                            !aktif &&
-                                                                styles.avatarTeksNonaktif,
-                                                        ]}
-                                                    >
-                                                        {buatInisial(item.nama)}
-                                                    </Text>
-                                                </View>
-
-                                                <View
-                                                    style={styles.infoPeserta}
-                                                >
-                                                    <View
                                                         style={
-                                                            styles.barisNamaPeserta
+                                                            styles.tombolBahayaTeks
                                                         }
                                                     >
-                                                        <Text
-                                                            style={
-                                                                styles.namaPeserta
-                                                            }
-                                                        >
-                                                            {item.nama}
-                                                        </Text>
-                                                        {!aktif ? (
-                                                            <View
-                                                                style={[
-                                                                    styles.badge,
-                                                                    styles.badgeArsip,
-                                                                ]}
-                                                            >
-                                                                <Text
-                                                                    style={[
-                                                                        styles.badgeTeks,
-                                                                        styles.badgeTeksArsip,
-                                                                    ]}
-                                                                >
-                                                                    Nonaktif
-                                                                </Text>
-                                                            </View>
-                                                        ) : null}
-                                                    </View>
-                                                    <Text style={styles.meta}>
-                                                        NIM: {item.nim}
+                                                        Nonaktifkan
                                                     </Text>
-                                                </View>
-
-                                                {!kelasAktif.diarsipkan ? (
-                                                    aktif ? (
-                                                        <Pressable
-                                                            disabled={
-                                                                loadingStatusPeserta
-                                                            }
-                                                            onPress={() =>
-                                                                setPesertaDinonaktifkan(
-                                                                    item,
-                                                                )
-                                                            }
-                                                            accessibilityRole="button"
-                                                            style={({
-                                                                pressed,
-                                                            }) => [
-                                                                styles.tombolBahaya,
-                                                                pressed &&
-                                                                    styles.ditekan,
-                                                            ]}
-                                                        >
-                                                            <Text
-                                                                style={
-                                                                    styles.tombolBahayaTeks
-                                                                }
-                                                            >
-                                                                Nonaktifkan
-                                                            </Text>
-                                                        </Pressable>
-                                                    ) : (
-                                                        <Pressable
-                                                            disabled={
-                                                                loadingStatusPeserta
-                                                            }
-                                                            onPress={() =>
-                                                                handleAktifkanPeserta(
-                                                                    item,
-                                                                )
-                                                            }
-                                                            accessibilityRole="button"
-                                                            style={({
-                                                                pressed,
-                                                            }) => [
-                                                                styles.tombolSekunder,
-                                                                pressed &&
-                                                                    styles.ditekan,
-                                                            ]}
-                                                        >
-                                                            <Text
-                                                                style={
-                                                                    styles.tombolSekunderTeks
-                                                                }
-                                                            >
-                                                                Aktifkan
-                                                            </Text>
-                                                        </Pressable>
-                                                    )
-                                                ) : null}
-                                            </View>
-                                        );
-                                    })}
+                                                </Pressable>
+                                            ) : null}
+                                        </View>
+                                    ))}
                                 </View>
                             )}
                         </>
@@ -1392,20 +1300,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: Colors.light.accentSoft,
     },
-    avatarNonaktif: {
-        backgroundColor: Colors.light.border,
-    },
     avatarTeks: {
         fontSize: 14,
         fontWeight: '700',
         color: Colors.light.accent,
-    },
-    avatarTeksNonaktif: {
-        color: Colors.light.textSecondary,
-    },
-    kartuPesertaNonaktif: {
-        opacity: 0.7,
-        backgroundColor: Colors.light.background,
     },
     infoPeserta: {
         flex: 1,
@@ -1422,21 +1320,6 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: '600',
         color: Colors.light.text,
-    },
-    badge: {
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 999,
-    },
-    badgeArsip: {
-        backgroundColor: Colors.light.border,
-    },
-    badgeTeks: {
-        fontSize: 11,
-        fontWeight: '600',
-    },
-    badgeTeksArsip: {
-        color: Colors.light.textSecondary,
     },
     tombolSekunder: {
         paddingHorizontal: 12,
