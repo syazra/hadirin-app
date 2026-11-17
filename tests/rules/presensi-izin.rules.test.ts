@@ -84,8 +84,6 @@ beforeEach(async () => {
       statusSesi: 'DITUTUP',
       diarsipkan: false,
     });
-
-    await setDoc(doc(db, 'izin', ID_IZIN), dataIzin());
   });
 });
 
@@ -97,6 +95,17 @@ function dbSebagai(uid: string) {
   return testEnv.authenticatedContext(uid, {
     email: `${uid}@example.com`,
   }).firestore();
+}
+
+async function siapkanIzinAwal(statusAi = 'BELUM') {
+  await siapkanDataPresensiIzin();
+
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), 'izin', ID_IZIN),
+      dataIzin(statusAi),
+    );
+  });
 }
 
 async function siapkanDataPresensiIzin(
@@ -139,9 +148,10 @@ async function siapkanDataPresensiIzin(
       },
     );
 
+    const KODE_QR_VALID = '0123456789abcdef0123456789abcdef';
     await setDoc(
       doc(db, 'sesi', ID_SESI, 'rahasia', 'qr'),
-      { kodeQr: 'QR-VALID-123' },
+      { kodeQr: KODE_QR_VALID },
     );
 
     if (opsi.statusIzin) {
@@ -176,22 +186,27 @@ async function putuskan(
 }
 
 test('B07-01: asisten pemilik dapat menyetujui izin', async () => {
+  await siapkanIzinAwal();
   await assertSucceeds(putuskan('asisten-01', 'DISETUJUI'));
 });
 
 test('B07-02: asisten pemilik dapat menolak izin', async () => {
+  await siapkanIzinAwal();
   await assertSucceeds(putuskan('asisten-01', 'DITOLAK'));
 });
 
 test('B07-03: praktikan tidak boleh memutuskan izin', async () => {
+  await siapkanIzinAwal();
   await assertFails(putuskan('praktikan-01', 'DISETUJUI'));
 });
 
 test('B07-04: asisten kelas lain tidak boleh memutuskan izin', async () => {
+  await siapkanIzinAwal();
   await assertFails(putuskan('asisten-02', 'DISETUJUI'));
 });
 
 test('B07-05: keputusan kedua harus ditolak', async () => {
+  await siapkanIzinAwal();
   await assertSucceeds(putuskan('asisten-01', 'DISETUJUI'));
   await assertFails(putuskan('asisten-01', 'DITOLAK'));
 });
@@ -199,6 +214,7 @@ test('B07-05: keputusan kedua harus ditolak', async () => {
 test('B07-06: status keputusan selain DISETUJUI atau DITOLAK ditolak', async () => {
   const db = dbSebagai('asisten-01');
 
+  await siapkanIzinAwal();
   await assertFails(
     updateDoc(doc(db, 'izin', ID_IZIN), {
       statusIzin: 'MENUNGGU',
@@ -211,6 +227,7 @@ test('B07-06: status keputusan selain DISETUJUI atau DITOLAK ditolak', async () 
 test('B07-07: UID pemeriksa harus sesuai akun login', async () => {
   const db = dbSebagai('asisten-01');
 
+  await siapkanIzinAwal();
   await assertFails(
     updateDoc(doc(db, 'izin', ID_IZIN), {
       statusIzin: 'DISETUJUI',
@@ -223,6 +240,7 @@ test('B07-07: UID pemeriksa harus sesuai akun login', async () => {
 test('B07-08: waktu pemeriksaan harus berasal dari server', async () => {
   const db = dbSebagai('asisten-01');
 
+  await siapkanIzinAwal();
   await assertFails(
     updateDoc(doc(db, 'izin', ID_IZIN), {
       statusIzin: 'DISETUJUI',
@@ -235,6 +253,7 @@ test('B07-08: waktu pemeriksaan harus berasal dari server', async () => {
 test('B07-09: perubahan field tambahan saat keputusan ditolak', async () => {
   const db = dbSebagai('asisten-01');
 
+  await siapkanIzinAwal();
   await assertFails(
     updateDoc(doc(db, 'izin', ID_IZIN), {
       statusIzin: 'DISETUJUI',
@@ -257,6 +276,7 @@ test('B07-10: AI gagal tidak menghalangi keputusan manual', async () => {
 });
 
 test('B07-11: keputusan menyimpan UID pemeriksa dan waktu server', async () => {
+  await siapkanIzinAwal();
   await assertSucceeds(putuskan('asisten-01', 'DISETUJUI'));
 
   await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -285,6 +305,7 @@ test('B04-01: praktikan aktif dapat membuat presensi sendiri', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
+      kodeQr: '0123456789abcdef0123456789abcdef',
     }),
   );
 });
@@ -300,6 +321,7 @@ test('B04-02: presensi dengan UID orang lain ditolak', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-lain',
       waktuHadir: serverTimestamp(),
+      kodeQr: '0123456789abcdef0123456789abcdef',
     }),
   );
 });
@@ -315,6 +337,7 @@ test('B04-03: presensi pada sesi yang belum dibuka ditolak', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
+      kodeQr: '0123456789abcdef0123456789abcdef',
     }),
   );
 });
@@ -330,6 +353,7 @@ test('B04-04: presensi pada sesi yang sudah ditutup ditolak', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
+      kodeQr: '0123456789abcdef0123456789abcdef',
     }),
   );
 });
@@ -345,6 +369,7 @@ test('B04-05: anggota nonaktif tidak dapat melakukan presensi', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
+      kodeQr: '0123456789abcdef0123456789abcdef',
     }),
   );
 });
@@ -360,6 +385,7 @@ test('B04-06: presensi kedua pada sesi yang sama ditolak', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
+      kodeQr: '0123456789abcdef0123456789abcdef',
     }),
   );
 });
@@ -375,6 +401,7 @@ test('B04-07: presensi saat izin masih MENUNGGU ditolak', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
+      kodeQr: '0123456789abcdef0123456789abcdef',
     }),
   );
 });
@@ -390,6 +417,7 @@ test('B04-08: presensi saat izin DISETUJUI ditolak', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
+      kodeQr: '0123456789abcdef0123456789abcdef',
     }),
   );
 });
@@ -405,6 +433,7 @@ test('B04-09: izin DITOLAK tidak menghalangi presensi', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
+      kodeQr: '0123456789abcdef0123456789abcdef',
     }),
   );
 });

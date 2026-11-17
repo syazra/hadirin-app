@@ -358,6 +358,65 @@ service cloud.firestore {
         && presensiId.matches('^.+_' + request.auth.uid + '$');
     }
 
+    function izinBaruValid(izinId) {
+      let data = request.resource.data;
+      let sesiId = data.sesiId;
+      let uid = request.auth.uid;
+      let sesi = get(pathSesi(sesiId)).data;
+
+      return isPraktikan()
+        && data.keys().hasAll([
+          'sesiId', 'kelasId', 'uid', 'alasan', 'statusIzin',
+          'diperiksaOleh', 'waktuPeriksa', 'kategoriAi',
+          'statusAi', 'modelAi', 'waktuAi', 'dibuatPada'
+        ])
+        && data.keys().hasOnly([
+          'sesiId', 'kelasId', 'uid', 'alasan', 'statusIzin',
+          'diperiksaOleh', 'waktuPeriksa', 'kategoriAi',
+          'statusAi', 'modelAi', 'waktuAi', 'dibuatPada'
+        ])
+        && sesiId is string
+        && data.kelasId is string
+        && data.uid == uid
+        && izinId == sesiId + '_' + uid
+        && data.kelasId == sesi.kelasId
+        && teksValid(data.alasan, 2000)
+        && data.statusIzin == 'MENUNGGU'
+        && data.diperiksaOleh == null
+        && data.waktuPeriksa == null
+        && data.kategoriAi == null
+        && data.statusAi == 'BELUM'
+        && data.modelAi == null
+        && data.waktuAi == null
+        && data.dibuatPada == request.time
+        && sesi.statusSesi == 'DIBUKA'
+        && sesi.diarsipkan == false
+        && kelasAktif(data.kelasId)
+        && anggotaAktif(data.kelasId, uid)
+        && !exists(pathIzin(sesiId, uid))
+        && !exists(pathPresensi(sesiId, uid));
+    }
+
+    function izinKeputusanValid() {
+      let data = request.resource.data;
+      let sesiId = resource.data.sesiId;
+
+      return isAsisten()
+        && resource.data.statusIzin == 'MENUNGGU'
+        && sesiId is string
+        && resource.data.kelasId == get(pathSesi(sesiId)).data.kelasId
+        && sesiDimilikiAsisten(sesiId)
+        && data.diff(resource.data).affectedKeys().hasAll([
+          'statusIzin', 'diperiksaOleh', 'waktuPeriksa'
+        ])
+        && data.diff(resource.data).affectedKeys().hasOnly([
+          'statusIzin', 'diperiksaOleh', 'waktuPeriksa'
+        ])
+        && data.statusIzin in ['DISETUJUI', 'DITOLAK']
+        && data.diperiksaOleh == request.auth.uid
+        && data.waktuPeriksa == request.time;
+    }
+
     function kodeMilikSendiri(kode) {
       return signedIn()
         && exists(pathPengguna(request.auth.uid))
@@ -512,7 +571,9 @@ service cloud.firestore {
         && sesiDimilikiAsisten(resource.data.sesiId)
       );
 
-      allow create, update, delete: if false;
+      allow create: if izinBaruValid(izinId);
+      allow update: if izinKeputusanValid();
+      allow delete: if false;
     }
 
     match /{document=**} {
