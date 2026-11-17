@@ -628,3 +628,158 @@ test('B08-04: peserta NONAKTIF tetap dapat membaca riwayat presensi/izin pribadi
     getDocs(query(collection(dbPraktikan, 'keanggotaan'), where('uid', '==', 'praktikan-01'))),
   );
 });
+
+// ==========================================
+// #51 — PEMBARUAN JADWAL SESI & AFFECTED KEYS
+// ==========================================
+
+test('#51-01: update jadwal sesi tanpa perubahan nilai (no-op update) ditolak oleh Rules karena affectedKeys kosong', async () => {
+  const mulai = new Date('2026-11-20T09:00:00Z');
+  const selesai = new Date('2026-11-20T11:00:00Z');
+
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const adminDb = context.firestore();
+    await setDoc(doc(adminDb, 'sesi', ID_SESI), {
+      kelasId: ID_KELAS,
+      judul: 'Pertemuan 1: Firestore',
+      lokasi: 'Lab Komputer A',
+      waktuMulai: mulai,
+      waktuSelesai: selesai,
+      statusSesi: 'BELUM_DIBUKA',
+      diarsipkan: false,
+    });
+  });
+
+  const db = dbSebagai('asisten-01');
+
+  // Mengirim nilai yang identik dengan dokumen eksisting menghasilkan affectedKeys kosong -> ditolak Rules
+  // (Service/form aplikasi wajib mendeteksi no-op sebelum memanggil updateDoc)
+  await assertFails(
+    updateDoc(doc(db, 'sesi', ID_SESI), {
+      judul: 'Pertemuan 1: Firestore',
+      lokasi: 'Lab Komputer A',
+      waktuMulai: mulai,
+      waktuSelesai: selesai,
+    }),
+  );
+});
+
+test('#51-02: update jadwal sesi berhasil jika minimal satu field berubah meskipun field jadwal lain dikirim sama', async () => {
+  const mulai = new Date('2026-11-20T09:00:00Z');
+  const selesai = new Date('2026-11-20T11:00:00Z');
+
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const adminDb = context.firestore();
+    await setDoc(doc(adminDb, 'sesi', ID_SESI), {
+      kelasId: ID_KELAS,
+      judul: 'Pertemuan 1: Firestore',
+      lokasi: 'Lab Komputer A',
+      waktuMulai: mulai,
+      waktuSelesai: selesai,
+      statusSesi: 'BELUM_DIBUKA',
+      diarsipkan: false,
+    });
+  });
+
+  const db = dbSebagai('asisten-01');
+
+  // Hanya lokasi yang berubah, field jadwal lainnya tetap dikirim dari form -> berhasil
+  await assertSucceeds(
+    updateDoc(doc(db, 'sesi', ID_SESI), {
+      judul: 'Pertemuan 1: Firestore',
+      lokasi: 'Lab Komputer B',
+      waktuMulai: mulai,
+      waktuSelesai: selesai,
+    }),
+  );
+});
+
+// ==========================================
+// #40 — DETAIL KELAS ARSIP & PEMBATASAN LISTENER PRAKTIKAN
+// ==========================================
+
+test('#40-01: asisten pemilik dapat membaca detail dan daftar kelas yang sudah diarsipkan', async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await updateDoc(doc(context.firestore(), 'kelas', ID_KELAS), {
+      diarsipkan: true,
+    });
+  });
+
+  const dbAsisten = dbSebagai('asisten-01');
+
+  // Detail kelas arsip (kelas/[id].tsx) tetap bisa dibaca pemilik
+  await assertSucceeds(getDoc(doc(dbAsisten, 'kelas', ID_KELAS)));
+
+  // List semua kelas milik asisten (tanpa filter diarsipkan == false) tetap diizinkan
+  await assertSucceeds(
+    getDocs(
+      query(
+        collection(dbAsisten, 'kelas'),
+        where('asistenUid', '==', 'asisten-01'),
+      ),
+    ),
+  );
+});
+
+test('#40-02: listener keanggotaan praktikan hanya diizinkan jika dibatasi pada status AKTIF', async () => {
+  const dbPraktikan = dbSebagai('praktikan-01');
+
+  // Query dengan filter uid dan status == AKTIF (sesuai useJadwalPraktikan) berhasil
+  await assertSucceeds(
+    getDocs(
+      query(
+        collection(dbPraktikan, 'keanggotaan'),
+        where('uid', '==', 'praktikan-01'),
+        where('status', '==', 'AKTIF'),
+      ),
+    ),
+  );
+
+  // Query tanpa filter status == AKTIF ditolak oleh Rules
+  await assertFails(
+    getDocs(
+      query(
+        collection(dbPraktikan, 'keanggotaan'),
+        where('uid', '==', 'praktikan-01'),
+      ),
+    ),
+  );
+});
+
+test('#40-03: listener jadwal sesi praktikan berhenti/ditolak ketika kelas diarsipkan atau keanggotaan menjadi NONAKTIF', async () => {
+  await siapkanSesiDenganQr({
+    statusSesi: 'DIBUKA',
+    sesiDiarsipkan: false,
+    kelasDiarsipkan: false,
+  });
+
+  const dbPraktikan = dbSebagai('praktikan-01');
+  const queryJadwalAktif = query(
+    collection(dbPraktikan, 'sesi'),
+    where('kelasId', '==', ID_KELAS),
+    where('diarsipkan', '==', false),
+  );
+
+  // 1. Saat kelas aktif dan keanggotaan AKTIF -> listener jadwal berhasil
+  await assertSucceeds(getDocs(queryJadwalAktif));
+
+  // 2. Saat kelas diarsipkan -> listener jadwal praktikan pada kelas tersebut ditolak
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await updateDoc(doc(context.firestore(), 'kelas', ID_KELAS), {
+      diarsipkan: true,
+    });
+  });
+  await assertFails(getDocs(queryJadwalAktif));
+
+  // 3. Kembalikan kelas aktif tetapi ubah keanggotaan praktikan menjadi NONAKTIF -> listener jadwal tetap ditolak
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const adminDb = context.firestore();
+    await updateDoc(doc(adminDb, 'kelas', ID_KELAS), {
+      diarsipkan: false,
+    });
+    await updateDoc(doc(adminDb, 'keanggotaan', `${ID_KELAS}_praktikan-01`), {
+      status: 'NONAKTIF',
+    });
+  });
+  await assertFails(getDocs(queryJadwalAktif));
+});
