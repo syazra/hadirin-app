@@ -9,7 +9,7 @@ import { useIzinAsisten } from '@/hooks/use-izin-asisten';
 export default function IzinAsistenScreen() {
     const router = useRouter();
     const { pengguna } = useAuth();
-    const { izin, loading, error } = useIzinAsisten(pengguna?.uid ?? null);
+    const { izin, loading, error, namaPraktikanByUid } = useIzinAsisten(pengguna?.uid ?? null);
 
     if (loading && izin.length === 0) {
         return (
@@ -46,6 +46,7 @@ export default function IzinAsistenScreen() {
                 renderItem={({ item }) => (
                     <IzinAsistenItem
                         izin={item}
+                        namaPraktikan={namaPraktikanByUid[item.uid]}
                         onPress={() => router.push({ pathname: '/izin/[id]', params: { id: item.idIzin } })}
                     />
                 )}

@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import {
   collection,
@@ -20,6 +19,7 @@ interface StateIzinAsisten {
 
 export function useIzinAsisten(uid: string | null | undefined) {
   const [state, setState] = useState<StateIzinAsisten | null>(null);
+  const [namaPraktikanByUid, setNamaPraktikanByUid] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!uid) return;
@@ -32,6 +32,7 @@ export function useIzinAsisten(uid: string | null | undefined) {
     const dataPerKelas = new Map<string, Izin[]>();
     const kelasBelumDimuat = new Set<string>();
     const errorPerKelas = new Map<string, string>();
+    const namaPerKelas = new Map<string, Record<string, string>>();
 
     const qKelas = query(
       collection(db, 'kelas'),
@@ -49,6 +50,8 @@ export function useIzinAsisten(uid: string | null | undefined) {
         dataPerKelas.clear();
         kelasBelumDimuat.clear();
         errorPerKelas.clear();
+        namaPerKelas.clear();
+        setNamaPraktikanByUid({});
 
         const kelasIds = snapshot.docs
           .filter((item) => item.data().diarsipkan !== true)
@@ -89,6 +92,34 @@ export function useIzinAsisten(uid: string | null | undefined) {
         };
 
         kelasIds.forEach((kelasId) => {
+          // Ambil nama anggota dari setiap kelas yang diampu asisten.
+          const qAnggota = query(
+            collection(db, 'keanggotaan'),
+            where('kelasId', '==', kelasId),
+          );
+
+          const unsubscribeAnggota = onSnapshot(qAnggota, (snapshot) => {
+            if (!aktif || idSiklus !== siklus) return;
+
+            const namaKelas: Record<string, string> = {};
+
+            snapshot.docs.forEach((item) => {
+              const data = item.data();
+
+              if (typeof data.uid === 'string' && typeof data.nama === 'string') {
+                namaKelas[data.uid] = data.nama;
+              }
+            });
+
+            namaPerKelas.set(kelasId, namaKelas);
+
+            setNamaPraktikanByUid(
+              Object.assign({}, ...Array.from(namaPerKelas.values())),
+            );
+          });
+
+          unsubscribeIzin.push(unsubscribeAnggota);
+
           const unsubscribe = listenIzinKelas(
             kelasId,
             (data) => {
@@ -109,7 +140,6 @@ export function useIzinAsisten(uid: string | null | undefined) {
               perbaruiState();
             },
           );
-
           unsubscribeIzin.push(unsubscribe);
         });
       },
@@ -132,15 +162,16 @@ export function useIzinAsisten(uid: string | null | undefined) {
     };
   }, [uid]);
 
-  if (!uid) return { izin: [], loading: false, error: null };
+  if (!uid) return { izin: [], loading: false, error: null, namaPraktikanByUid: {} };
 
   if (state?.uid !== uid) {
-    return { izin: [], loading: true, error: null };
+    return { izin: [], loading: true, error: null, namaPraktikanByUid: {} };
   }
 
   return {
     izin: state.izin,
     loading: state.loading,
     error: state.error,
+    namaPraktikanByUid,
   };
 }
