@@ -101,6 +101,24 @@ service cloud.firestore {
         );
     }
 
+    function izinKosongDapatDibacaPraktikan(izinId) {
+      let uid = request.auth.uid;
+      let panjangSesiId = izinId.size() - uid.size() - 1;
+      let sesiId = panjangSesiId > 0
+        ? izinId[0:panjangSesiId]
+        : '';
+
+      return isPraktikan()
+        && panjangSesiId > 0
+        && izinId == sesiId + '_' + uid
+        && exists(pathSesi(sesiId))
+        && praktikanDapatBacaSesi(
+          sesiId,
+          get(pathSesi(sesiId)).data.kelasId,
+          get(pathSesi(sesiId)).data.diarsipkan
+        );
+    }
+
     function classDataValid(data) {
       return data.keys().hasAll([
           'namaPraktikum', 'asistenUid', 'diarsipkan', 'dibuatPada'
@@ -333,6 +351,58 @@ service cloud.firestore {
         );
     }
 
+    function izinBaruValid(izinId) {
+      let sesiId = request.resource.data.sesiId;
+      let kelasId = request.resource.data.kelasId;
+      let uid = request.auth.uid;
+
+      return isPraktikan()
+        && request.resource.data.keys().hasAll([
+          'sesiId', 'kelasId', 'uid', 'alasan', 'statusIzin',
+          'diperiksaOleh', 'waktuPeriksa', 'kategoriAi',
+          'statusAi', 'modelAi', 'waktuAi', 'dibuatPada'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'sesiId', 'kelasId', 'uid', 'alasan', 'statusIzin',
+          'diperiksaOleh', 'waktuPeriksa', 'kategoriAi',
+          'statusAi', 'modelAi', 'waktuAi', 'dibuatPada'
+        ])
+        && sesiId is string
+        && kelasId is string
+        && request.resource.data.uid == uid
+        && izinId == sesiId + '_' + uid
+        && teksValid(request.resource.data.alasan, 2000)
+
+        // Status awal dan field pemeriksaan
+        && request.resource.data.statusIzin == 'MENUNGGU'
+        && request.resource.data.statusAi == 'BELUM'
+        && request.resource.data.diperiksaOleh == null
+        && request.resource.data.waktuPeriksa == null
+        && request.resource.data.kategoriAi == null
+        && request.resource.data.modelAi == null
+        && request.resource.data.waktuAi == null
+        && request.resource.data.dibuatPada == request.time
+
+        // Validasi sesi dan kelas
+        && exists(pathSesi(sesiId))
+        && get(pathSesi(sesiId)).data.kelasId == kelasId
+        && get(pathSesi(sesiId)).data.statusSesi
+          in ['BELUM_DIBUKA', 'DIBUKA']
+        && get(pathSesi(sesiId)).data.diarsipkan == false
+        && exists(pathKelas(kelasId))
+        && kelasAktif(kelasId)
+
+        // Validasi keanggotaan aktif
+        && exists(pathAnggota(kelasId, uid))
+        && anggotaAktif(kelasId, uid)
+
+        // Tidak boleh mengajukan izin dua kali
+        && !exists(pathIzin(sesiId, uid))
+
+        // Tidak boleh ada presensi pada kondisi akhir commit
+        && !existsAfter(pathPresensi(sesiId, uid));
+    }
+
     function presensiMilikPraktikan(data, presensiId) {
       return data.keys().hasAll(['uid', 'sesiId'])
         && isPraktikan()
@@ -485,13 +555,12 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // Izin and all other collections remain denied here; access is handled by
-    // their own issue/owner so this fix does not widen the permission surface.
+    // Izin access is scoped below; unimplemented collections remain denied.
     match /izin/{izinId} {
       allow get: if (
         isPraktikan()
         && (
-          (resource == null && izinId.matches('^.+_' + request.auth.uid + '$'))
+          (resource == null && izinKosongDapatDibacaPraktikan(izinId))
           || (
             resource != null
             && resource.data.uid == request.auth.uid
@@ -512,7 +581,8 @@ service cloud.firestore {
         && sesiDimilikiAsisten(resource.data.sesiId)
       );
 
-      allow create, update, delete: if false;
+      allow create: if izinBaruValid(izinId);
+      allow update, delete: if false;
     }
 
     match /{document=**} {
