@@ -400,17 +400,15 @@ export async function ubahSesi(
         return gagal('INPUT_TIDAK_VALID', 'ID sesi wajib diisi.');
     }
 
-    const adaPerubahan =
+    const adaInputField =
         data.judul !== undefined ||
         data.lokasi !== undefined ||
         data.waktuMulai !== undefined ||
         data.waktuSelesai !== undefined;
 
-    if (!adaPerubahan) {
-        return gagal(
-            'INPUT_TIDAK_VALID',
-            'Tidak ada perubahan data sesi yang dikirim.',
-        );
+    if (!adaInputField) {
+        // Tidak ada field jadwal yang diubah; selesaikan tanpa menulis ulang ke Firestore.
+        return { ok: true, data: undefined };
     }
 
     let judulBaru: string | undefined;
