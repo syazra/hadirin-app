@@ -84,7 +84,7 @@ export async function ajukanIzin(
     const sesiRef = doc(db, 'sesi', sesiId);
     const izinRef = doc(db, 'izin', idIzin);
     const presensiRef = doc(db, 'presensi', idIzin);
-
+    let kelasIdHasil = '';
     const profilSnap = await getDoc(penggunaRef);
     if (!profilSnap.exists() || profilSnap.data()?.peran !== 'PRAKTIKAN') {
       return gagal('TIDAK_BERWENANG', 'Hanya praktikan yang dapat mengajukan izin.');
@@ -101,6 +101,7 @@ export async function ajukanIzin(
 
       const sesi = sesiSnap.data();
       const kelasId = String(sesi.kelasId);
+      kelasIdHasil = kelasId;
 
       const kelasRef = doc(db, 'kelas', kelasId);
       const anggotaRef = doc(db, 'keanggotaan', `${kelasId}_${uid}`);
@@ -155,15 +156,46 @@ export async function ajukanIzin(
       });
     });
 
-    const hasilSnap = await getDoc(izinRef);
-    if (!hasilSnap.exists()) {
-      return gagal('JARINGAN', 'Pengajuan belum dapat dikonfirmasi dari server.');
+
+    // Transaksi sudah berhasil. Pembacaan ulang hanya untuk mengambil
+    // data server; kegagalan pembacaan tidak boleh dianggap gagal menyimpan.
+    const dataFallback: Izin = {
+      idIzin,
+      sesiId,
+      kelasId: kelasIdHasil,
+      uid,
+      alasan: alasanBersih,
+      statusIzin: 'MENUNGGU',
+      diperiksaOleh: null,
+      waktuPeriksa: null,
+      kategoriAi: null,
+      statusAi: 'BELUM',
+      modelAi: null,
+      waktuAi: null,
+      dibuatPada: null,
+    };
+
+    try {
+      const hasilSnap = await getDoc(izinRef);
+
+      if (hasilSnap.exists()) {
+        return {
+          ok: true,
+          data: petakanIzin(
+            idIzin,
+            hasilSnap.data() as Record<string, unknown>,
+          ),
+        };
+      }
+    } catch {
+      // Pengajuan sudah berhasil ditulis oleh transaksi.
     }
 
     return {
       ok: true,
-      data: petakanIzin(idIzin, hasilSnap.data() as Record<string, unknown>),
+      data: dataFallback,
     };
+
   } catch (error) {
     const kode = pesanError(error);
 

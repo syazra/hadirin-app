@@ -11,12 +11,16 @@ import {
 } from '@firebase/rules-unit-testing';
 
 import {
+  collection,
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from 'firebase/firestore';
 
@@ -89,8 +93,6 @@ beforeEach(async () => {
       statusSesi: 'DITUTUP',
       diarsipkan: false,
     });
-
-    await setDoc(doc(db, 'izin', ID_IZIN), dataIzin());
   });
 });
 
@@ -102,6 +104,17 @@ function dbSebagai(uid: string) {
   return testEnv.authenticatedContext(uid, {
     email: `${uid}@example.com`,
   }).firestore();
+}
+
+async function siapkanIzinAwal(statusAi = 'BELUM') {
+  await siapkanDataPresensiIzin();
+
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), 'izin', ID_IZIN),
+      dataIzin(statusAi),
+    );
+  });
 }
 
 async function siapkanDataPresensiIzin(
@@ -144,6 +157,7 @@ async function siapkanDataPresensiIzin(
       },
     );
 
+    const KODE_QR_VALID = '0123456789abcdef0123456789abcdef';
     await setDoc(
       doc(db, 'sesi', ID_SESI, 'rahasia', 'qr'),
       { kodeQr: KODE_QR_VALID },
@@ -188,22 +202,27 @@ async function putuskan(
 // ==========================================
 
 test('B07-01: asisten pemilik dapat menyetujui izin', async () => {
+  await siapkanIzinAwal();
   await assertSucceeds(putuskan('asisten-01', 'DISETUJUI'));
 });
 
 test('B07-02: asisten pemilik dapat menolak izin', async () => {
+  await siapkanIzinAwal();
   await assertSucceeds(putuskan('asisten-01', 'DITOLAK'));
 });
 
 test('B07-03: praktikan tidak boleh memutuskan izin', async () => {
+  await siapkanIzinAwal();
   await assertFails(putuskan('praktikan-01', 'DISETUJUI'));
 });
 
 test('B07-04: asisten kelas lain tidak boleh memutuskan izin', async () => {
+  await siapkanIzinAwal();
   await assertFails(putuskan('asisten-02', 'DISETUJUI'));
 });
 
 test('B07-05: keputusan kedua harus ditolak', async () => {
+  await siapkanIzinAwal();
   await assertSucceeds(putuskan('asisten-01', 'DISETUJUI'));
   await assertFails(putuskan('asisten-01', 'DITOLAK'));
 });
@@ -211,6 +230,7 @@ test('B07-05: keputusan kedua harus ditolak', async () => {
 test('B07-06: status keputusan selain DISETUJUI atau DITOLAK ditolak', async () => {
   const db = dbSebagai('asisten-01');
 
+  await siapkanIzinAwal();
   await assertFails(
     updateDoc(doc(db, 'izin', ID_IZIN), {
       statusIzin: 'MENUNGGU',
@@ -223,6 +243,7 @@ test('B07-06: status keputusan selain DISETUJUI atau DITOLAK ditolak', async () 
 test('B07-07: UID pemeriksa harus sesuai akun login', async () => {
   const db = dbSebagai('asisten-01');
 
+  await siapkanIzinAwal();
   await assertFails(
     updateDoc(doc(db, 'izin', ID_IZIN), {
       statusIzin: 'DISETUJUI',
@@ -235,6 +256,7 @@ test('B07-07: UID pemeriksa harus sesuai akun login', async () => {
 test('B07-08: waktu pemeriksaan harus berasal dari server', async () => {
   const db = dbSebagai('asisten-01');
 
+  await siapkanIzinAwal();
   await assertFails(
     updateDoc(doc(db, 'izin', ID_IZIN), {
       statusIzin: 'DISETUJUI',
@@ -247,6 +269,7 @@ test('B07-08: waktu pemeriksaan harus berasal dari server', async () => {
 test('B07-09: perubahan field tambahan saat keputusan ditolak', async () => {
   const db = dbSebagai('asisten-01');
 
+  await siapkanIzinAwal();
   await assertFails(
     updateDoc(doc(db, 'izin', ID_IZIN), {
       statusIzin: 'DISETUJUI',
@@ -269,6 +292,7 @@ test('B07-10: AI gagal tidak menghalangi keputusan manual', async () => {
 });
 
 test('B07-11: keputusan menyimpan UID pemeriksa dan waktu server', async () => {
+  await siapkanIzinAwal();
   await assertSucceeds(putuskan('asisten-01', 'DISETUJUI'));
 
   await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -669,4 +693,19 @@ test('B06-11: field AI dan pemeriksaan harus kosong saat pengajuan', async () =>
       dibuatPada: serverTimestamp(),
     }),
   );
+});
+
+test('B07-12: kueri izin per kelas dan per sesi hanya diizinkan untuk pemilik', async () => {
+  await siapkanIzinAwal();
+  for (const [field, value] of [['kelasId', ID_KELAS], ['sesiId', ID_SESI]]) {
+    const dbPemilik = dbSebagai('asisten-01');
+    const snapshot = await assertSucceeds(getDocs(query(
+      collection(dbPemilik, 'izin'), where(field, '==', value),
+    )));
+    assert.equal(snapshot.size, 1);
+    const dbLain = dbSebagai('asisten-02');
+    await assertFails(getDocs(query(
+      collection(dbLain, 'izin'), where(field, '==', value),
+    )));
+  }
 });
