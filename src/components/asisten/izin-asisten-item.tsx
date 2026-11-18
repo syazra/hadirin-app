@@ -12,7 +12,7 @@ export function IzinAsistenItem({ izin, namaPraktikan, onPress }: Props) {
     <Pressable style={styles.card} onPress={onPress}>
       <View style={styles.row}>
         <View style={styles.flex}>
-          <Text style={styles.name}>{namaPraktikan ?? `Praktikan ${izin.uid.slice(0, 8)}`}</Text>
+          <Text style={styles.name}>{namaPraktikan ?? 'Nama praktikan tidak tersedia'}</Text>
           <Text style={styles.date}>
             {izin.dibuatPada?.toLocaleString('id-ID') ?? 'Waktu tidak tersedia'}
           </Text>

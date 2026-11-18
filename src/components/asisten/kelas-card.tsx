@@ -6,7 +6,8 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 type KelasCardProps = {
     kelas: Kelas;
-    onPress: () => void;
+    /** Jika tidak diberikan, kartu tidak bisa ditekan (mis. dipakai di halaman detail kelas). */
+    onPress?: () => void;
     onEdit?: () => void;
     onArsip?: () => void;
     subjudul?: string;
@@ -23,8 +24,7 @@ function buatInisialKelas(nama: string): string {
         .map((bagian) => bagian.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, ''))
         .filter(
             (bagian) =>
-                bagian.length > 0 &&
-                !KATA_PENGHUBUNG.has(bagian.toLowerCase()),
+                bagian.length > 0 && !KATA_PENGHUBUNG.has(bagian.toLowerCase()),
         );
 
     if (kata.length === 0) return '?';
@@ -40,13 +40,7 @@ function buatInisialKelas(nama: string): string {
 function IkonJam({ color }: { color: string }) {
     return (
         <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-            <Circle
-                cx={12}
-                cy={12}
-                r={9}
-                stroke={color}
-                strokeWidth={1.9}
-            />
+            <Circle cx={12} cy={12} r={9} stroke={color} strokeWidth={1.9} />
             <Path
                 d="M12 7v5l3 2"
                 stroke={color}
@@ -61,13 +55,7 @@ function IkonJam({ color }: { color: string }) {
 function IkonPeserta({ color }: { color: string }) {
     return (
         <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-            <Circle
-                cx={9}
-                cy={7}
-                r={3.5}
-                stroke={color}
-                strokeWidth={1.9}
-            />
+            <Circle cx={9} cy={7} r={3.5} stroke={color} strokeWidth={1.9} />
             <Path
                 d="M2.5 20a6.5 6.5 0 0 1 13 0"
                 stroke={color}
@@ -149,23 +137,6 @@ function IkonArsip({ color }: { color: string }) {
     );
 }
 
-const PALET_IKON = [
-    { bg: '#EBF2FF', teks: '#1D4ED8' }, // Biru
-    { bg: '#ECFDF5', teks: '#047857' }, // Hijau
-    { bg: '#FEF3C7', teks: '#B45309' }, // Kuning / Amber
-    { bg: '#F3E8FF', teks: '#7E22CE' }, // Ungu
-    { bg: '#E0F2FE', teks: '#0369A1' }, // Biru muda
-    { bg: '#FFEDD5', teks: '#C2410C' }, // Oranye
-] as const;
-
-function pilihWarnaIkon(kunci: string) {
-    let hash = 0;
-    for (let i = 0; i < kunci.length; i += 1) {
-        hash = (hash * 31 + kunci.charCodeAt(i)) % PALET_IKON.length;
-    }
-    return PALET_IKON[Math.abs(hash) % PALET_IKON.length];
-}
-
 export function KelasCard({
     kelas,
     onPress,
@@ -177,7 +148,6 @@ export function KelasCard({
 }: KelasCardProps) {
     const diarsipkan = kelas.diarsipkan;
     const inisial = buatInisialKelas(kelas.namaPraktikum);
-    const warnaIkon = pilihWarnaIkon(kelas.idKelas || kelas.namaPraktikum);
 
     const ringkasanParts: string[] = [];
     if (jumlahPeserta !== undefined) {
@@ -190,29 +160,20 @@ export function KelasCard({
     return (
         <Pressable
             onPress={onPress}
-            accessibilityRole="button"
-            accessibilityLabel={`Buka detail kelas ${kelas.namaPraktikum}`}
+            disabled={!onPress}
+            accessibilityRole={onPress ? 'button' : undefined}
+            accessibilityLabel={
+                onPress ? `Buka detail kelas ${kelas.namaPraktikum}` : undefined
+            }
             style={({ pressed }) => [
                 styles.kartu,
                 diarsipkan && styles.kartuDiarsipkan,
-                pressed && styles.ditekan,
+                pressed && onPress && styles.ditekan,
             ]}
         >
             <View style={styles.barisAtas}>
-                <View
-                    style={[
-                        styles.ikonKotak,
-                        { backgroundColor: warnaIkon.bg },
-                    ]}
-                >
-                    <Text
-                        style={[
-                            styles.ikonInisial,
-                            { color: warnaIkon.teks },
-                        ]}
-                    >
-                        {inisial}
-                    </Text>
+                <View style={styles.ikonKotak}>
+                    <Text style={styles.ikonInisial}>{inisial}</Text>
                 </View>
 
                 <View style={styles.judulWrap}>
@@ -266,63 +227,71 @@ export function KelasCard({
                 ) : null}
             </View>
 
-            <View style={styles.footer}>
-                <View style={styles.barisPetunjuk}>
-                    <View style={styles.petunjukKiri}>
-                        <IkonSentuh color={Colors.light.textSecondary} />
-                        <Text style={styles.petunjuk}>
-                            Kelola peserta & sesi presensi
-                        </Text>
-                    </View>
-                    <IkonPanah color={Colors.light.textSecondary} />
-                </View>
-
-                {!diarsipkan && (onEdit || onArsip) ? (
-                    <View style={styles.grupTombol}>
-                        {onEdit ? (
-                            <Pressable
-                                onPress={(e) => {
-                                    e.stopPropagation();
-                                    onEdit();
-                                }}
-                                hitSlop={8}
-                                accessibilityRole="button"
-                                accessibilityLabel={`Ubah kelas ${kelas.namaPraktikum}`}
-                                style={({ pressed }) => [
-                                    styles.tombolAksi,
-                                    styles.tombolEdit,
-                                    pressed && styles.ditekan,
-                                ]}
-                            >
-                                <IkonPensil color={Colors.light.text} />
-                                <Text style={styles.tombolEditTeks}>Ubah</Text>
-                            </Pressable>
-                        ) : null}
-
-                        {onArsip ? (
-                            <Pressable
-                                onPress={(e) => {
-                                    e.stopPropagation();
-                                    onArsip();
-                                }}
-                                hitSlop={8}
-                                accessibilityRole="button"
-                                accessibilityLabel={`Arsipkan kelas ${kelas.namaPraktikum}`}
-                                style={({ pressed }) => [
-                                    styles.tombolAksi,
-                                    styles.tombolArsip,
-                                    pressed && styles.ditekan,
-                                ]}
-                            >
-                                <IkonArsip color={Colors.light.danger} />
-                                <Text style={styles.tombolArsipTeks}>
-                                    Arsipkan
+            {onPress || (!diarsipkan && (onEdit || onArsip)) ? (
+                <View style={styles.footer}>
+                    {onPress ? (
+                        <View style={styles.barisPetunjuk}>
+                            <View style={styles.petunjukKiri}>
+                                <IkonSentuh
+                                    color={Colors.light.textSecondary}
+                                />
+                                <Text style={styles.petunjuk}>
+                                    Kelola peserta & sesi presensi
                                 </Text>
-                            </Pressable>
-                        ) : null}
-                    </View>
-                ) : null}
-            </View>
+                            </View>
+                            <IkonPanah color={Colors.light.textSecondary} />
+                        </View>
+                    ) : null}
+
+                    {!diarsipkan && (onEdit || onArsip) ? (
+                        <View style={styles.grupTombol}>
+                            {onEdit ? (
+                                <Pressable
+                                    onPress={(e) => {
+                                        e.stopPropagation();
+                                        onEdit();
+                                    }}
+                                    hitSlop={8}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Ubah kelas ${kelas.namaPraktikum}`}
+                                    style={({ pressed }) => [
+                                        styles.tombolAksi,
+                                        styles.tombolEdit,
+                                        pressed && styles.ditekan,
+                                    ]}
+                                >
+                                    <IkonPensil color={Colors.light.text} />
+                                    <Text style={styles.tombolEditTeks}>
+                                        Ubah
+                                    </Text>
+                                </Pressable>
+                            ) : null}
+
+                            {onArsip ? (
+                                <Pressable
+                                    onPress={(e) => {
+                                        e.stopPropagation();
+                                        onArsip();
+                                    }}
+                                    hitSlop={8}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Arsipkan kelas ${kelas.namaPraktikum}`}
+                                    style={({ pressed }) => [
+                                        styles.tombolAksi,
+                                        styles.tombolArsip,
+                                        pressed && styles.ditekan,
+                                    ]}
+                                >
+                                    <IkonArsip color={Colors.light.danger} />
+                                    <Text style={styles.tombolArsipTeks}>
+                                        Arsipkan
+                                    </Text>
+                                </Pressable>
+                            ) : null}
+                        </View>
+                    ) : null}
+                </View>
+            ) : null}
         </Pressable>
     );
 }
@@ -352,7 +321,7 @@ const styles = StyleSheet.create({
         width: 42,
         height: 42,
         borderRadius: 10,
-        backgroundColor: '#EBF2FF',
+        backgroundColor: Colors.light.primarySoft,
         alignItems: 'center',
         justifyContent: 'center',
     },

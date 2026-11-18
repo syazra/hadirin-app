@@ -32,9 +32,10 @@ function formatPesanError(error: Error): string {
 
 export function useKelasAsisten(
     uid: string | null,
-    opsi?: { sertakanArsip?: boolean },
+    opsi?: { sertakanArsip?: boolean; hitungPeserta?: boolean },
 ) {
     const sertakanArsip = opsi?.sertakanArsip ?? false;
+    const hitungPeserta = opsi?.hitungPeserta ?? true;
 
     const [state, setState] = useState<StateKelas | null>(null);
     const [pesertaPerKelas, setPesertaPerKelas] = useState<
@@ -103,7 +104,7 @@ export function useKelasAsisten(
     );
 
     useEffect(() => {
-        if (!uidBersih || !kunciKelas) {
+        if (!hitungPeserta || !uidBersih || !kunciKelas) {
             return;
         }
 
@@ -134,17 +135,18 @@ export function useKelasAsisten(
             aktif = false;
             unsubscribers.forEach((unsub) => unsub());
         };
-    }, [uidBersih, kunciKelas]);
+    }, [hitungPeserta, uidBersih, kunciKelas]);
 
     const jumlahPesertaPerKelas = useMemo(
-        () => (uidBersih && kunciKelas ? pesertaPerKelas : {}),
-        [uidBersih, kunciKelas, pesertaPerKelas],
+        () =>
+            hitungPeserta && uidBersih && kunciKelas ? pesertaPerKelas : {},
+        [hitungPeserta, uidBersih, kunciKelas, pesertaPerKelas],
     );
 
     return {
         kelas: daftarKelas,
         jumlahPesertaPerKelas,
-        loading: uidBersih ? stateAktif?.loading ?? true : false,
+        loading: uidBersih ? (stateAktif?.loading ?? true) : false,
         error: stateAktif?.error ?? null,
         cobaLagi,
     };

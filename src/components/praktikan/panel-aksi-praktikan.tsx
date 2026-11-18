@@ -82,9 +82,10 @@ export function PanelAksiPraktikan({
     }
 
     const bolehAjukanIzin =
-      statusSesi !== 'DITUTUP' &&
-      !sudahPresensi &&
-      !statusIzin;
+        statusSesi !== 'DITUTUP' &&
+        !sudahPresensi &&
+        !statusIzin &&
+        !izinLoading;
 
     return (
         <View style={styles.container}>
