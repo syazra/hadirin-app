@@ -568,6 +568,9 @@ service cloud.firestore {
         isAsisten()
         && resource.data.kelasId is string
         && isPemilikKelas(resource.data.kelasId)
+      ) || (
+        resource.data.sesiId is string
+        && sesiDimilikiAsisten(resource.data.sesiId)
       );
 
       allow create: if izinBaruValid(izinId);

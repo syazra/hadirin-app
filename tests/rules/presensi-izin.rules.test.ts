@@ -1,7 +1,7 @@
-import { resolve } from 'node:path';
-import { readFileSync } from 'node:fs';
-import { after, before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { after, before, beforeEach, test } from 'node:test';
 
 import {
   assertFails,
@@ -11,17 +11,24 @@ import {
 } from '@firebase/rules-unit-testing';
 
 import {
+  collection,
+  deleteDoc,
   doc,
   getDoc,
+  getDocs,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
+  writeBatch,
 } from 'firebase/firestore';
 
 const PROJECT_ID = 'demo-hadirin';
 const ID_IZIN = 'sesi-01_praktikan-01';
 const ID_SESI = 'sesi-01';
 const ID_KELAS = 'kelas-01';
+const KODE_QR_VALID = '0123456789abcdef0123456789abcdef';
 
 let testEnv: RulesTestEnvironment;
 
@@ -81,6 +88,8 @@ beforeEach(async () => {
       kelasId: ID_KELAS,
       judul: 'Pertemuan 1',
       lokasi: 'Lab',
+      waktuMulai: new Date(),
+      waktuSelesai: null,
       statusSesi: 'DITUTUP',
       diarsipkan: false,
     });
@@ -159,6 +168,8 @@ async function siapkanDataPresensiIzin(
         ...dataIzin(),
         statusIzin: opsi.statusIzin,
       });
+    } else {
+      await deleteDoc(doc(db, 'izin', ID_IZIN));
     }
 
     if (opsi.sudahPresensi) {
@@ -167,6 +178,7 @@ async function siapkanDataPresensiIzin(
         kelasId: ID_KELAS,
         uid: 'praktikan-01',
         waktuHadir: new Date(),
+        kodeQr: KODE_QR_VALID,
       });
     }
   });
@@ -184,6 +196,10 @@ async function putuskan(
     waktuPeriksa: serverTimestamp(),
   });
 }
+
+// ==========================================
+// B07 — PEMERIKSAAN IZIN OLEH ASISTEN
+// ==========================================
 
 test('B07-01: asisten pemilik dapat menyetujui izin', async () => {
   await siapkanIzinAwal();
@@ -305,7 +321,7 @@ test('B04-01: praktikan aktif dapat membuat presensi sendiri', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
-      kodeQr: '0123456789abcdef0123456789abcdef',
+      kodeQr: KODE_QR_VALID,
     }),
   );
 });
@@ -321,7 +337,7 @@ test('B04-02: presensi dengan UID orang lain ditolak', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-lain',
       waktuHadir: serverTimestamp(),
-      kodeQr: '0123456789abcdef0123456789abcdef',
+      kodeQr: KODE_QR_VALID,
     }),
   );
 });
@@ -337,7 +353,7 @@ test('B04-03: presensi pada sesi yang belum dibuka ditolak', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
-      kodeQr: '0123456789abcdef0123456789abcdef',
+      kodeQr: KODE_QR_VALID,
     }),
   );
 });
@@ -353,7 +369,7 @@ test('B04-04: presensi pada sesi yang sudah ditutup ditolak', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
-      kodeQr: '0123456789abcdef0123456789abcdef',
+      kodeQr: KODE_QR_VALID,
     }),
   );
 });
@@ -369,7 +385,7 @@ test('B04-05: anggota nonaktif tidak dapat melakukan presensi', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
-      kodeQr: '0123456789abcdef0123456789abcdef',
+      kodeQr: KODE_QR_VALID,
     }),
   );
 });
@@ -385,7 +401,7 @@ test('B04-06: presensi kedua pada sesi yang sama ditolak', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
-      kodeQr: '0123456789abcdef0123456789abcdef',
+      kodeQr: KODE_QR_VALID,
     }),
   );
 });
@@ -401,7 +417,7 @@ test('B04-07: presensi saat izin masih MENUNGGU ditolak', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
-      kodeQr: '0123456789abcdef0123456789abcdef',
+      kodeQr: KODE_QR_VALID,
     }),
   );
 });
@@ -417,7 +433,7 @@ test('B04-08: presensi saat izin DISETUJUI ditolak', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
-      kodeQr: '0123456789abcdef0123456789abcdef',
+      kodeQr: KODE_QR_VALID,
     }),
   );
 });
@@ -433,7 +449,7 @@ test('B04-09: izin DITOLAK tidak menghalangi presensi', async () => {
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
-      kodeQr: '0123456789abcdef0123456789abcdef',
+      kodeQr: KODE_QR_VALID,
     }),
   );
 });
@@ -461,6 +477,7 @@ test('B04-11: praktikan tidak dapat membaca riwayat akun lain', async () => {
         kelasId: ID_KELAS,
         uid: 'praktikan-lain',
         waktuHadir: new Date(),
+        kodeQr: KODE_QR_VALID,
       },
     );
   });
@@ -470,6 +487,59 @@ test('B04-11: praktikan tidak dapat membaca riwayat akun lain', async () => {
   );
 });
 
+test('B04-12: presensi dengan kode QR salah ditolak', async () => {
+  await siapkanDataPresensiIzin();
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'presensi', ID_IZIN), {
+      sesiId: ID_SESI,
+      kelasId: ID_KELAS,
+      uid: 'praktikan-01',
+      waktuHadir: serverTimestamp(),
+      kodeQr: 'fedcba9876543210fedcba9876543210',
+    }),
+  );
+});
+
+test('B04-13: presensi pada kelas atau sesi yang diarsipkan ditolak', async () => {
+  await siapkanDataPresensiIzin({ diarsipkan: true });
+
+  const db = dbSebagai('praktikan-01');
+
+  await assertFails(
+    setDoc(doc(db, 'presensi', ID_IZIN), {
+      sesiId: ID_SESI,
+      kelasId: ID_KELAS,
+      uid: 'praktikan-01',
+      waktuHadir: serverTimestamp(),
+      kodeQr: KODE_QR_VALID,
+    }),
+  );
+});
+
+test('B04-14: batch presensi dan izin MENUNGGU bersamaan ditolak', async () => {
+  await siapkanDataPresensiIzin();
+
+  const db = dbSebagai('praktikan-01');
+  const batch = writeBatch(db);
+
+  batch.set(doc(db, 'presensi', ID_IZIN), {
+    sesiId: ID_SESI,
+    kelasId: ID_KELAS,
+    uid: 'praktikan-01',
+    waktuHadir: serverTimestamp(),
+    kodeQr: KODE_QR_VALID,
+  });
+
+  batch.set(doc(db, 'izin', ID_IZIN), {
+    ...dataIzin(),
+    dibuatPada: serverTimestamp(),
+  });
+
+  await assertFails(batch.commit());
+});
 
 // ==========================================
 // B06 — PENGAJUAN IZIN
@@ -623,4 +693,19 @@ test('B06-11: field AI dan pemeriksaan harus kosong saat pengajuan', async () =>
       dibuatPada: serverTimestamp(),
     }),
   );
+});
+
+test('B07-12: kueri izin per kelas dan per sesi hanya diizinkan untuk pemilik', async () => {
+  await siapkanIzinAwal();
+  for (const [field, value] of [['kelasId', ID_KELAS], ['sesiId', ID_SESI]]) {
+    const dbPemilik = dbSebagai('asisten-01');
+    const snapshot = await assertSucceeds(getDocs(query(
+      collection(dbPemilik, 'izin'), where(field, '==', value),
+    )));
+    assert.equal(snapshot.size, 1);
+    const dbLain = dbSebagai('asisten-02');
+    await assertFails(getDocs(query(
+      collection(dbLain, 'izin'), where(field, '==', value),
+    )));
+  }
 });

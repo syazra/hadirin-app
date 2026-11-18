@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     Pressable,
     ScrollView,
@@ -74,29 +74,61 @@ function SesiFormSheetIsi({
     onSubmit,
     onTutup,
 }: Omit<SesiFormSheetProps, 'visible'>) {
-    const [judul, setJudul] = useState(() =>
-        mode === 'ubah' && sesiAwal ? sesiAwal.judul : '',
-    );
-    const [lokasi, setLokasi] = useState(() =>
-        mode === 'ubah' && sesiAwal ? sesiAwal.lokasi : '',
-    );
-    const [waktuMulaiTeks, setWaktuMulaiTeks] = useState(() => {
+    const waktuMulaiAwalTeks = useMemo(() => {
         if (mode === 'ubah' && sesiAwal) {
             return formatInputTanggalWaktu(sesiAwal.waktuMulai);
         }
         const sekarang = new Date();
         sekarang.setSeconds(0, 0);
         return formatInputTanggalWaktu(sekarang);
-    });
-    const [waktuSelesaiTeks, setWaktuSelesaiTeks] = useState(() =>
-        mode === 'ubah' && sesiAwal?.waktuSelesai
-            ? formatInputTanggalWaktu(sesiAwal.waktuSelesai)
-            : '',
+    }, [mode, sesiAwal]);
+
+    const waktuSelesaiAwalTeks = useMemo(
+        () =>
+            mode === 'ubah' && sesiAwal?.waktuSelesai
+                ? formatInputTanggalWaktu(sesiAwal.waktuSelesai)
+                : '',
+        [mode, sesiAwal],
     );
+
+    const [judul, setJudul] = useState(() =>
+        mode === 'ubah' && sesiAwal ? sesiAwal.judul : '',
+    );
+    const [lokasi, setLokasi] = useState(() =>
+        mode === 'ubah' && sesiAwal ? sesiAwal.lokasi : '',
+    );
+    const [waktuMulaiTeks, setWaktuMulaiTeks] = useState(waktuMulaiAwalTeks);
+    const [waktuSelesaiTeks, setWaktuSelesaiTeks] =
+        useState(waktuSelesaiAwalTeks);
     const [errorLokal, setErrorLokal] = useState<string | null>(null);
 
+    const adaPerubahan = useMemo(() => {
+        if (mode !== 'ubah' || !sesiAwal) {
+            return true;
+        }
+
+        const waktuMulaiNorm = waktuMulaiTeks.trim().replace('T', ' ');
+        const waktuSelesaiNorm = waktuSelesaiTeks.trim().replace('T', ' ');
+
+        return (
+            judul.trim() !== sesiAwal.judul.trim() ||
+            lokasi.trim() !== sesiAwal.lokasi.trim() ||
+            waktuMulaiNorm !== waktuMulaiAwalTeks ||
+            waktuSelesaiNorm !== waktuSelesaiAwalTeks
+        );
+    }, [
+        mode,
+        sesiAwal,
+        judul,
+        lokasi,
+        waktuMulaiTeks,
+        waktuSelesaiTeks,
+        waktuMulaiAwalTeks,
+        waktuSelesaiAwalTeks,
+    ]);
+
     const handleKirim = () => {
-        if (loading) return;
+        if (loading || !adaPerubahan) return;
 
         const judulRapi = judul.trim();
         const lokasiRapi = lokasi.trim();
@@ -153,6 +185,7 @@ function SesiFormSheetIsi({
     };
 
     const pesanError = errorLokal ?? errorPesan;
+    const tombolSimpanNonaktif = loading || !adaPerubahan;
 
     return (
         <View style={styles.container}>
@@ -240,14 +273,15 @@ function SesiFormSheetIsi({
                 </Pressable>
 
                 <Pressable
-                    disabled={loading}
+                    disabled={tombolSimpanNonaktif}
                     onPress={handleKirim}
                     style={[
                         styles.button,
                         styles.submitButton,
-                        loading && styles.disabled,
+                        tombolSimpanNonaktif && styles.disabled,
                     ]}
                     accessibilityRole="button"
+                    accessibilityState={{ disabled: tombolSimpanNonaktif }}
                 >
                     <Text style={styles.submitText}>
                         {loading
