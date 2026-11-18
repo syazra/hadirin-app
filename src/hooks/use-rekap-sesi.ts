@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { useAuth } from '@/hooks/use-auth';
-import { listenIzinSesi } from '@/services/izin-service';
+import { listenIzinKelas } from '@/services/izin-service';
 import { listenPesertaKelas } from '@/services/peserta-service';
 import { listenPresensiSesi } from '@/services/presensi-service';
 import type {
@@ -163,14 +163,15 @@ export function useRekapSesi(
       },
     );
 
-    const unsubIzin = listenIzinSesi(
-      idSesi,
+    const unsubIzin = listenIzinKelas(
+      idKelas,
       (data) => {
+        const izinSesiIni = data.filter((item) => item.sesiId === idSesi);
         setState((prev) => {
           const base = buatStateBaru(prev);
           return {
             ...base,
-            izin: data,
+            izin: izinSesiIni,
             siap: { ...base.siap, izin: true },
             errors: { ...base.errors, izin: null },
           };

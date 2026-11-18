@@ -372,8 +372,6 @@ service cloud.firestore {
         && request.resource.data.uid == uid
         && izinId == sesiId + '_' + uid
         && teksValid(request.resource.data.alasan, 2000)
-
-        // Status awal dan field pemeriksaan
         && request.resource.data.statusIzin == 'MENUNGGU'
         && request.resource.data.statusAi == 'BELUM'
         && request.resource.data.diperiksaOleh == null
@@ -382,24 +380,15 @@ service cloud.firestore {
         && request.resource.data.modelAi == null
         && request.resource.data.waktuAi == null
         && request.resource.data.dibuatPada == request.time
-
-        // Validasi sesi dan kelas
         && exists(pathSesi(sesiId))
         && get(pathSesi(sesiId)).data.kelasId == kelasId
-        && get(pathSesi(sesiId)).data.statusSesi
-          in ['BELUM_DIBUKA', 'DIBUKA']
+        && get(pathSesi(sesiId)).data.statusSesi in ['BELUM_DIBUKA', 'DIBUKA']
         && get(pathSesi(sesiId)).data.diarsipkan == false
         && exists(pathKelas(kelasId))
         && kelasAktif(kelasId)
-
-        // Validasi keanggotaan aktif
         && exists(pathAnggota(kelasId, uid))
         && anggotaAktif(kelasId, uid)
-
-        // Tidak boleh mengajukan izin dua kali
         && !exists(pathIzin(sesiId, uid))
-
-        // Tidak boleh ada presensi pada kondisi akhir commit
         && !existsAfter(pathPresensi(sesiId, uid));
     }
 
@@ -481,8 +470,6 @@ service cloud.firestore {
     }
 
     match /keanggotaan/{anggotaId} {
-      // A missing deterministic membership lookup reveals no document data and is
-      // required by the assistant's add-or-reactivate flow.
       allow get: if (
           resource == null && isAsisten()
         ) || (
@@ -496,7 +483,8 @@ service cloud.firestore {
           && anggotaId == resource.data.kelasId + '_' + request.auth.uid
         );
       allow list: if (
-          resource.data.uid == request.auth.uid
+          isPraktikan()
+          && resource.data.uid == request.auth.uid
           && resource.data.status == 'AKTIF'
         ) || (
           isAsisten()
@@ -570,7 +558,10 @@ service cloud.firestore {
           && presensiBisaDibacaAsisten(resource.data)
         );
       allow list: if presensiDapatDilihatPraktikan(resource.data)
-        || presensiBisaDibacaAsisten(resource.data);
+        || (
+          isAsisten()
+          && kelasDimilikiAsistenDiData(resource.data)
+        );
       allow create: if presensiBaruValid(presensiId);
       allow update, delete: if false;
     }
@@ -597,8 +588,7 @@ service cloud.firestore {
         && resource.data.uid == request.auth.uid
       ) || (
         isAsisten()
-        && resource.data.kelasId is string
-        && isPemilikKelas(resource.data.kelasId)
+        && kelasDimilikiAsistenDiData(resource.data)
       );
 
       allow create: if izinBaruValid(izinId);

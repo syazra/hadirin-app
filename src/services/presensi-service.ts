@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   onSnapshot,
   query,
   runTransaction,
@@ -356,6 +357,8 @@ export async function catatPresensiDariQr(
 
 /**
  * Mendengarkan daftar presensi berdasarkan sesi.
+ * Menyelesaikan kelasId dari dokumen sesi terlebih dahulu agar query
+ * sesuai dengan Firestore Security Rules.
  */
 export function listenPresensiSesi(
   sesiId: string,
@@ -378,29 +381,63 @@ export function listenPresensiSesi(
   }
 
   const { db } = getFirebaseServices();
+  let aktif = true;
+  let unsubscribeSnapshot: (() => void) | null = null;
 
-  const q = query(
-    collection(db, 'presensi'),
-    where('sesiId', '==', idBersih),
-  );
+  getDoc(doc(db, 'sesi', idBersih))
+    .then((sesiSnap) => {
+      if (!aktif) return;
 
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const daftar: Presensi[] = [];
-
-      for (const item of snapshot.docs) {
-        const presensi = petakanPresensi(item);
-
-        if (presensi) {
-          daftar.push(presensi);
-        }
+      if (!sesiSnap.exists()) {
+        callback([]);
+        return;
       }
 
-      callback(daftar);
-    },
-    onError,
-  );
+      const kelasId = sesiSnap.data()?.kelasId;
+      if (typeof kelasId !== 'string' || kelasId.length === 0) {
+        callback([]);
+        return;
+      }
+
+      const q = query(
+        collection(db, 'presensi'),
+        where('kelasId', '==', kelasId),
+        where('sesiId', '==', idBersih),
+      );
+
+      unsubscribeSnapshot = onSnapshot(
+        q,
+        (snapshot) => {
+          const daftar: Presensi[] = [];
+
+          for (const item of snapshot.docs) {
+            const presensi = petakanPresensi(item);
+
+            if (presensi) {
+              daftar.push(presensi);
+            }
+          }
+
+          callback(daftar);
+        },
+        onError,
+      );
+    })
+    .catch((err) => {
+      if (!aktif) return;
+      onError(
+        err instanceof Error
+          ? err
+          : new Error('Gagal memuat informasi sesi presensi.'),
+      );
+    });
+
+  return () => {
+    aktif = false;
+    if (unsubscribeSnapshot) {
+      unsubscribeSnapshot();
+    }
+  };
 }
 
 /**
