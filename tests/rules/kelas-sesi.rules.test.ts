@@ -783,3 +783,75 @@ test('#40-03: listener jadwal sesi praktikan berhenti/ditolak ketika kelas diars
   });
   await assertFails(getDocs(queryJadwalAktif));
 });
+
+// ==========================================
+// #40-LANJUTAN — QUERY SESI ARSIP ASISTEN & DETAIL SESI
+// ==========================================
+
+test('#40-04: asisten pemilik dapat me-list seluruh sesi kelas (termasuk yang diarsipkan) tanpa filter diarsipkan', async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const adminDb = context.firestore();
+
+    // Sesi 1: aktif
+    await setDoc(doc(adminDb, 'sesi', 'sesi-aktif'), {
+      kelasId: ID_KELAS,
+      judul: 'Pertemuan 1: Aktif',
+      lokasi: 'Lab A',
+      waktuMulai: new Date('2026-11-18T08:00:00Z'),
+      waktuSelesai: null,
+      statusSesi: 'DITUTUP',
+      diarsipkan: false,
+    });
+
+    // Sesi 2: diarsipkan
+    await setDoc(doc(adminDb, 'sesi', 'sesi-arsip'), {
+      kelasId: ID_KELAS,
+      judul: 'Pertemuan 2: Arsip',
+      lokasi: 'Lab A',
+      waktuMulai: new Date('2026-11-19T08:00:00Z'),
+      waktuSelesai: null,
+      statusSesi: 'DITUTUP',
+      diarsipkan: true,
+    });
+  });
+
+  const dbAsisten = dbSebagai('asisten-01');
+  const dbAsistenLain = dbSebagai('asisten-02');
+  const dbPraktikan = dbSebagai('praktikan-01');
+
+  // Sesuai query listenSesiKelas(..., sertakanArsip = true)
+  const snapAsisten = await assertSucceeds(
+    getDocs(query(collection(dbAsisten, 'sesi'), where('kelasId', '==', ID_KELAS))),
+  );
+  assert.equal(snapAsisten.size, 2);
+
+  // Asisten lain dan praktikan tetap ditolak jika query sesi tanpa filter diarsipkan == false
+  await assertFails(
+    getDocs(query(collection(dbAsistenLain, 'sesi'), where('kelasId', '==', ID_KELAS))),
+  );
+  await assertFails(
+    getDocs(query(collection(dbPraktikan, 'sesi'), where('kelasId', '==', ID_KELAS))),
+  );
+});
+
+test('#40-05: listener detail sesi (listenSesiById) dan kelas induk untuk asisten pemilik maupun praktikan', async () => {
+  await siapkanSesiDenganQr({
+    statusSesi: 'DIBUKA',
+    sesiDiarsipkan: false,
+    kelasDiarsipkan: false,
+  });
+
+  const dbAsisten = dbSebagai('asisten-01');
+  const dbPraktikanAktif = dbSebagai('praktikan-01');
+  const dbPraktikanNonAnggota = dbSebagai('praktikan-02');
+
+  // Asisten pemilik & praktikan anggota aktif dapat get dokumen sesi + kelas induknya
+  await assertSucceeds(getDoc(doc(dbAsisten, 'sesi', ID_SESI)));
+  await assertSucceeds(getDoc(doc(dbAsisten, 'kelas', ID_KELAS)));
+
+  await assertSucceeds(getDoc(doc(dbPraktikanAktif, 'sesi', ID_SESI)));
+  await assertSucceeds(getDoc(doc(dbPraktikanAktif, 'kelas', ID_KELAS)));
+
+  // Praktikan non-anggota ditolak membaca detail sesi
+  await assertFails(getDoc(doc(dbPraktikanNonAnggota, 'sesi', ID_SESI)));
+});
