@@ -4,7 +4,10 @@ import { listenPresensiPengguna } from '@/services/presensi-service';
 import { listenSesiById } from '@/services/sesi-service';
 import type { Presensi, Sesi } from '@/types';
 
-export type ItemRiwayatKehadiran = { sesi: Sesi; presensi: Presensi };
+export type ItemRiwayatKehadiran = {
+  sesi: Sesi;
+  presensi: Presensi;
+};
 
 type StateRiwayat = {
   uid: string;
@@ -25,23 +28,34 @@ export function useRiwayatKehadiran(uid: string) {
     if (!uid) return;
 
     let aktif = true;
+    let siklus = 0;
+
     const berhentiSesi: (() => void)[] = [];
+    const hasilSesi = new Map<string, ItemRiwayatKehadiran>();
+    const sesiSelesai = new Set<string>();
+    const errorSesi = new Map<string, string>();
 
     const berhentiPresensi = listenPresensiPengguna(
       uid,
       (daftar) => {
         if (!aktif) return;
 
-        berhentiSesi.forEach((berhenti) => berhenti());
-        berhentiSesi.length = 0;
+        const idSiklus = ++siklus;
+
+        berhentiSesi.splice(0).forEach((berhenti) => berhenti());
+        hasilSesi.clear();
+        sesiSelesai.clear();
+        errorSesi.clear();
 
         if (daftar.length === 0) {
-          setState({ uid, riwayat: [], loading: false, error: null });
+          setState({
+            uid,
+            riwayat: [],
+            loading: false,
+            error: null,
+          });
           return;
         }
-
-        const hasilSesi = new Map<string, ItemRiwayatKehadiran>();
-        const sesiSelesai = new Set<string>();
 
         setState((sebelumnya) => ({
           uid,
@@ -50,40 +64,51 @@ export function useRiwayatKehadiran(uid: string) {
           error: null,
         }));
 
+        const perbaruiState = () => {
+          const riwayat = [...hasilSesi.values()].sort(
+            (a, b) =>
+              (b.presensi.waktuHadir?.getTime() ?? 0) -
+              (a.presensi.waktuHadir?.getTime() ?? 0),
+          );
+
+          setState({
+            uid,
+            riwayat,
+            loading: sesiSelesai.size < daftar.length,
+            error:
+              errorSesi.size > 0
+                ? `${errorSesi.size} detail sesi gagal dimuat. Riwayat lainnya tetap ditampilkan.`
+                : null,
+          });
+        };
+
         daftar.forEach((presensi) => {
           const berhenti = listenSesiById(
             presensi.sesiId,
             (sesi) => {
-              if (!aktif) return;
+              if (!aktif || idSiklus !== siklus) return;
 
               if (sesi) {
-                hasilSesi.set(presensi.idPresensi, { sesi, presensi });
+                hasilSesi.set(presensi.idPresensi, {
+                  sesi,
+                  presensi,
+                });
+              } else {
+                hasilSesi.delete(presensi.idPresensi);
               }
 
               sesiSelesai.add(presensi.sesiId);
+              errorSesi.delete(presensi.sesiId);
 
-              const riwayat = [...hasilSesi.values()].sort(
-                (a, b) =>
-                  (b.presensi.waktuHadir?.getTime() ?? 0) -
-                  (a.presensi.waktuHadir?.getTime() ?? 0),
-              );
-
-              setState({
-                uid,
-                riwayat,
-                loading: sesiSelesai.size < daftar.length,
-                error: null,
-              });
+              perbaruiState();
             },
             (kesalahan) => {
-              if (!aktif) return;
+              if (!aktif || idSiklus !== siklus) return;
 
-              setState((sebelumnya) => ({
-                uid,
-                riwayat: sebelumnya.uid === uid ? sebelumnya.riwayat : [],
-                loading: false,
-                error: kesalahan.message,
-              }));
+              sesiSelesai.add(presensi.sesiId);
+              errorSesi.set(presensi.sesiId, kesalahan.message);
+
+              perbaruiState();
             },
           );
 
