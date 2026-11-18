@@ -181,7 +181,8 @@ export default function DetailIzinScreen() {
         </Text>
 
         <KategoriAiBadge
-          kategori={dataIzin.kategoriAi ?? 'TIDAK_JELAS'}
+          kategori={dataIzin.kategoriAi}
+          statusAi={dataIzin.statusAi}
         />
 
         <Text style={styles.note}>

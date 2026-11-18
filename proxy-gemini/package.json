@@ -13,6 +13,11 @@
     "@google/genai": "^3.3.0",
     "firebase-admin": "^14.5.1"
   },
+  "overrides": {
+    "jwks-rsa": {
+      "jose": "5.10.0"
+    }
+  },
   "devDependencies": {
     "@types/node": "^26.6.6",
     "tsx": "^4.23.15",
