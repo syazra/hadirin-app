@@ -55,6 +55,15 @@
         { "fieldPath": "diarsipkan", "order": "ASCENDING" },
         { "fieldPath": "waktuMulai", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "sesi",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "labId", "order": "ASCENDING" },
+        { "fieldPath": "diarsipkan", "order": "ASCENDING" },
+        { "fieldPath": "waktuMulai", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
