@@ -138,10 +138,11 @@ service cloud.firestore {
           'statusSesi', 'diarsipkan'
         ])
         && data.keys().hasOnly([
-          'kelasId', 'judul', 'lokasi', 'waktuMulai', 'waktuSelesai',
+          'kelasId', 'judul', 'labId', 'lokasi', 'waktuMulai', 'waktuSelesai',
           'statusSesi', 'diarsipkan'
         ])
         && data.kelasId is string
+        && (!('labId' in data) || data.labId == null || data.labId is string)
         && teksValid(data.judul, 100)
         && teksValid(data.lokasi, 100)
         && data.waktuMulai is timestamp
@@ -191,14 +192,32 @@ service cloud.firestore {
     function mappingBaruValid(kode) {
       return signedIn()
         && request.resource.data.keys().hasAll(['uid', 'nama', 'nim'])
-        && request.resource.data.keys().hasOnly(['uid', 'nama', 'nim'])
+        && request.resource.data.keys().hasOnly(['uid', 'nama', 'nim', 'kodePeserta', 'peran'])
         && request.resource.data.uid == request.auth.uid
+        && (!('kodePeserta' in request.resource.data) || request.resource.data.kodePeserta == kode)
+        && (!('peran' in request.resource.data) || request.resource.data.peran == 'PRAKTIKAN')
         && teksValid(request.resource.data.nama, 100)
         && teksValid(request.resource.data.nim, 32)
         && existsAfter(pathPengguna(request.auth.uid))
         && getAfter(pathPengguna(request.auth.uid)).data.kodePeserta == kode
         && getAfter(pathPengguna(request.auth.uid)).data.nama == request.resource.data.nama
         && getAfter(pathPengguna(request.auth.uid)).data.nim == request.resource.data.nim;
+    }
+
+    // Validasi dokumen token FCM perangkat milik pengguna (Farhan — Sprint 3)
+    function perangkatTokenValid(data) {
+      return data.keys().hasAll(['fcmToken'])
+        && data.keys().hasOnly([
+          'fcmToken', 'platform', 'deviceName', 'appVersion', 'dibuatPada', 'diperbaruiPada'
+        ])
+        && data.fcmToken is string
+        && data.fcmToken.size() >= 10
+        && data.fcmToken.size() <= 4096
+        && (!('platform' in data) || data.platform is string)
+        && (!('deviceName' in data) || data.deviceName is string)
+        && (!('appVersion' in data) || data.appVersion is string)
+        && (!('dibuatPada' in data) || data.dibuatPada is timestamp)
+        && (!('diperbaruiPada' in data) || data.diperbaruiPada is timestamp);
     }
 
     function kelasBaruValid() {
@@ -319,38 +338,6 @@ service cloud.firestore {
         && resource.data.statusSesi != 'DIBUKA';
     }
 
-    function presensiBaruValid(presensiId) {
-      let sesiId = request.resource.data.sesiId;
-      let kelasId = request.resource.data.kelasId;
-      let uid = request.auth.uid;
-      return isPraktikan()
-        && request.resource.data.keys().hasAll([
-          'sesiId', 'kelasId', 'uid', 'waktuHadir', 'kodeQr'
-        ])
-        && request.resource.data.keys().hasOnly([
-          'sesiId', 'kelasId', 'uid', 'waktuHadir', 'kodeQr'
-        ])
-        && sesiId is string
-        && kelasId is string
-        && request.resource.data.uid == uid
-        && presensiId == sesiId + '_' + uid
-        && request.resource.data.waktuHadir == request.time
-        && kodeQrValid(request.resource.data.kodeQr)
-        && exists(pathSesi(sesiId))
-        && get(pathSesi(sesiId)).data.kelasId == kelasId
-        && get(pathSesi(sesiId)).data.statusSesi == 'DIBUKA'
-        && get(pathSesi(sesiId)).data.diarsipkan == false
-        && kelasAktif(kelasId)
-        && anggotaAktif(kelasId, uid)
-        && exists(pathQr(sesiId))
-        && get(pathQr(sesiId)).data.kodeQr == request.resource.data.kodeQr
-        && !exists(pathPresensi(sesiId, uid))
-        && (
-          !existsAfter(pathIzin(sesiId, uid))
-          || getAfter(pathIzin(sesiId, uid)).data.statusIzin == 'DITOLAK'
-        );
-    }
-
     function izinBaruValid(izinId) {
       let sesiId = request.resource.data.sesiId;
       let kelasId = request.resource.data.kelasId;
@@ -448,13 +435,32 @@ service cloud.firestore {
       allow list: if false;
       allow create: if profilBaruValid(uid);
       allow update, delete: if false;
+
+      // Token FCM perangkat hanya dapat dikelola oleh pemilik UID (Farhan)
+      match /perangkat/{installationId} {
+        allow get, list: if signedIn() && request.auth.uid == uid;
+        allow create, update: if signedIn()
+          && request.auth.uid == uid
+          && installationId.size() > 0
+          && installationId.size() <= 128
+          && perangkatTokenValid(request.resource.data);
+        allow delete: if signedIn() && request.auth.uid == uid;
+      }
     }
 
+    // Proyeksi terbatas untuk pencarian & pemilihan praktikan oleh Asisten (Binar)
     match /kodePeserta/{kode} {
       allow get: if isAsisten() || kodeMilikSendiri(kode);
-      allow list: if false;
+      allow list: if isAsisten()
+        && (!('peran' in resource.data) || resource.data.peran == 'PRAKTIKAN');
       allow create: if mappingBaruValid(kode);
       allow update, delete: if false;
+    }
+
+    // Master data lokasi & radius geofence laboratorium (Binar & Azka)
+    match /laboratorium/{labId} {
+      allow get, list: if signedIn();
+      allow write: if false;
     }
 
     match /kelas/{kelasId} {
@@ -462,6 +468,8 @@ service cloud.firestore {
           isAsisten() && resource.data.asistenUid == request.auth.uid
         ) || (
           isPraktikan() && exists(pathAnggota(kelasId, request.auth.uid))
+        ) || (
+          signedIn() && resource.data.diarsipkan == false
         );
       allow list: if isAsisten() && resource.data.asistenUid == request.auth.uid;
       allow create: if kelasBaruValid();
@@ -515,6 +523,11 @@ service cloud.firestore {
           && resource.data.diarsipkan == false
           && kelasAktif(resource.data.kelasId)
           && anggotaAktif(resource.data.kelasId, request.auth.uid)
+        ) || (
+          signedIn()
+          && resource.data.diarsipkan == false
+          && resource.data.labId is string
+          && resource.data.labId.size() > 0
         );
       allow create: if sesiBaruValid(sesiId);
       allow update: if isAsisten()
@@ -547,6 +560,7 @@ service cloud.firestore {
       }
     }
 
+    // Direct client write diblokir sepenuhnya; wajib melalui Cloud Function recordAttendance
     match /presensi/{presensiId} {
       allow get: if (
           resource == null && presensiIdKosongMilikPraktikan(presensiId)
@@ -562,8 +576,7 @@ service cloud.firestore {
           isAsisten()
           && kelasDimilikiAsistenDiData(resource.data)
         );
-      allow create: if presensiBaruValid(presensiId);
-      allow update, delete: if false;
+      allow create, update, delete: if false;
     }
 
     match /izin/{izinId} {
