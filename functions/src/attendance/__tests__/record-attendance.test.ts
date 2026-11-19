@@ -236,6 +236,13 @@ describe('prosesRecordAttendance (transaction & concurrent duplicate)', () => {
 
     const makeDocRef = (path: string) => ({
       path,
+      collection(subName: string) {
+        return {
+          doc(subId: string) {
+            return makeDocRef(`${path}/${subName}/${subId}`);
+          },
+        };
+      },
     });
 
     const mockDb = {

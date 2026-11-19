@@ -4,23 +4,24 @@ import {
   getDoc,
   onSnapshot,
   query,
-  runTransaction,
-  serverTimestamp,
   where,
 } from '@react-native-firebase/firestore';
+import {
+  getFunctions,
+  httpsCallable,
+} from '@react-native-firebase/functions';
 
 import {
   getFirebaseServices,
   isFirebaseAvailable,
 } from '@/lib/firebase';
-
-import { bacaPayloadQr } from '@/utils/qr-payload';
-
 import type {
   AlasanGagal,
   Hasil,
   Presensi,
 } from '@/types';
+import type { KoordinatPengguna } from '@/types/location';
+import { bacaPayloadQr } from '@/utils/qr-payload';
 
 function gagal(
   alasan: AlasanGagal,
@@ -29,55 +30,76 @@ function gagal(
   return { ok: false, alasan, pesan };
 }
 
-function petakanError(
-  error: unknown,
-  sedangMenulisPresensi = false,
-): Hasil<never> {
+function petakanErrorCallable(error: unknown): Hasil<never> {
   if (
     typeof error === 'object' &&
     error !== null &&
     'code' in error
   ) {
-    const kode = String(
-      (error as { code: unknown }).code,
-    ).replace(/^firestore\//, '');
+    const errObj = error as {
+      code?: unknown;
+      message?: unknown;
+      details?: { alasan?: unknown };
+    };
+
+    const kode = String(errObj.code).replace(/^functions\//, '');
+    const pesanServer =
+      typeof errObj.message === 'string' && errObj.message.trim().length > 0
+        ? errObj.message
+        : null;
+    const alasanDetail =
+      typeof errObj.details?.alasan === 'string'
+        ? (errObj.details.alasan as AlasanGagal)
+        : null;
+
+    if (alasanDetail) {
+      return gagal(
+        alasanDetail,
+        pesanServer ?? 'Presensi ditolak oleh server.',
+      );
+    }
 
     switch (kode) {
-      case 'permission-denied':
-        if (sedangMenulisPresensi) {
-          return gagal(
-            'QR_TIDAK_VALID',
-            'Kode QR tidak valid atau ditolak oleh server.',
-          );
-        }
+      case 'invalid-argument':
         return gagal(
-          'TIDAK_BERWENANG',
-          'Anda tidak memiliki izin melakukan presensi.',
+          'QR_TIDAK_VALID',
+          pesanServer ?? 'Kode QR atau data lokasi tidak valid.',
         );
-
+      case 'already-exists':
+        return gagal(
+          'SUDAH_PRESENSI',
+          pesanServer ?? 'Anda sudah melakukan presensi pada sesi ini.',
+        );
+      case 'permission-denied':
+        return gagal(
+          'BUKAN_ANGGOTA',
+          pesanServer ?? 'Anda tidak memiliki izin melakukan presensi pada sesi ini.',
+        );
+      case 'failed-precondition':
+        return gagal(
+          'INPUT_TIDAK_VALID',
+          pesanServer ?? 'Syarat lokasi atau status sesi tidak terpenuhi.',
+        );
+      case 'not-found':
+        return gagal(
+          'DATA_TIDAK_DITEMUKAN',
+          pesanServer ?? 'Data sesi atau laboratorium tidak ditemukan.',
+        );
       case 'unauthenticated':
         return gagal(
           'AUTENTIKASI_GAGAL',
           'Silakan login kembali.',
         );
-
       case 'unavailable':
       case 'network-request-failed':
         return gagal(
           'JARINGAN',
           'Koneksi terganggu. Periksa jaringan lalu coba lagi.',
         );
-
       case 'deadline-exceeded':
         return gagal(
           'TIMEOUT',
           'Permintaan presensi melewati batas waktu.',
-        );
-
-      case 'not-found':
-        return gagal(
-          'DATA_TIDAK_DITEMUKAN',
-          'Data sesi tidak ditemukan.',
         );
     }
   }
@@ -135,15 +157,21 @@ function petakanPresensi(
   };
 }
 
+interface RecordAttendanceCallableOutput {
+  ok: true;
+  idPresensi: string;
+  jarakMeter: number;
+  radiusPresensi: number;
+  waktuHadirIso: string;
+}
+
 /**
- * Mencatat presensi praktikan melalui QR.
- *
- * ID dokumen presensi: sesiId_uid.
- * Praktikan tidak membaca dokumen rahasia sesi/{id}/rahasia/qr;
- * validasi kecocokan kodeQr dilakukan oleh Firestore Security Rules.
+ * Mencatat presensi praktikan melalui Cloud Function `recordAttendance`
+ * dengan validasi QR, geofence radius lab, dan transaksi server-side.
  */
 export async function catatPresensiDariQr(
   payloadQr: string,
+  posisi: KoordinatPengguna | null,
 ): Promise<Hasil<Presensi>> {
   if (!isFirebaseAvailable) {
     return gagal(
@@ -161,205 +189,70 @@ export async function catatPresensiDariQr(
     );
   }
 
-  const { idSesi, kodeQr } = hasilBaca;
-  let sedangMenulisPresensi = false;
+  if (!posisi) {
+    return gagal(
+      'INPUT_TIDAK_VALID',
+      'Lokasi GPS belum tersedia. Aktifkan GPS dan coba lagi.',
+    );
+  }
+
+  const { auth } = getFirebaseServices();
+  const user = auth.currentUser;
+
+  if (!user) {
+    return gagal(
+      'AUTENTIKASI_GAGAL',
+      'Silakan login terlebih dahulu.',
+    );
+  }
 
   try {
-    const { auth, db } = getFirebaseServices();
-    const user = auth.currentUser;
-
-    if (!user) {
-      return gagal(
-        'AUTENTIKASI_GAGAL',
-        'Silakan login terlebih dahulu.',
-      );
-    }
-
-    const uid = user.uid;
-
-    const sesiRef = doc(db, 'sesi', idSesi);
-    const profilRef = doc(db, 'pengguna', uid);
-
-    const hasilTransaksi = await runTransaction(
-      db,
-      async (tx) => {
-        sedangMenulisPresensi = false;
-
-        // Baca sesi dan profil terlebih dahulu.
-        const [sesiSnap, profilSnap] = await Promise.all([
-          tx.get(sesiRef),
-          tx.get(profilRef),
-        ]);
-
-        if (!sesiSnap.exists()) {
-          return gagal(
-            'DATA_TIDAK_DITEMUKAN',
-            'Sesi praktikum tidak ditemukan.',
-          );
-        }
-
-        const profilData = profilSnap.data();
-
-        if (
-          !profilSnap.exists() ||
-          profilData?.peran !== 'PRAKTIKAN'
-        ) {
-          return gagal(
-            'TIDAK_BERWENANG',
-            'Akun ini bukan akun praktikan.',
-          );
-        }
-
-        const sesiData = sesiSnap.data();
-        const kelasId = sesiData?.kelasId;
-
-        if (
-          typeof kelasId !== 'string' ||
-          kelasId.length === 0
-        ) {
-          return gagal(
-            'DATA_TIDAK_DITEMUKAN',
-            'Data kelas pada sesi tidak valid.',
-          );
-        }
-
-        const kelasRef = doc(db, 'kelas', kelasId);
-        const anggotaRef = doc(
-          db,
-          'keanggotaan',
-          `${kelasId}_${uid}`,
-        );
-        const presensiRef = doc(
-          db,
-          'presensi',
-          `${idSesi}_${uid}`,
-        );
-        const izinRef = doc(
-          db,
-          'izin',
-          `${idSesi}_${uid}`,
-        );
-
-        // Baca semua dokumen yang berhak diakses sebelum melakukan penulisan.
-        // Dokumen rahasia/qr TIDAK dibaca dari klien; validasi dilakukan Rules.
-        const [
-          kelasSnap,
-          anggotaSnap,
-          presensiSnap,
-          izinSnap,
-        ] = await Promise.all([
-          tx.get(kelasRef),
-          tx.get(anggotaRef),
-          tx.get(presensiRef),
-          tx.get(izinRef),
-        ]);
-
-        const kelasData = kelasSnap.data();
-        const anggotaData = anggotaSnap.data();
-        const izinData = izinSnap.data();
-
-        if (!kelasSnap.exists() || !kelasData) {
-          return gagal(
-            'DATA_TIDAK_DITEMUKAN',
-            'Kelas tidak ditemukan.',
-          );
-        }
-
-        if (
-          sesiData?.diarsipkan === true ||
-          kelasData.diarsipkan === true
-        ) {
-          return gagal(
-            'DATA_DIARSIPKAN',
-            'Sesi atau kelas sudah diarsipkan.',
-          );
-        }
-
-        if (sesiData?.statusSesi === 'BELUM_DIBUKA') {
-          return gagal(
-            'BELUM_DIBUKA',
-            'Sesi praktikum belum dibuka.',
-          );
-        }
-
-        if (sesiData?.statusSesi === 'DITUTUP') {
-          return gagal(
-            'SUDAH_DITUTUP',
-            'Sesi praktikum sudah ditutup.',
-          );
-        }
-
-        if (sesiData?.statusSesi !== 'DIBUKA') {
-          return gagal(
-            'INPUT_TIDAK_VALID',
-            'Status sesi tidak valid.',
-          );
-        }
-
-        if (
-          !anggotaSnap.exists() ||
-          anggotaData?.status !== 'AKTIF'
-        ) {
-          return gagal(
-            'BUKAN_ANGGOTA',
-            'Anda bukan anggota aktif kelas ini.',
-          );
-        }
-
-        if (presensiSnap.exists()) {
-          return gagal(
-            'SUDAH_PRESENSI',
-            'Anda sudah melakukan presensi pada sesi ini.',
-          );
-        }
-
-        const statusIzin = izinData?.statusIzin;
-
-        if (
-          statusIzin === 'MENUNGGU' ||
-          statusIzin === 'DISETUJUI'
-        ) {
-          return gagal(
-            'SUDAH_ADA_IZIN',
-            'Presensi tidak dapat dilakukan karena pengajuan izin masih menunggu atau sudah disetujui.',
-          );
-        }
-
-        // Izin DITOLAK tidak menghalangi praktikan melakukan presensi.
-        // kodeQr dikirim untuk divalidasi Rules terhadap sesi/{idSesi}/rahasia/qr.
-        sedangMenulisPresensi = true;
-        tx.set(presensiRef, {
-          sesiId: idSesi,
-          kelasId,
-          uid,
-          waktuHadir: serverTimestamp(),
-          kodeQr,
-        });
-
-        return {
-          ok: true,
-          data: {
-            idPresensi: `${idSesi}_${uid}`,
-            sesiId: idSesi,
-            kelasId,
-            uid,
-            waktuHadir: null,
-          },
-        } satisfies Hasil<Presensi>;
+    const functionsInstance = getFunctions();
+    const callable = httpsCallable<
+      {
+        sesiId: string;
+        buktiQr: string;
+        koordinat: {
+          latitude: number;
+          longitude: number;
+        };
+        akurasi: number;
+        timestamp: number;
       },
-    );
+      RecordAttendanceCallableOutput
+    >(functionsInstance, 'recordAttendance');
 
-    return hasilTransaksi;
+    const response = await callable({
+      sesiId: hasilBaca.idSesi,
+      buktiQr: payloadQr,
+      koordinat: {
+        latitude: posisi.latitude,
+        longitude: posisi.longitude,
+      },
+      akurasi: posisi.accuracy ?? 999,
+      timestamp: posisi.timestamp,
+    });
+
+    const data = response.data;
+    const waktuHadir = data?.waktuHadirIso
+      ? new Date(data.waktuHadirIso)
+      : new Date();
+
+    return {
+      ok: true,
+      data: {
+        idPresensi: data?.idPresensi ?? `${hasilBaca.idSesi}_${user.uid}`,
+        sesiId: hasilBaca.idSesi,
+        kelasId: '',
+        uid: user.uid,
+        waktuHadir: Number.isNaN(waktuHadir.getTime()) ? null : waktuHadir,
+      },
+    };
   } catch (error) {
-    return petakanError(error, sedangMenulisPresensi);
+    return petakanErrorCallable(error);
   }
 }
 
-/**
- * Mendengarkan daftar presensi berdasarkan sesi.
- * Menyelesaikan kelasId dari dokumen sesi terlebih dahulu agar query
- * sesuai dengan Firestore Security Rules.
- */
 export function listenPresensiSesi(
   sesiId: string,
   callback: (presensi: Presensi[]) => void,
@@ -440,9 +333,6 @@ export function listenPresensiSesi(
   };
 }
 
-/**
- * Mendengarkan riwayat presensi berdasarkan pengguna.
- */
 export function listenPresensiPengguna(
   uid: string,
   callback: (presensi: Presensi[]) => void,

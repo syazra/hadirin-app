@@ -37,7 +37,7 @@ export function hitungJarakHaversineMeter(
   lat2: number,
   lon2: number,
 ): number {
-  const R = 6_371_000; // Radius bumi dalam meter
+  const R = 6_371_000;
   const toRad = (deg: number) => (deg * Math.PI) / 180;
 
   const dLat = toRad(lat2 - lat1);
@@ -55,6 +55,7 @@ export function hitungJarakHaversineMeter(
 
 /**
  * Memvalidasi kecocokan bukti QR dari klien terhadap sesiId & tokenQrAktif di Firestore.
+ * Mendukung format JSON ({ idSesi/sesiId, kodeQr/token }) maupun string token mentah.
  */
 export function validasiBuktiQr(
   buktiQrRaw: string,
@@ -66,23 +67,34 @@ export function validasiBuktiQr(
     return false;
   }
 
-  // Mendukung format string token langsung maupun JSON payload { sesiId, token }
   if (bukti.startsWith('{')) {
     try {
       const parsed = JSON.parse(bukti) as {
+        idSesi?: unknown;
         sesiId?: unknown;
+        kodeQr?: unknown;
         token?: unknown;
       };
-      if (
-        typeof parsed.sesiId === 'string' &&
-        parsed.sesiId !== sesiId
-      ) {
+
+      const idSesiQr =
+        typeof parsed.idSesi === 'string'
+          ? parsed.idSesi
+          : typeof parsed.sesiId === 'string'
+            ? parsed.sesiId
+            : null;
+
+      if (idSesiQr !== null && idSesiQr !== sesiId) {
         return false;
       }
-      return (
-        typeof parsed.token === 'string' &&
-        parsed.token.trim() === tokenQrAktif.trim()
-      );
+
+      const tokenDariQr =
+        typeof parsed.kodeQr === 'string'
+          ? parsed.kodeQr
+          : typeof parsed.token === 'string'
+            ? parsed.token
+            : '';
+
+      return tokenDariQr.trim() === tokenQrAktif.trim();
     } catch {
       return false;
     }
@@ -174,10 +186,13 @@ export function evaluasiKelayakanPresensi(
     );
   }
 
-  if (izin && izin.statusIzin === 'DISETUJUI') {
+  if (
+    izin &&
+    (izin.statusIzin === 'DISETUJUI' || izin.statusIzin === 'MENUNGGU')
+  ) {
     throw new HttpsError(
       'failed-precondition',
-      'Anda sudah memiliki izin yang disetujui pada sesi ini.',
+      'Presensi tidak dapat dilakukan karena pengajuan izin masih menunggu atau sudah disetujui.',
       { alasan: 'ADA_IZIN' },
     );
   }
@@ -316,9 +331,11 @@ export async function prosesRecordAttendance(
 
     const sesiData = sesiSnap.data()!;
     const kelasId = String(sesiData.kelasId ?? '');
-    const labId = String(sesiData.labId ?? '');
+    const labId = typeof sesiData.labId === 'string' ? sesiData.labId.trim() : '';
+    const lokasiNama =
+      typeof sesiData.lokasi === 'string' ? sesiData.lokasi.trim() : '';
 
-    if (!kelasId || !labId) {
+    if (!kelasId || (!labId && !lokasiNama)) {
       throw new HttpsError(
         'failed-precondition',
         'Konfigurasi kelas atau laboratorium pada sesi belum lengkap.',
@@ -326,22 +343,42 @@ export async function prosesRecordAttendance(
       );
     }
 
-    const labRef = db.collection('laboratorium').doc(labId);
     const anggotaRef = db.collection('keanggotaan').doc(`${kelasId}_${uid}`);
+    const rahasiaQrRef = sesiRef.collection('rahasia').doc('qr');
     const izinQuery = db
       .collection('izin')
       .where('sesiId', '==', payload.sesiId)
       .where('uid', '==', uid)
       .limit(1);
 
-    const [labSnap, anggotaSnap, presensiSnap, izinSnap] = await Promise.all([
-      tx.get(labRef),
-      tx.get(anggotaRef),
-      tx.get(presensiRef),
-      tx.get(izinQuery),
-    ]);
+    const labTargetPromise = labId
+      ? tx.get(db.collection('laboratorium').doc(labId))
+      : tx.get(
+          db
+            .collection('laboratorium')
+            .where('namaLab', '==', lokasiNama)
+            .limit(1),
+        );
 
-    if (!labSnap.exists) {
+    const [labResult, anggotaSnap, presensiSnap, izinSnap, rahasiaQrSnap] =
+      await Promise.all([
+        labTargetPromise,
+        tx.get(anggotaRef),
+        tx.get(presensiRef),
+        tx.get(izinQuery),
+        tx.get(rahasiaQrRef),
+      ]);
+
+    const labDoc =
+      'exists' in labResult
+        ? labResult.exists
+          ? labResult
+          : null
+        : !labResult.empty
+          ? labResult.docs[0]
+          : null;
+
+    if (!labDoc) {
       throw new HttpsError(
         'not-found',
         'Data laboratorium tidak ditemukan.',
@@ -349,7 +386,17 @@ export async function prosesRecordAttendance(
       );
     }
 
-    const labData = labSnap.data()!;
+    const labData = labDoc.data()!;
+    const rahasiaData = rahasiaQrSnap.exists ? rahasiaQrSnap.data() : undefined;
+    const tokenQrAktif =
+      typeof rahasiaData?.kodeQr === 'string'
+        ? rahasiaData.kodeQr
+        : typeof rahasiaData?.tokenQrAktif === 'string'
+          ? rahasiaData.tokenQrAktif
+          : typeof sesiData.tokenQrAktif === 'string'
+            ? sesiData.tokenQrAktif
+            : null;
+
     const anggotaData = anggotaSnap.exists
       ? { status: String(anggotaSnap.data()!.status ?? '') }
       : null;
@@ -363,10 +410,7 @@ export async function prosesRecordAttendance(
         kelasId,
         statusSesi: String(sesiData.statusSesi ?? ''),
         diarsipkan: Boolean(sesiData.diarsipkan),
-        tokenQrAktif:
-          typeof sesiData.tokenQrAktif === 'string'
-            ? sesiData.tokenQrAktif
-            : null,
+        tokenQrAktif,
       },
       lab: {
         latitude: Number(labData.latitude),
