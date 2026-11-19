@@ -10,7 +10,9 @@ import type {
   Presensi,
   StatusKeanggotaan,
   StatusRekap,
+  StatusSesi,
 } from '@/types';
+import { tentukanStatusRekap } from '@/utils/tentukan-status-rekap';
 
 export interface ItemRekapSesi {
   uid: string;
@@ -18,6 +20,8 @@ export interface ItemRekapSesi {
   nim: string;
   statusKeanggotaan: StatusKeanggotaan;
   statusRekap: StatusRekap;
+  /** True jika izin DISETUJUI namun klasifikasi AI gagal/belum tersedia (fallback IZIN) */
+  aiBelumTersedia: boolean;
   waktuHadir: Date | null;
   izin: Izin | null;
 }
@@ -25,12 +29,16 @@ export interface ItemRekapSesi {
 export interface RekapSesi {
   daftarRekap: ItemRekapSesi[];
   daftarHadir: ItemRekapSesi[];
+  daftarSakit: ItemRekapSesi[];
   daftarIzinDisetujui: ItemRekapSesi[];
   daftarIzinLainnya: ItemRekapSesi[];
+  daftarAlpha: ItemRekapSesi[];
   daftarBelumHadir: ItemRekapSesi[];
   jumlahHadir: number;
+  jumlahSakit: number;
   jumlahIzin: number;
   jumlahIzinMenunggu: number;
+  jumlahAlpha: number;
   jumlahBelumHadir: number;
   totalPeserta: number;
   loading: boolean;
@@ -66,12 +74,16 @@ const STATE_AWAL: StateRekap = {
 const REKAP_KOSONG: RekapSesi = {
   daftarRekap: [],
   daftarHadir: [],
+  daftarSakit: [],
   daftarIzinDisetujui: [],
   daftarIzinLainnya: [],
+  daftarAlpha: [],
   daftarBelumHadir: [],
   jumlahHadir: 0,
+  jumlahSakit: 0,
   jumlahIzin: 0,
   jumlahIzinMenunggu: 0,
+  jumlahAlpha: 0,
   jumlahBelumHadir: 0,
   totalPeserta: 0,
   loading: false,
@@ -81,6 +93,7 @@ const REKAP_KOSONG: RekapSesi = {
 export function useRekapSesi(
   idSesi: string | null,
   idKelas: string | null,
+  statusSesi: StatusSesi = 'DIBUKA',
 ): RekapSesi {
   const { pengguna } = useAuth();
   const [state, setState] = useState<StateRekap>(STATE_AWAL);
@@ -246,19 +259,19 @@ export function useRekapSesi(
 
       uidTercatat.add(anggota.uid);
 
-      let statusRekap: StatusRekap = 'BELUM_HADIR';
-      if (catatanPresensi) {
-        statusRekap = 'HADIR';
-      } else if (catatanIzin?.statusIzin === 'DISETUJUI') {
-        statusRekap = 'IZIN';
-      }
+      const { status, aiBelumTersedia } = tentukanStatusRekap({
+        presensi: catatanPresensi,
+        izin: catatanIzin,
+        statusSesi,
+      });
 
       daftarRekap.push({
         uid: anggota.uid,
         nama: anggota.nama,
         nim: anggota.nim,
         statusKeanggotaan: anggota.status,
-        statusRekap,
+        statusRekap: status,
+        aiBelumTersedia,
         waktuHadir: catatanPresensi?.waktuHadir ?? null,
         izin: catatanIzin,
       });
@@ -273,19 +286,19 @@ export function useRekapSesi(
       const catatanPresensi = mapPresensi.get(uid) ?? null;
       const catatanIzin = mapIzin.get(uid) ?? null;
 
-      let statusRekap: StatusRekap = 'BELUM_HADIR';
-      if (catatanPresensi) {
-        statusRekap = 'HADIR';
-      } else if (catatanIzin?.statusIzin === 'DISETUJUI') {
-        statusRekap = 'IZIN';
-      }
+      const { status, aiBelumTersedia } = tentukanStatusRekap({
+        presensi: catatanPresensi,
+        izin: catatanIzin,
+        statusSesi,
+      });
 
       daftarRekap.push({
         uid,
         nama: 'Peserta',
         nim: uid,
         statusKeanggotaan: 'NONAKTIF',
-        statusRekap,
+        statusRekap: status,
+        aiBelumTersedia,
         waktuHadir: catatanPresensi?.waktuHadir ?? null,
         izin: catatanIzin,
       });
@@ -298,6 +311,10 @@ export function useRekapSesi(
           (b.waktuHadir?.getTime() ?? 0) - (a.waktuHadir?.getTime() ?? 0),
       );
 
+    const daftarSakit = daftarRekap
+      .filter((item) => item.statusRekap === 'SAKIT')
+      .sort((a, b) => a.nama.localeCompare(b.nama));
+
     const daftarIzinDisetujui = daftarRekap
       .filter((item) => item.statusRekap === 'IZIN')
       .sort((a, b) => a.nama.localeCompare(b.nama));
@@ -307,13 +324,20 @@ export function useRekapSesi(
         (item) =>
           item.statusRekap === 'BELUM_HADIR' &&
           item.izin !== null &&
-          (item.izin.statusIzin === 'MENUNGGU' ||
-            item.izin.statusIzin === 'DITOLAK'),
+          item.izin.statusIzin === 'MENUNGGU',
       )
       .sort((a, b) => a.nama.localeCompare(b.nama));
 
+    const daftarAlpha = daftarRekap
+      .filter((item) => item.statusRekap === 'ALPHA')
+      .sort((a, b) => a.nama.localeCompare(b.nama));
+
     const daftarBelumHadir = daftarRekap
-      .filter((item) => item.statusRekap === 'BELUM_HADIR')
+      .filter(
+        (item) =>
+          item.statusRekap === 'BELUM_HADIR' &&
+          (item.izin === null || item.izin.statusIzin !== 'MENUNGGU'),
+      )
       .sort((a, b) => a.nama.localeCompare(b.nama));
 
     const jumlahIzinMenunggu = daftarRekap.filter(
@@ -323,16 +347,20 @@ export function useRekapSesi(
     return {
       daftarRekap,
       daftarHadir,
+      daftarSakit,
       daftarIzinDisetujui,
       daftarIzinLainnya,
+      daftarAlpha,
       daftarBelumHadir,
       jumlahHadir: daftarHadir.length,
+      jumlahSakit: daftarSakit.length,
       jumlahIzin: daftarIzinDisetujui.length,
       jumlahIzinMenunggu,
+      jumlahAlpha: daftarAlpha.length,
       jumlahBelumHadir: daftarBelumHadir.length,
       totalPeserta: daftarRekap.length,
       loading,
       error: null,
     };
-  }, [kunciAktif, state]);
+  }, [kunciAktif, state, statusSesi]);
 }

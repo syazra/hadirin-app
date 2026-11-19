@@ -42,10 +42,22 @@ const KONFIGURASI_TAMBAHAN: Record<StatusIzin | StatusRekap, KonfigurasiBadge> =
     warnaLatar: '#DCFCE7',
     konteks: 'Status rekap',
   },
+  SAKIT: {
+    label: 'Sakit',
+    warna: '#7E22CE',
+    warnaLatar: '#F3E8FF',
+    konteks: 'Status rekap',
+  },
   IZIN: {
     label: 'Izin',
     warna: '#1D4ED8',
     warnaLatar: '#DBEAFE',
+    konteks: 'Status rekap',
+  },
+  ALPHA: {
+    label: 'Alpha',
+    warna: '#B91C1C',
+    warnaLatar: '#FEE2E2',
     konteks: 'Status rekap',
   },
   BELUM_HADIR: {
@@ -63,7 +75,12 @@ function isStatusSesi(status: StatusBadgeNilai): status is StatusSesi {
 export function StatusBadge({ status }: StatusBadgeProps) {
   const config: KonfigurasiBadge = isStatusSesi(status)
     ? { ...STATUS_SESI[status], konteks: 'Status sesi' }
-    : KONFIGURASI_TAMBAHAN[status];
+    : (KONFIGURASI_TAMBAHAN[status] ?? {
+        label: String(status),
+        warna: '#475569',
+        warnaLatar: '#F1F5F9',
+        konteks: 'Status',
+      });
 
   return (
     <View

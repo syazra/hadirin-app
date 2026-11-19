@@ -48,6 +48,7 @@ export default function DetailSesiScreen() {
   const rekap = useRekapSesi(
     peran === 'ASISTEN' ? (sesi?.idSesi ?? null) : null,
     peran === 'ASISTEN' ? (sesi?.kelasId ?? null) : null,
+    sesi?.statusSesi ?? 'DIBUKA',
   );
 
   if (authLoading) {
@@ -151,7 +152,9 @@ export default function DetailSesiScreen() {
               <>
                 <RingkasanHadir
                   jumlahHadir={rekap.jumlahHadir}
+                  jumlahSakit={rekap.jumlahSakit}
                   jumlahIzin={rekap.jumlahIzin}
+                  jumlahAlpha={rekap.jumlahAlpha}
                   jumlahBelumHadir={rekap.jumlahBelumHadir}
                   jumlahIzinMenunggu={rekap.jumlahIzinMenunggu}
                 />

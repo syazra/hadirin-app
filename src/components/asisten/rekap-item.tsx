@@ -12,23 +12,28 @@ export function RekapItem({
   nim,
   statusKeanggotaan,
   statusRekap,
+  aiBelumTersedia,
   waktuHadir,
   izin,
 }: RekapItemProps) {
+  const adalahIzinDisetujui =
+    statusRekap === 'IZIN' || statusRekap === 'SAKIT';
+
+  const sedangMenungguIzin =
+    statusRekap === 'BELUM_HADIR' &&
+    izin !== null &&
+    izin.statusIzin === 'MENUNGGU';
+
   const teksWaktu =
     statusRekap === 'HADIR'
       ? waktuHadir
         ? formatWaktu(waktuHadir.toISOString())
         : 'Memproses waktu...'
-      : statusRekap === 'IZIN'
+      : adalahIzinDisetujui
         ? izin?.waktuPeriksa
           ? `Disetujui · ${formatWaktu(izin.waktuPeriksa.toISOString())}`
           : 'Izin disetujui'
         : null;
-
-  const tampilkanStatusIzinTerpisah =
-    izin !== null &&
-    (izin.statusIzin === 'MENUNGGU' || izin.statusIzin === 'DITOLAK');
 
   return (
     <View style={styles.card}>
@@ -49,12 +54,18 @@ export function RekapItem({
         </View>
         <Text style={styles.nim}>{nim}</Text>
         {teksWaktu && <Text style={styles.waktu}>{teksWaktu}</Text>}
+        {aiBelumTersedia && (
+          <Text style={styles.aiFallbackNote}>
+            Klasifikasi AI belum tersedia
+          </Text>
+        )}
       </View>
 
       <View style={styles.badges}>
-        <StatusBadge status={statusRekap} />
-        {tampilkanStatusIzinTerpisah && izin && (
-          <StatusBadge status={izin.statusIzin} />
+        {sedangMenungguIzin ? (
+          <StatusBadge status="MENUNGGU" />
+        ) : (
+          <StatusBadge status={statusRekap} />
         )}
       </View>
     </View>
@@ -120,6 +131,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: Colors.light.success,
     marginTop: 2,
+  },
+  aiFallbackNote: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    color: '#B45309',
+    marginTop: 1,
   },
   badges: {
     alignItems: 'flex-end',
