@@ -10,6 +10,7 @@ export interface SeedSesi {
   durasiJam: number;
   statusSesi: StatusSesi;
   diarsipkan: boolean;
+  kodeQr: string;
 }
 
 export const DATA_SESI: SeedSesi[] = [
@@ -23,6 +24,7 @@ export const DATA_SESI: SeedSesi[] = [
     durasiJam: 2,
     statusSesi: 'DITUTUP',
     diarsipkan: false,
+    kodeQr: 'SEED-QR-PPB-01',
   },
   {
     idSesi: 'seed-sesi-ppb-02',
@@ -34,6 +36,7 @@ export const DATA_SESI: SeedSesi[] = [
     durasiJam: 2,
     statusSesi: 'DITUTUP',
     diarsipkan: false,
+    kodeQr: 'SEED-QR-PPB-02',
   },
   {
     idSesi: 'seed-sesi-ppb-03',
@@ -45,6 +48,7 @@ export const DATA_SESI: SeedSesi[] = [
     durasiJam: 3,
     statusSesi: 'DIBUKA',
     diarsipkan: false,
+    kodeQr: 'SEED-QR-PPB-03',
   },
   {
     idSesi: 'seed-sesi-ppb-04',
@@ -56,6 +60,7 @@ export const DATA_SESI: SeedSesi[] = [
     durasiJam: 2,
     statusSesi: 'BELUM_DIBUKA',
     diarsipkan: false,
+    kodeQr: 'SEED-QR-PPB-04',
   },
   {
     idSesi: 'seed-sesi-ml-01',
@@ -67,6 +72,7 @@ export const DATA_SESI: SeedSesi[] = [
     durasiJam: 2,
     statusSesi: 'DITUTUP',
     diarsipkan: false,
+    kodeQr: 'SEED-QR-ML-01',
   },
   {
     idSesi: 'seed-sesi-ml-02',
@@ -78,6 +84,7 @@ export const DATA_SESI: SeedSesi[] = [
     durasiJam: 3,
     statusSesi: 'DIBUKA',
     diarsipkan: false,
+    kodeQr: 'SEED-QR-ML-02',
   },
   {
     idSesi: 'seed-sesi-jarkom-01',
@@ -89,6 +96,7 @@ export const DATA_SESI: SeedSesi[] = [
     durasiJam: 2,
     statusSesi: 'DITUTUP',
     diarsipkan: false,
+    kodeQr: 'SEED-QR-JARKOM-01',
   },
   {
     idSesi: 'seed-sesi-jarkom-02',
@@ -100,6 +108,7 @@ export const DATA_SESI: SeedSesi[] = [
     durasiJam: 2,
     statusSesi: 'BELUM_DIBUKA',
     diarsipkan: false,
+    kodeQr: 'SEED-QR-JARKOM-02',
   },
   {
     idSesi: 'seed-sesi-rpl-01',
@@ -111,6 +120,7 @@ export const DATA_SESI: SeedSesi[] = [
     durasiJam: 2,
     statusSesi: 'DIBUKA',
     diarsipkan: false,
+    kodeQr: 'SEED-QR-RPL-01',
   },
   {
     idSesi: 'seed-sesi-sd-arsip-01',
@@ -122,5 +132,6 @@ export const DATA_SESI: SeedSesi[] = [
     durasiJam: 2,
     statusSesi: 'DITUTUP',
     diarsipkan: true,
+    kodeQr: 'SEED-QR-SD-ARSIP-01',
   },
 ];

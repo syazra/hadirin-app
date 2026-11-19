@@ -95,6 +95,7 @@ async function main() {
     kelas: { created: 0, updated: 0 },
     keanggotaan: { created: 0, updated: 0 },
     sesi: { created: 0, updated: 0 },
+    rahasiaQr: { created: 0, updated: 0 },
     presensi: { created: 0, updated: 0 },
     izin: { created: 0, updated: 0 },
   };
@@ -198,14 +199,16 @@ async function main() {
     );
   }
 
-  // 5. Seed Sesi
+  // 5. Seed Sesi + Sub-dokumen rahasia QR
   const baseMs = Date.now();
   for (const sesi of DATA_SESI) {
     const startMs = baseMs + sesi.waktuMulaiOffsetJam * 3600 * 1000;
     const endMs = startMs + sesi.durasiJam * 3600 * 1000;
 
+    const sesiRef = db.collection('sesi').doc(sesi.idSesi);
+
     await upsertDoc(
-      db.collection('sesi').doc(sesi.idSesi),
+      sesiRef,
       {
         idSesi: sesi.idSesi,
         kelasId: sesi.kelasId,
@@ -218,6 +221,15 @@ async function main() {
         diarsipkan: sesi.diarsipkan,
       },
       summary.sesi
+    );
+
+    await upsertDoc(
+      sesiRef.collection('rahasia').doc('qr'),
+      {
+        kodeQr: sesi.kodeQr,
+        diperbaruiPada: now,
+      },
+      summary.rahasiaQr
     );
   }
 
