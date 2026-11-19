@@ -1,0 +1,19 @@
+{
+  "name": "hadirin-firestore-seeder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Isolated Firestore seeding script for Hadir.in development/emulator",
+  "scripts": {
+    "seed": "tsx seed-firestore.ts",
+    "seed:emulator": "FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 tsx seed-firestore.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "firebase-admin": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
