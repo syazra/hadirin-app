@@ -25,34 +25,41 @@ export function tentukanStatusRekap({
     };
   }
 
-  // 2. Prioritas kedua: izin DISETUJUI oleh Asisten
-  if (izin && izin.statusIzin === 'DISETUJUI') {
-    const kategori = String(izin.kategoriAi ?? '').toUpperCase();
+  // 2. Prioritas kedua: cek status izin
+  if (izin) {
+    if (izin.statusIzin === 'DISETUJUI') {
+      const kategori = String(izin.kategoriAi ?? '').toUpperCase();
 
-    // Mendukung kontrak final SAKIT (FAR-S2-01) maupun transisi KESEHATAN
-    if (kategori === 'SAKIT' || kategori === 'KESEHATAN') {
-      return {
-        status: 'SAKIT',
-        aiBelumTersedia: false,
-      };
-    }
+      if (kategori === 'SAKIT' || kategori === 'KESEHATAN') {
+        return {
+          status: 'SAKIT',
+          aiBelumTersedia: false,
+        };
+      }
 
-    // Kategori IZIN valid (termasuk transisi KELUARGA/AKADEMIK)
-    if (
-      izin.statusAi === 'SUKSES' &&
-      (kategori === 'IZIN' || kategori === 'KELUARGA' || kategori === 'AKADEMIK')
-    ) {
+      if (
+        izin.statusAi === 'SUKSES' &&
+        (kategori === 'IZIN' || kategori === 'KELUARGA' || kategori === 'AKADEMIK')
+      ) {
+        return {
+          status: 'IZIN',
+          aiBelumTersedia: false,
+        };
+      }
+
       return {
         status: 'IZIN',
-        aiBelumTersedia: false,
+        aiBelumTersedia: true,
       };
     }
 
-    // Fallback aman jika AI gagal, belum diproses, atau kategori tidak jelas
-    return {
-      status: 'IZIN',
-      aiBelumTersedia: true,
-    };
+    // Izin ditolak tanpa presensi -> langsung ALPHA
+    if (izin.statusIzin === 'DITOLAK') {
+      return {
+        status: 'ALPHA',
+        aiBelumTersedia: false,
+      };
+    }
   }
 
   // 3. Tanpa presensi & tanpa izin DISETUJUI: cek apakah sesi sudah DITUTUP

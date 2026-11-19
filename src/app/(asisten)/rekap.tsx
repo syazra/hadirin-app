@@ -208,28 +208,23 @@ export default function RekapScreen() {
                     </View>
                   )}
 
-                  <View style={styles.section}>
-                    <Text style={styles.label}>
-                      Izin Disetujui ({rekap.daftarIzinDisetujui.length})
-                    </Text>
-                    {rekap.daftarIzinDisetujui.length > 0 ? (
+                  {rekap.daftarIzinDisetujui.length > 0 && (
+                    <View style={styles.section}>
+                      <Text style={styles.label}>
+                        Izin ({rekap.daftarIzinDisetujui.length})
+                      </Text>
                       <View style={styles.daftar}>
                         {rekap.daftarIzinDisetujui.map((item) => (
                           <RekapItem key={item.uid} {...item} />
                         ))}
                       </View>
-                    ) : (
-                      <EmptyState
-                        judul="Tidak ada izin disetujui"
-                        pesan="Belum ada pengajuan izin yang disetujui pada sesi ini."
-                      />
-                    )}
-                  </View>
+                    </View>
+                  )}
 
                   {rekap.daftarIzinLainnya.length > 0 && (
                     <View style={styles.section}>
                       <Text style={styles.label}>
-                        Pengajuan Izin Menunggu / Ditolak (
+                        Pengajuan Izin Menunggu (
                         {rekap.daftarIzinLainnya.length})
                       </Text>
                       <View style={styles.daftar}>
@@ -240,7 +235,8 @@ export default function RekapScreen() {
                     </View>
                   )}
 
-                  {sesiAktif.statusSesi === 'DITUTUP' ? (
+                  {(sesiAktif.statusSesi === 'DITUTUP' ||
+                    rekap.daftarAlpha.length > 0) && (
                     <View style={styles.section}>
                       <Text style={styles.label}>
                         Alpha ({rekap.daftarAlpha.length})
@@ -258,7 +254,9 @@ export default function RekapScreen() {
                         />
                       )}
                     </View>
-                  ) : (
+                  )}
+
+                  {sesiAktif.statusSesi !== 'DITUTUP' && (
                     <View style={styles.section}>
                       <Text style={styles.label}>
                         Belum Hadir ({rekap.daftarBelumHadir.length})
@@ -272,7 +270,7 @@ export default function RekapScreen() {
                       ) : (
                         <EmptyState
                           judul="Semua peserta tercatat"
-                          pesan="Seluruh peserta sudah hadir atau memiliki izin disetujui."
+                          pesan="Seluruh peserta sudah hadir atau memiliki status akhir."
                         />
                       )}
                     </View>

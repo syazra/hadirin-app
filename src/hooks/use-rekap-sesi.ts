@@ -322,11 +322,9 @@ export function useRekapSesi(
     const daftarIzinLainnya = daftarRekap
       .filter(
         (item) =>
-          (item.statusRekap === 'BELUM_HADIR' ||
-            item.statusRekap === 'ALPHA') &&
+          item.statusRekap === 'BELUM_HADIR' &&
           item.izin !== null &&
-          (item.izin.statusIzin === 'MENUNGGU' ||
-            item.izin.statusIzin === 'DITOLAK'),
+          item.izin.statusIzin === 'MENUNGGU',
       )
       .sort((a, b) => a.nama.localeCompare(b.nama));
 
@@ -335,7 +333,11 @@ export function useRekapSesi(
       .sort((a, b) => a.nama.localeCompare(b.nama));
 
     const daftarBelumHadir = daftarRekap
-      .filter((item) => item.statusRekap === 'BELUM_HADIR')
+      .filter(
+        (item) =>
+          item.statusRekap === 'BELUM_HADIR' &&
+          (item.izin === null || item.izin.statusIzin !== 'MENUNGGU'),
+      )
       .sort((a, b) => a.nama.localeCompare(b.nama));
 
     const jumlahIzinMenunggu = daftarRekap.filter(

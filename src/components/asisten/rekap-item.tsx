@@ -19,6 +19,11 @@ export function RekapItem({
   const adalahIzinDisetujui =
     statusRekap === 'IZIN' || statusRekap === 'SAKIT';
 
+  const sedangMenungguIzin =
+    statusRekap === 'BELUM_HADIR' &&
+    izin !== null &&
+    izin.statusIzin === 'MENUNGGU';
+
   const teksWaktu =
     statusRekap === 'HADIR'
       ? waktuHadir
@@ -29,10 +34,6 @@ export function RekapItem({
           ? `Disetujui · ${formatWaktu(izin.waktuPeriksa.toISOString())}`
           : 'Izin disetujui'
         : null;
-
-  const tampilkanStatusIzinTerpisah =
-    izin !== null &&
-    (izin.statusIzin === 'MENUNGGU' || izin.statusIzin === 'DITOLAK');
 
   return (
     <View style={styles.card}>
@@ -61,9 +62,10 @@ export function RekapItem({
       </View>
 
       <View style={styles.badges}>
-        <StatusBadge status={statusRekap} />
-        {tampilkanStatusIzinTerpisah && izin && (
-          <StatusBadge status={izin.statusIzin} />
+        {sedangMenungguIzin ? (
+          <StatusBadge status="MENUNGGU" />
+        ) : (
+          <StatusBadge status={statusRekap} />
         )}
       </View>
     </View>
