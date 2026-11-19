@@ -31,7 +31,9 @@ export type KategoriIzin =
 
 export type StatusRekap =
   | 'HADIR'
+  | 'SAKIT'
   | 'IZIN'
+  | 'ALPHA'
   | 'BELUM_HADIR';
 
 export type AlasanGagal =

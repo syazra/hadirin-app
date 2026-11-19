@@ -5,7 +5,8 @@
   "description": "Isolated Firestore seeding script for Hadir.in development/emulator",
   "scripts": {
     "seed": "tsx seed-firestore.ts",
-    "seed:emulator": "FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 tsx seed-firestore.ts"
+    "seed:emulator": "FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 tsx seed-firestore.ts",
+    "lint": "expo lint"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

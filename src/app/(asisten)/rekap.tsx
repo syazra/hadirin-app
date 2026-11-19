@@ -55,6 +55,7 @@ export default function RekapScreen() {
   const rekap = useRekapSesi(
     sesiAktif?.idSesi ?? null,
     sesiAktif?.kelasId ?? null,
+    sesiAktif?.statusSesi ?? 'DIBUKA',
   );
 
   if (loadingKelas || loadingSesi) {
@@ -85,7 +86,8 @@ export default function RekapScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Rekap Kehadiran</Text>
         <Text style={styles.subtitle}>
-          Pantau daftar hadir, izin disetujui, dan status peserta secara realtime.
+          Pantau daftar hadir, sakit, izin disetujui, dan status peserta secara
+          realtime.
         </Text>
       </View>
 
@@ -161,7 +163,9 @@ export default function RekapScreen() {
             <>
               <RingkasanHadir
                 jumlahHadir={rekap.jumlahHadir}
+                jumlahSakit={rekap.jumlahSakit}
                 jumlahIzin={rekap.jumlahIzin}
+                jumlahAlpha={rekap.jumlahAlpha}
                 jumlahBelumHadir={rekap.jumlahBelumHadir}
                 jumlahIzinMenunggu={rekap.jumlahIzinMenunggu}
               />
@@ -190,6 +194,19 @@ export default function RekapScreen() {
                       />
                     )}
                   </View>
+
+                  {rekap.daftarSakit.length > 0 && (
+                    <View style={styles.section}>
+                      <Text style={styles.label}>
+                        Sakit ({rekap.daftarSakit.length})
+                      </Text>
+                      <View style={styles.daftar}>
+                        {rekap.daftarSakit.map((item) => (
+                          <RekapItem key={item.uid} {...item} />
+                        ))}
+                      </View>
+                    </View>
+                  )}
 
                   <View style={styles.section}>
                     <Text style={styles.label}>
@@ -223,23 +240,43 @@ export default function RekapScreen() {
                     </View>
                   )}
 
-                  <View style={styles.section}>
-                    <Text style={styles.label}>
-                      Belum Hadir ({rekap.daftarBelumHadir.length})
-                    </Text>
-                    {rekap.daftarBelumHadir.length > 0 ? (
-                      <View style={styles.daftar}>
-                        {rekap.daftarBelumHadir.map((item) => (
-                          <RekapItem key={item.uid} {...item} />
-                        ))}
-                      </View>
-                    ) : (
-                      <EmptyState
-                        judul="Semua peserta tercatat"
-                        pesan="Seluruh peserta sudah hadir atau memiliki izin disetujui."
-                      />
-                    )}
-                  </View>
+                  {sesiAktif.statusSesi === 'DITUTUP' ? (
+                    <View style={styles.section}>
+                      <Text style={styles.label}>
+                        Alpha ({rekap.daftarAlpha.length})
+                      </Text>
+                      {rekap.daftarAlpha.length > 0 ? (
+                        <View style={styles.daftar}>
+                          {rekap.daftarAlpha.map((item) => (
+                            <RekapItem key={item.uid} {...item} />
+                          ))}
+                        </View>
+                      ) : (
+                        <EmptyState
+                          judul="Tidak ada yang alpha"
+                          pesan="Seluruh peserta memiliki catatan hadir, sakit, atau izin yang disetujui."
+                        />
+                      )}
+                    </View>
+                  ) : (
+                    <View style={styles.section}>
+                      <Text style={styles.label}>
+                        Belum Hadir ({rekap.daftarBelumHadir.length})
+                      </Text>
+                      {rekap.daftarBelumHadir.length > 0 ? (
+                        <View style={styles.daftar}>
+                          {rekap.daftarBelumHadir.map((item) => (
+                            <RekapItem key={item.uid} {...item} />
+                          ))}
+                        </View>
+                      ) : (
+                        <EmptyState
+                          judul="Semua peserta tercatat"
+                          pesan="Seluruh peserta sudah hadir atau memiliki izin disetujui."
+                        />
+                      )}
+                    </View>
+                  )}
                 </View>
               )}
             </>

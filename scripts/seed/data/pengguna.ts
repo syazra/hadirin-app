@@ -14,7 +14,7 @@ export const DATA_PENGGUNA: SeedPengguna[] = [
     nim: '24060122130001',
     email: 'asisten1.seed@hadirin.test',
     peran: 'ASISTEN',
-    kodePeserta: 'AST-001',
+    kodePeserta: 'AST00001',
   },
   {
     uid: 'seed-asisten-02',
@@ -22,7 +22,7 @@ export const DATA_PENGGUNA: SeedPengguna[] = [
     nim: '24060122140002',
     email: 'asisten2.seed@hadirin.test',
     peran: 'ASISTEN',
-    kodePeserta: 'AST-002',
+    kodePeserta: 'AST00002',
   },
   {
     uid: 'seed-praktikan-01',
@@ -30,7 +30,7 @@ export const DATA_PENGGUNA: SeedPengguna[] = [
     nim: '24060124120101',
     email: 'praktikan1.seed@hadirin.test',
     peran: 'PRAKTIKAN',
-    kodePeserta: 'PRK-101',
+    kodePeserta: 'PRK00101',
   },
   {
     uid: 'seed-praktikan-02',
@@ -38,7 +38,7 @@ export const DATA_PENGGUNA: SeedPengguna[] = [
     nim: '24060124130102',
     email: 'praktikan2.seed@hadirin.test',
     peran: 'PRAKTIKAN',
-    kodePeserta: 'PRK-102',
+    kodePeserta: 'PRK00102',
   },
   {
     uid: 'seed-praktikan-03',
@@ -46,7 +46,7 @@ export const DATA_PENGGUNA: SeedPengguna[] = [
     nim: '24060124140103',
     email: 'praktikan3.seed@hadirin.test',
     peran: 'PRAKTIKAN',
-    kodePeserta: 'PRK-103',
+    kodePeserta: 'PRK00103',
   },
   {
     uid: 'seed-praktikan-04',
@@ -54,6 +54,6 @@ export const DATA_PENGGUNA: SeedPengguna[] = [
     nim: '24060124120104',
     email: 'praktikan4.seed@hadirin.test',
     peran: 'PRAKTIKAN',
-    kodePeserta: 'PRK-104',
+    kodePeserta: 'PRK00104',
   },
 ];
