@@ -6,7 +6,7 @@ import {
   useFonts,
 } from '@expo-google-fonts/space-grotesk';
 import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
+import { hideAsync, preventAutoHideAsync } from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -15,7 +15,7 @@ import { AppProvider } from '@/context/app-context';
 import { AuthProvider } from '@/context/auth-context';
 import { useAuth } from '@/hooks/use-auth';
 
-SplashScreen.preventAutoHideAsync();
+void preventAutoHideAsync();
 
 function AppNavigator() {
   const { pengguna, loading, profilBelumLengkap } = useAuth();
@@ -88,7 +88,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
+      void hideAsync();
     }
   }, [fontsLoaded, fontError]);
 
