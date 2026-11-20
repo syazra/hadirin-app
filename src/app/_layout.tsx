@@ -1,16 +1,42 @@
+import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
+import {
+  SpaceGrotesk_400Regular,
+  SpaceGrotesk_500Medium,
+  SpaceGrotesk_700Bold,
+  useFonts,
+} from '@expo-google-fonts/space-grotesk';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { Colors } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { AppProvider } from '@/context/app-context';
 import { AuthProvider } from '@/context/auth-context';
 import { useAuth } from '@/hooks/use-auth';
+
+SplashScreen.preventAutoHideAsync();
 
 function AppNavigator() {
   const { pengguna, loading, profilBelumLengkap } = useAuth();
 
   return (
-    <Stack screenOptions={{ headerTintColor: Colors.light.primary }}>
+    <Stack
+      screenOptions={{
+        headerTintColor: Colors.light.primary,
+        headerTitleStyle: {
+          fontFamily: Fonts.sansBold,
+          color: Colors.light.text,
+        },
+        headerStyle: {
+          backgroundColor: Colors.light.background,
+        },
+        headerShadowVisible: false,
+        contentStyle: {
+          backgroundColor: Colors.light.background,
+        },
+      }}
+    >
       <Stack.Screen name="index" options={{ headerShown: false }} />
 
       {/* Route autentikasi */}
@@ -53,6 +79,23 @@ function AppNavigator() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    SpaceGrotesk_400Regular,
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_700Bold,
+    JetBrainsMono_500Medium,
+  });
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
+
   return (
     <SafeAreaProvider>
       <AuthProvider>

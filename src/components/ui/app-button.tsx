@@ -1,6 +1,5 @@
-import React from 'react';
+import { Colors, Fonts } from '@/constants/theme';
 import { ActivityIndicator, Pressable, StyleSheet, Text, type PressableProps, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
-import { Colors } from '@/constants/theme';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'danger';
 type ButtonSize = 'small' | 'medium' | 'large';
@@ -73,7 +72,7 @@ const styles = StyleSheet.create({
         borderRadius: 10 
     },
     medium: { 
-        minHeight: 46, 
+        minHeight: 50, 
         paddingHorizontal: 18, 
         borderRadius: 14 
     },
@@ -93,8 +92,8 @@ const styles = StyleSheet.create({
         transform: [{ scale: 0.99 }] 
     },
     label: { 
+        fontFamily: Fonts.sansMedium,
         fontSize: 15, 
-        fontWeight: '600', 
         letterSpacing: 0.1 
     },
 });
