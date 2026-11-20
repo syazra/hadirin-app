@@ -1,18 +1,19 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
-    ambilPosisiSekarang,
-    mulaiPantauLokasi,
-    pastikanIzinDanLayananLokasi,
+  ambilPosisiSekarang,
+  mulaiPantauLokasi,
+  pastikanIzinDanLayananLokasi,
 } from '@/services/location-service';
 import type {
-    KoordinatPengguna,
-    OpsiLokasiPengguna,
-    StateLokasiPengguna,
+  KoordinatPengguna,
+  OpsiLokasiPengguna,
+  StateLokasiPengguna,
 } from '@/types/location';
 
 const DEFAULT_BATAS_AKURASI_METER = 50;
 const DEFAULT_BATAS_USIA_MS = 30_000;
+const TIMEOUT_REFRESH_GPS_MS = 10_000;
 
 export interface HasilUseUserLocation extends StateLokasiPengguna {
   refresh: () => Promise<void>;
@@ -23,14 +24,22 @@ function hitungStatePosisi(
   batasAkurasiMeter: number,
   batasUsiaMs: number,
 ): StateLokasiPengguna {
+  const waktuValid =
+    typeof posisi.timestamp === 'number' && posisi.timestamp > 0
+      ? posisi.timestamp
+      : Date.now();
+
   return {
     loading: false,
     permissionDenied: false,
     servicesDisabled: false,
-    position: posisi,
+    position: {
+      ...posisi,
+      timestamp: waktuValid,
+    },
     isLowAccuracy:
       posisi.accuracy === null || posisi.accuracy > batasAkurasiMeter,
-    isStale: Date.now() - posisi.timestamp > batasUsiaMs,
+    isStale: Date.now() - waktuValid > batasUsiaMs,
     error: null,
   };
 }
@@ -53,6 +62,8 @@ export function useUserLocation(
     isStale: false,
     error: null,
   });
+
+  const sedangRefreshRef = useRef(false);
 
   useEffect(() => {
     let aktif = true;
@@ -96,7 +107,7 @@ export function useUserLocation(
       if (watch && aktif) {
         try {
           const unsub = await mulaiPantauLokasi((posisiBaru) => {
-            if (aktif) {
+            if (aktif && !sedangRefreshRef.current) {
               setState(
                 hitungStatePosisi(posisiBaru, batasAkurasiMeter, batasUsiaMs),
               );
@@ -123,36 +134,54 @@ export function useUserLocation(
   }, [watch, batasAkurasiMeter, batasUsiaMs]);
 
   const refresh = useCallback(async () => {
+    if (sedangRefreshRef.current) return;
+    sedangRefreshRef.current = true;
+
     setState((prev) => ({
       ...prev,
       loading: true,
       error: null,
     }));
 
-    const kesiapan = await pastikanIzinDanLayananLokasi();
-    if (!kesiapan.siap) {
-      setState({
-        loading: false,
-        permissionDenied: kesiapan.permissionDenied,
-        servicesDisabled: kesiapan.servicesDisabled,
-        position: null,
-        isLowAccuracy: false,
-        isStale: false,
-        error: kesiapan.pesan,
-      });
-      return;
-    }
-
     try {
-      const posisiBaru = await ambilPosisiSekarang();
-      setState(hitungStatePosisi(posisiBaru, batasAkurasiMeter, batasUsiaMs));
+      const kesiapan = await pastikanIzinDanLayananLokasi();
+      if (!kesiapan.siap) {
+        setState({
+          loading: false,
+          permissionDenied: kesiapan.permissionDenied,
+          servicesDisabled: kesiapan.servicesDisabled,
+          position: null,
+          isLowAccuracy: false,
+          isStale: false,
+          error: kesiapan.pesan,
+        });
+        return;
+      }
+
+      const posisiBaru = await Promise.race([
+        ambilPosisiSekarang(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('TIMEOUT')), TIMEOUT_REFRESH_GPS_MS),
+        ),
+      ]);
+
+      setState(
+        hitungStatePosisi(
+          { ...posisiBaru, timestamp: Date.now() },
+          batasAkurasiMeter,
+          batasUsiaMs,
+        ),
+      );
     } catch {
       setState((prev) => ({
         ...prev,
         loading: false,
-        error:
-          'Tidak dapat memperoleh titik koordinat GPS. Pastikan berada di area terbuka dan coba lagi.',
+        error: prev.position
+          ? null
+          : 'Tidak dapat memperoleh titik koordinat GPS. Pastikan berada di area terbuka dan coba lagi.',
       }));
+    } finally {
+      sedangRefreshRef.current = false;
     }
   }, [batasAkurasiMeter, batasUsiaMs]);
 

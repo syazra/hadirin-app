@@ -24,7 +24,6 @@ import { useUserLocation } from '@/hooks/use-user-location';
 import { getFirebaseServices, isFirebaseAvailable } from '@/lib/firebase';
 import { catatPresensiDariQr } from '@/services/presensi-service';
 import type { Hasil, Presensi } from '@/types';
-import { formatWaktu } from '@/utils/format-waktu';
 import { bacaPayloadQr } from '@/utils/qr-payload';
 
 export interface ScannerQrProps {
@@ -46,9 +45,8 @@ function buatPesanHasil(hasil: Hasil<Presensi>): HasilTampilan {
       berhasil: true,
       judul: 'Presensi berhasil',
       pesan: 'Kehadiranmu berhasil dicatat.',
-      waktuPresensi: hasil.data.waktuHadir
-        ? formatWaktu(hasil.data.waktuHadir.toISOString())
-        : undefined,
+      // Kirim ISO string mentah agar PresensiBerhasilSheet memformatnya sekali saja
+      waktuPresensi: (hasil.data.waktuHadir ?? new Date()).toISOString(),
     };
   }
 
@@ -122,7 +120,7 @@ function buatPesanHasil(hasil: Hasil<Presensi>): HasilTampilan {
         judul: 'Lokasi belum memenuhi syarat',
         pesan:
           hasil.pesan ||
-          'Pastikan GPS aktif, akurat, dan berada di dalam area laboratorium.',
+          'Pastikan GPS aktif, akurasi stabil, dan berada di dalam area laboratorium.',
       };
     default:
       return {
@@ -139,6 +137,7 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
   );
   const [sheetTerbuka, setSheetTerbuka] = useState(false);
   const [sedangMemproses, setSedangMemproses] = useState(false);
+  const [sedangRefreshLokasi, setSedangRefreshLokasi] = useState(false);
   const [sudahDipindai, setSudahDipindai] = useState(false);
   const [targetLab, setTargetLab] = useState<TargetLabPresensi | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
@@ -171,7 +170,7 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
         } else if (namaLokasi) {
           const labQuery = query(
             collection(db, 'laboratorium'),
-            where('namaLab', '==', namaLokasi),
+            where('nama', '==', namaLokasi),
             limit(1),
           );
           const labSnap = await getDocs(labQuery);
@@ -188,9 +187,11 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
         ) {
           setTargetLab({
             namaLab:
-              typeof labData.namaLab === 'string'
-                ? labData.namaLab
-                : namaLokasi || 'Laboratorium',
+              typeof labData.nama === 'string'
+                ? labData.nama
+                : typeof labData.namaLab === 'string'
+                  ? labData.namaLab
+                  : namaLokasi || 'Laboratorium',
             latitude: labData.latitude,
             longitude: labData.longitude,
             radiusPresensi:
@@ -200,7 +201,7 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
           });
         }
       } catch {
-        // Jika gagal memuat koordinat lab di klien, validasi tetap dijalankan di server
+        // Validasi tetap dijalankan di presensi-service
       }
     })();
 
@@ -208,6 +209,16 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
       aktif = false;
     };
   }, [idSesi]);
+
+  async function tanganiRefreshLokasi() {
+    if (sedangRefreshLokasi) return;
+    setSedangRefreshLokasi(true);
+    try {
+      await lokasi.refresh();
+    } finally {
+      setSedangRefreshLokasi(false);
+    }
+  }
 
   const jarakLokalMeter =
     lokasi.position && targetLab
@@ -335,7 +346,7 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
       </View>
 
       <PresensiLocationStatus
-        loading={lokasi.loading}
+        loading={lokasi.loading || sedangRefreshLokasi}
         permissionDenied={lokasi.permissionDenied}
         servicesDisabled={lokasi.servicesDisabled}
         position={lokasi.position}
@@ -343,7 +354,7 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
         error={lokasi.error}
         targetLab={targetLab}
         onRefresh={() => {
-          void lokasi.refresh();
+          void tanganiRefreshLokasi();
         }}
       />
 

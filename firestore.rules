@@ -101,6 +101,15 @@ service cloud.firestore {
         );
     }
 
+    function praktikanBolehBacaQrSesiAktif(sesiId) {
+      return isPraktikan()
+        && exists(pathSesi(sesiId))
+        && get(pathSesi(sesiId)).data.statusSesi == 'DIBUKA'
+        && get(pathSesi(sesiId)).data.diarsipkan == false
+        && kelasAktif(get(pathSesi(sesiId)).data.kelasId)
+        && anggotaAktif(get(pathSesi(sesiId)).data.kelasId, request.auth.uid);
+    }
+
     function izinKosongDapatDibacaPraktikan(izinId) {
       let uid = request.auth.uid;
       let panjangSesiId = izinId.size() - uid.size() - 1;
@@ -204,7 +213,7 @@ service cloud.firestore {
         && getAfter(pathPengguna(request.auth.uid)).data.nim == request.resource.data.nim;
     }
 
-    // Validasi dokumen token FCM perangkat milik pengguna (Farhan — Sprint 3)
+    // Validasi dokumen token FCM perangkat milik pengguna
     function perangkatTokenValid(data) {
       return data.keys().hasAll(['fcmToken'])
         && data.keys().hasOnly([
@@ -379,6 +388,36 @@ service cloud.firestore {
         && !existsAfter(pathPresensi(sesiId, uid));
     }
 
+    function presensiBaruValid(presensiId) {
+      let data = request.resource.data;
+      let sesiId = data.sesiId;
+      let kelasId = data.kelasId;
+      let uid = request.auth.uid;
+
+      return isPraktikan()
+        && data.keys().hasAll(['idPresensi', 'sesiId', 'kelasId', 'uid', 'waktuHadir'])
+        && data.keys().hasOnly([
+          'idPresensi', 'sesiId', 'kelasId', 'uid', 'waktuHadir', 'jarakMeter'
+        ])
+        && sesiId is string
+        && kelasId is string
+        && data.uid == uid
+        && data.idPresensi == sesiId + '_' + uid
+        && presensiId == sesiId + '_' + uid
+        && data.waktuHadir == request.time
+        && (!('jarakMeter' in data) || (data.jarakMeter is number && data.jarakMeter >= 0))
+        && exists(pathSesi(sesiId))
+        && get(pathSesi(sesiId)).data.kelasId == kelasId
+        && get(pathSesi(sesiId)).data.statusSesi == 'DIBUKA'
+        && get(pathSesi(sesiId)).data.diarsipkan == false
+        && exists(pathKelas(kelasId))
+        && kelasAktif(kelasId)
+        && exists(pathAnggota(kelasId, uid))
+        && anggotaAktif(kelasId, uid)
+        && !exists(pathPresensi(sesiId, uid))
+        && !exists(pathIzin(sesiId, uid));
+    }
+
     function presensiMilikPraktikan(data, presensiId) {
       return data.keys().hasAll(['uid', 'sesiId'])
         && isPraktikan()
@@ -436,7 +475,6 @@ service cloud.firestore {
       allow create: if profilBaruValid(uid);
       allow update, delete: if false;
 
-      // Token FCM perangkat hanya dapat dikelola oleh pemilik UID (Farhan)
       match /perangkat/{installationId} {
         allow get, list: if signedIn() && request.auth.uid == uid;
         allow create, update: if signedIn()
@@ -448,7 +486,6 @@ service cloud.firestore {
       }
     }
 
-    // Proyeksi terbatas untuk pencarian & pemilihan praktikan oleh Asisten (Binar)
     match /kodePeserta/{kode} {
       allow get: if isAsisten() || kodeMilikSendiri(kode);
       allow list: if isAsisten()
@@ -457,7 +494,6 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // Master data lokasi & radius geofence laboratorium (Binar & Azka)
     match /laboratorium/{labId} {
       allow get, list: if signedIn();
       allow write: if false;
@@ -542,7 +578,10 @@ service cloud.firestore {
 
       match /rahasia/{rahasiaId} {
         allow get: if rahasiaId == 'qr'
-          && sesiDimilikiAsisten(sesiId);
+          && (
+            sesiDimilikiAsisten(sesiId)
+            || praktikanBolehBacaQrSesiAktif(sesiId)
+          );
         allow list: if false;
         allow create: if rahasiaId == 'qr'
           && isAsisten()
@@ -560,7 +599,6 @@ service cloud.firestore {
       }
     }
 
-    // Direct client write diblokir sepenuhnya; wajib melalui Cloud Function recordAttendance
     match /presensi/{presensiId} {
       allow get: if (
           resource == null && presensiIdKosongMilikPraktikan(presensiId)
@@ -576,7 +614,8 @@ service cloud.firestore {
           isAsisten()
           && kelasDimilikiAsistenDiData(resource.data)
         );
-      allow create, update, delete: if false;
+      allow create: if presensiBaruValid(presensiId);
+      allow update, delete: if false;
     }
 
     match /izin/{izinId} {

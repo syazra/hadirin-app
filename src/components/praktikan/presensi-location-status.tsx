@@ -1,9 +1,9 @@
 import {
-    ActivityIndicator,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
 import { Colors, Spacing } from '@/constants/theme';
@@ -46,6 +46,15 @@ export interface PresensiLocationStatusProps {
   onRefresh: () => void;
 }
 
+function formatJamSingkat(timestamp: number): string {
+  const d = new Date(timestamp);
+  if (Number.isNaN(d.getTime())) return '';
+  const jam = String(d.getHours()).padStart(2, '0');
+  const menit = String(d.getMinutes()).padStart(2, '0');
+  const detik = String(d.getSeconds()).padStart(2, '0');
+  return `${jam}:${menit}:${detik}`;
+}
+
 export function PresensiLocationStatus({
   loading,
   permissionDenied,
@@ -85,8 +94,20 @@ export function PresensiLocationStatus({
             {error ?? 'Aktifkan GPS dan izinkan akses lokasi untuk presensi.'}
           </Text>
         </View>
-        <Pressable onPress={onRefresh} style={styles.retryBtn}>
-          <Text style={styles.retryText}>Coba Lagi</Text>
+        <Pressable
+          onPress={onRefresh}
+          disabled={loading}
+          hitSlop={10}
+          style={({ pressed }) => [
+            styles.retryBtn,
+            (pressed || loading) && styles.retryBtnDisabled,
+          ]}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color={Colors.light.primary} />
+          ) : (
+            <Text style={styles.retryText}>Coba Lagi</Text>
+          )}
         </Pressable>
       </View>
     );
@@ -108,6 +129,8 @@ export function PresensiLocationStatus({
     jarakMeter !== null &&
     jarakMeter > targetLab.radiusPresensi;
 
+  const waktuUpdate = formatJamSingkat(position.timestamp);
+
   if (isLowAccuracy || diLuarRadius) {
     return (
       <View style={[styles.card, styles.cardWarning]}>
@@ -121,10 +144,23 @@ export function PresensiLocationStatus({
             {diLuarRadius
               ? `Mendekatlah ke ${targetLab?.namaLab || 'area laboratorium'} sebelum memindai QR.`
               : 'Sinyal GPS belum stabil (butuh akurasi ≤ 50 m). Perbarui lokasi.'}
+            {waktuUpdate ? ` • Diperbarui ${waktuUpdate}` : ''}
           </Text>
         </View>
-        <Pressable onPress={onRefresh} style={styles.retryBtn}>
-          <Text style={styles.retryText}>Perbarui</Text>
+        <Pressable
+          onPress={onRefresh}
+          disabled={loading}
+          hitSlop={10}
+          style={({ pressed }) => [
+            styles.retryBtn,
+            (pressed || loading) && styles.retryBtnDisabled,
+          ]}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color={Colors.light.primary} />
+          ) : (
+            <Text style={styles.retryText}>Perbarui</Text>
+          )}
         </Pressable>
       </View>
     );
@@ -166,12 +202,19 @@ const styles = StyleSheet.create({
   titleError: { fontSize: 13, fontWeight: '700', color: '#991B1B' },
   subtitle: { fontSize: 12, lineHeight: 17, color: '#374151' },
   retryBtn: {
+    minWidth: 74,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#D1D5DB',
+  },
+  retryBtnDisabled: {
+    opacity: 0.65,
   },
   retryText: { fontSize: 12, fontWeight: '600', color: '#111827' },
 });

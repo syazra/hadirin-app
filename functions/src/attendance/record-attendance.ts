@@ -67,6 +67,24 @@ export function validasiBuktiQr(
     return false;
   }
 
+  // 1. Format Deep Link / URI: hadirin://presensi?sesi=<sesiId>&qr=<kodeQr>
+  if (bukti.startsWith('hadirin://')) {
+    try {
+      const url = new URL(bukti);
+      const idSesiQr = url.searchParams.get('sesi')?.trim() ?? '';
+      const tokenDariQr = url.searchParams.get('qr')?.trim() ?? '';
+
+      if (!idSesiQr || idSesiQr !== sesiId) {
+        return false;
+      }
+
+      return tokenDariQr === tokenQrAktif.trim();
+    } catch {
+      return false;
+    }
+  }
+
+  // 2. Format JSON: { idSesi/sesiId, kodeQr/token }
   if (bukti.startsWith('{')) {
     try {
       const parsed = JSON.parse(bukti) as {
@@ -100,6 +118,7 @@ export function validasiBuktiQr(
     }
   }
 
+  // 3. Format Token Mentah
   return bukti === tokenQrAktif.trim();
 }
 
