@@ -5,11 +5,9 @@ import type { AlasanGagal, Hasil, KategoriIzin } from '@/types';
 import { hasilErrorFirebase } from '@/utils/error-firebase';
 
 const KATEGORI_IZIN: readonly KategoriIzin[] = [
-    'KESEHATAN',
-    'KELUARGA',
-    'AKADEMIK',
-    'LAINNYA',
-    'TIDAK_JELAS',
+    'SAKIT',
+    'IZIN',
+    'ALPHA',
 ];
 
 const ALASAN_GAGAL: readonly AlasanGagal[] = [
@@ -26,6 +24,24 @@ const ALASAN_GAGAL: readonly AlasanGagal[] = [
 
 function adalahObjek(nilai: unknown): nilai is Record<string, unknown> {
     return typeof nilai === 'object' && nilai !== null && !Array.isArray(nilai);
+}
+
+function normalisasiKategoriIzin(nilai: unknown): KategoriIzin | null {
+    if (typeof nilai !== 'string') return null;
+    const atas = nilai.trim().toUpperCase();
+
+    if (KATEGORI_IZIN.includes(atas as KategoriIzin)) {
+        return atas as KategoriIzin;
+    }
+
+    // Kompatibilitas mundur jika endpoint proxy masih mengembalikan label lama
+    if (atas === 'KESEHATAN') return 'SAKIT';
+    if (atas === 'KELUARGA' || atas === 'AKADEMIK' || atas === 'LAINNYA') {
+        return 'IZIN';
+    }
+    if (atas === 'TIDAK_JELAS') return 'ALPHA';
+
+    return null;
 }
 
 /** Meminta klasifikasi dari proxy tanpa pernah mengirim kunci Gemini dari aplikasi. */
@@ -74,9 +90,9 @@ export async function klasifikasikanIzin(
         }
 
         if (response.ok && adalahObjek(body) && body.ok === true && adalahObjek(body.data)) {
-            const kategori = body.data.kategori;
-            if (typeof kategori === 'string' && KATEGORI_IZIN.includes(kategori as KategoriIzin)) {
-                return { ok: true, data: { kategori: kategori as KategoriIzin } };
+            const kategori = normalisasiKategoriIzin(body.data.kategori);
+            if (kategori) {
+                return { ok: true, data: { kategori } };
             }
             return {
                 ok: false,

@@ -62,6 +62,14 @@ function validateEnvironment() {
   return { projectId, isEmulator: Boolean(emulatorHost), seedPassword };
 }
 
+function toTimestamp(isoString: string): admin.firestore.Timestamp {
+  const parsed = new Date(isoString);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(`Format tanggal seeder tidak valid: "${isoString}"`);
+  }
+  return admin.firestore.Timestamp.fromDate(parsed);
+}
+
 async function upsertDoc(
   ref: admin.firestore.DocumentReference,
   data: Record<string, unknown>,
@@ -76,6 +84,70 @@ async function upsertDoc(
   }
 }
 
+async function bersihkanDataSeederLama(
+  db: admin.firestore.Firestore,
+  auth: admin.auth.Auth
+) {
+  const koleksiTarget = [
+    'laboratorium',
+    'kelas',
+    'keanggotaan',
+    'sesi',
+    'presensi',
+    'izin',
+  ];
+
+  for (const namaKoleksi of koleksiTarget) {
+    await db.recursiveDelete(db.collection(namaKoleksi));
+  }
+
+  // Hapus semua pengguna & kodePeserta dummy seeder (aman untuk akun Google Sign-In asli)
+  const penggunaSnap = await db.collection('pengguna').get();
+  for (const docSnap of penggunaSnap.docs) {
+    const data = docSnap.data();
+    const email = typeof data?.email === 'string' ? data.email : '';
+    const isDummySeeder =
+      email.endsWith('@hadirin.test') ||
+      docSnap.id.startsWith('asisten-') ||
+      docSnap.id.startsWith('praktikan-') ||
+      docSnap.id.startsWith('seed-');
+
+    if (isDummySeeder) {
+      const kode = data?.kodePeserta;
+      if (typeof kode === 'string' && kode.length > 0) {
+        await db.collection('kodePeserta').doc(kode).delete();
+      }
+      await db.recursiveDelete(docSnap.ref);
+
+      try {
+        await auth.deleteUser(docSnap.id);
+      } catch (err: unknown) {
+        const kodeError =
+          typeof err === 'object' && err !== null && 'code' in err
+            ? (err as { code?: unknown }).code
+            : undefined;
+        if (kodeError !== 'auth/user-not-found') {
+          throw err;
+        }
+      }
+    }
+  }
+
+  // Bersihkan juga sisa dokumen kodePeserta yang merujuk ke uid dummy
+  const kodeSnap = await db.collection('kodePeserta').get();
+  for (const docSnap of kodeSnap.docs) {
+    const uid = docSnap.data()?.uid;
+    if (
+      typeof uid === 'string' &&
+      (uid.startsWith('asisten-') ||
+        uid.startsWith('praktikan-') ||
+        uid.startsWith('seed-'))
+    ) {
+      await docSnap.ref.delete();
+    }
+  }
+}
+
 async function main() {
   console.log('🔍 Memvalidasi environment seeder...');
   const { projectId, isEmulator, seedPassword } = validateEnvironment();
@@ -87,6 +159,12 @@ async function main() {
 
   console.log(`✅ Environment valid! Target: ${projectId} (${isEmulator ? 'EMULATOR' : 'DEV CLOUD'})\n`);
 
+  if (process.argv.includes('--no-clean')) {
+    console.log('🧹 Membersihkan data seeder lama...');
+    await bersihkanDataSeederLama(db, auth);
+    console.log('✅ Data seeder lama berhasil dibersihkan.\n');
+  }
+
   const summary: Record<string, SeedStats> = {
     authUsers: { created: 0, updated: 0 },
     pengguna: { created: 0, updated: 0 },
@@ -95,6 +173,7 @@ async function main() {
     kelas: { created: 0, updated: 0 },
     keanggotaan: { created: 0, updated: 0 },
     sesi: { created: 0, updated: 0 },
+    rahasiaQr: { created: 0, updated: 0 },
     presensi: { created: 0, updated: 0 },
     izin: { created: 0, updated: 0 },
   };
@@ -109,8 +188,12 @@ async function main() {
         password: seedPassword,
       });
       summary.authUsers.updated += 1;
-    } catch (err: any) {
-      if (err?.code === 'auth/user-not-found') {
+    } catch (err: unknown) {
+      const kodeError =
+        typeof err === 'object' && err !== null && 'code' in err
+          ? (err as { code?: unknown }).code
+          : undefined;
+      if (kodeError === 'auth/user-not-found') {
         await auth.createUser({
           uid: user.uid,
           email: user.email,
@@ -137,7 +220,6 @@ async function main() {
       summary.pengguna
     );
 
-    // Proyeksi minimal untuk searchable student picker (BIN-S2-02)
     await upsertDoc(
       db.collection('kodePeserta').doc(user.kodePeserta),
       {
@@ -154,10 +236,12 @@ async function main() {
   // 2. Seed Laboratorium
   for (const lab of DATA_LABORATORIUM) {
     await upsertDoc(
-      db.collection('laboratorium').doc(lab.id),
+      db.collection('laboratorium').doc(lab.idLab),
       {
-        kode: lab.kode,
+        idLab: lab.idLab,
+        kode: lab.kodeLab,
         nama: lab.nama,
+        lokasiGedung: lab.lokasiGedung,
         latitude: lab.latitude,
         longitude: lab.longitude,
         radiusPresensi: lab.radiusPresensi,
@@ -198,26 +282,34 @@ async function main() {
     );
   }
 
-  // 5. Seed Sesi
-  const baseMs = Date.now();
+  // 5. Seed Sesi + Sub-dokumen rahasia QR
   for (const sesi of DATA_SESI) {
-    const startMs = baseMs + sesi.waktuMulaiOffsetJam * 3600 * 1000;
-    const endMs = startMs + sesi.durasiJam * 3600 * 1000;
+    const sesiRef = db.collection('sesi').doc(sesi.idSesi);
 
     await upsertDoc(
-      db.collection('sesi').doc(sesi.idSesi),
+      sesiRef,
       {
         idSesi: sesi.idSesi,
         kelasId: sesi.kelasId,
         judul: sesi.judul,
-        labId: sesi.labId,
+        labEnum: sesi.labEnum,
+        labId: sesi.idLab,
         lokasi: sesi.lokasi,
-        waktuMulai: admin.firestore.Timestamp.fromMillis(startMs),
-        waktuSelesai: admin.firestore.Timestamp.fromMillis(endMs),
+        waktuMulai: toTimestamp(sesi.waktuMulai),
+        waktuSelesai: toTimestamp(sesi.waktuSelesai),
         statusSesi: sesi.statusSesi,
         diarsipkan: sesi.diarsipkan,
       },
       summary.sesi
+    );
+
+    await upsertDoc(
+      sesiRef.collection('rahasia').doc('qr'),
+      {
+        kodeQr: sesi.kodeQr,
+        diperbaruiPada: now,
+      },
+      summary.rahasiaQr
     );
   }
 
@@ -230,7 +322,7 @@ async function main() {
         sesiId: pr.sesiId,
         kelasId: pr.kelasId,
         uid: pr.uid,
-        waktuHadir: now,
+        waktuHadir: toTimestamp(pr.waktuHadir),
       },
       summary.presensi
     );
@@ -248,12 +340,12 @@ async function main() {
         alasan: iz.alasan,
         statusIzin: iz.statusIzin,
         diperiksaOleh: iz.diperiksaOleh,
-        waktuPeriksa: iz.diperiksaOleh ? now : null,
+        waktuPeriksa: iz.waktuPeriksa ? toTimestamp(iz.waktuPeriksa) : null,
         kategoriAi: iz.kategoriAi,
         statusAi: iz.statusAi,
-        modelAi: iz.modelAi,
+        modelAi: iz.statusAi === 'SUKSES' ? 'gemini-3.6-flash' : null,
         waktuAi: iz.statusAi === 'SUKSES' ? now : null,
-        dibuatPada: now,
+        dibuatPada: toTimestamp(iz.dibuatPada),
       },
       summary.izin
     );

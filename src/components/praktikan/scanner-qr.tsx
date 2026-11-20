@@ -1,14 +1,29 @@
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  query,
+  where,
+} from '@react-native-firebase/firestore';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { PresensiBerhasilSheet } from '@/components/praktikan/presensi-berhasil-sheet';
+import {
+  hitungJarakMeterLokal,
+  PresensiLocationStatus,
+  type TargetLabPresensi,
+} from '@/components/praktikan/presensi-location-status';
 import { LayarPersiapan } from '@/components/shared/layar-persiapan';
 import { AppButton } from '@/components/ui/app-button';
 import { Colors, Spacing } from '@/constants/theme';
+import { useUserLocation } from '@/hooks/use-user-location';
+import { getFirebaseServices, isFirebaseAvailable } from '@/lib/firebase';
 import { catatPresensiDariQr } from '@/services/presensi-service';
 import type { Hasil, Presensi } from '@/types';
-import { formatWaktu } from '@/utils/format-waktu';
 import { bacaPayloadQr } from '@/utils/qr-payload';
 
 export interface ScannerQrProps {
@@ -30,9 +45,8 @@ function buatPesanHasil(hasil: Hasil<Presensi>): HasilTampilan {
       berhasil: true,
       judul: 'Presensi berhasil',
       pesan: 'Kehadiranmu berhasil dicatat.',
-      waktuPresensi: hasil.data.waktuHadir
-        ? formatWaktu(hasil.data.waktuHadir.toISOString())
-        : undefined,
+      // Kirim ISO string mentah agar PresensiBerhasilSheet memformatnya sekali saja
+      waktuPresensi: (hasil.data.waktuHadir ?? new Date()).toISOString(),
     };
   }
 
@@ -100,6 +114,14 @@ function buatPesanHasil(hasil: Hasil<Presensi>): HasilTampilan {
         judul: 'Sesi login berakhir',
         pesan: 'Silakan login kembali.',
       };
+    case 'INPUT_TIDAK_VALID':
+      return {
+        berhasil: false,
+        judul: 'Lokasi belum memenuhi syarat',
+        pesan:
+          hasil.pesan ||
+          'Pastikan GPS aktif, akurasi stabil, dan berada di dalam area laboratorium.',
+      };
     default:
       return {
         berhasil: false,
@@ -115,11 +137,133 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
   );
   const [sheetTerbuka, setSheetTerbuka] = useState(false);
   const [sedangMemproses, setSedangMemproses] = useState(false);
+  const [sedangRefreshLokasi, setSedangRefreshLokasi] = useState(false);
   const [sudahDipindai, setSudahDipindai] = useState(false);
+  const [targetLab, setTargetLab] = useState<TargetLabPresensi | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
+
+  const lokasi = useUserLocation({ watch: true });
+
+  useEffect(() => {
+    if (!isFirebaseAvailable || !idSesi) return;
+    let aktif = true;
+
+    (async () => {
+      try {
+        const { db } = getFirebaseServices();
+        const sesiSnap = await getDoc(doc(db, 'sesi', idSesi));
+        if (!aktif || !sesiSnap.exists()) return;
+
+        const sesiData = sesiSnap.data();
+        const labId =
+          typeof sesiData?.labId === 'string' ? sesiData.labId.trim() : '';
+        const namaLokasi =
+          typeof sesiData?.lokasi === 'string' ? sesiData.lokasi.trim() : '';
+
+        let labData: Record<string, unknown> | undefined;
+
+        if (labId) {
+          const labSnap = await getDoc(doc(db, 'laboratorium', labId));
+          if (labSnap.exists()) {
+            labData = labSnap.data();
+          }
+        } else if (namaLokasi) {
+          const labQuery = query(
+            collection(db, 'laboratorium'),
+            where('nama', '==', namaLokasi),
+            limit(1),
+          );
+          const labSnap = await getDocs(labQuery);
+          if (!labSnap.empty) {
+            labData = labSnap.docs[0].data();
+          }
+        }
+
+        if (
+          aktif &&
+          labData &&
+          typeof labData.latitude === 'number' &&
+          typeof labData.longitude === 'number'
+        ) {
+          setTargetLab({
+            namaLab:
+              typeof labData.nama === 'string'
+                ? labData.nama
+                : typeof labData.namaLab === 'string'
+                  ? labData.namaLab
+                  : namaLokasi || 'Laboratorium',
+            latitude: labData.latitude,
+            longitude: labData.longitude,
+            radiusPresensi:
+              typeof labData.radiusPresensi === 'number'
+                ? labData.radiusPresensi
+                : 50,
+          });
+        }
+      } catch {
+        // Validasi tetap dijalankan di presensi-service
+      }
+    })();
+
+    return () => {
+      aktif = false;
+    };
+  }, [idSesi]);
+
+  async function tanganiRefreshLokasi() {
+    if (sedangRefreshLokasi) return;
+    setSedangRefreshLokasi(true);
+    try {
+      await lokasi.refresh();
+    } finally {
+      setSedangRefreshLokasi(false);
+    }
+  }
+
+  const jarakLokalMeter =
+    lokasi.position && targetLab
+      ? Math.round(
+          hitungJarakMeterLokal(
+            lokasi.position.latitude,
+            lokasi.position.longitude,
+            targetLab.latitude,
+            targetLab.longitude,
+          ),
+        )
+      : null;
+
+  const diLuarRadiusLokal =
+    targetLab !== null &&
+    jarakLokalMeter !== null &&
+    jarakLokalMeter > targetLab.radiusPresensi;
+
+  const lokasiSiapScan =
+    !lokasi.loading &&
+    !lokasi.servicesDisabled &&
+    !lokasi.permissionDenied &&
+    !lokasi.error &&
+    lokasi.position !== null &&
+    !lokasi.isLowAccuracy &&
+    !diLuarRadiusLokal;
 
   async function prosesScan(payloadQr: string) {
     if (sedangMemproses || sudahDipindai) return;
+
+    if (!lokasiSiapScan || !lokasi.position) {
+      setSudahDipindai(true);
+      setHasilTampilan({
+        berhasil: false,
+        judul: diLuarRadiusLokal
+          ? 'Di luar radius laboratorium'
+          : 'Lokasi belum siap',
+        pesan: diLuarRadiusLokal
+          ? `Jarakmu sekitar ${jarakLokalMeter} m dari ${targetLab?.namaLab ?? 'laboratorium'} (batas ${targetLab?.radiusPresensi} m).`
+          : lokasi.error ??
+            'Pastikan GPS aktif, akurasi stabil, dan izin lokasi diberikan sebelum memindai QR.',
+      });
+      setSheetTerbuka(true);
+      return;
+    }
 
     const qr = bacaPayloadQr(payloadQr);
     if (!qr || qr.idSesi !== idSesi) {
@@ -137,7 +281,7 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
     setSedangMemproses(true);
 
     try {
-      const hasil = await catatPresensiDariQr(payloadQr);
+      const hasil = await catatPresensiDariQr(payloadQr, lokasi.position);
       setHasilTampilan(buatPesanHasil(hasil));
     } catch {
       setHasilTampilan({
@@ -201,22 +345,39 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
         </Text>
       </View>
 
+      <PresensiLocationStatus
+        loading={lokasi.loading || sedangRefreshLokasi}
+        permissionDenied={lokasi.permissionDenied}
+        servicesDisabled={lokasi.servicesDisabled}
+        position={lokasi.position}
+        isLowAccuracy={lokasi.isLowAccuracy}
+        error={lokasi.error}
+        targetLab={targetLab}
+        onRefresh={() => {
+          void tanganiRefreshLokasi();
+        }}
+      />
+
       <View style={styles.qrCard}>
         <CameraView
           style={styles.camera}
           facing="back"
           barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
           onBarcodeScanned={
-            sudahDipindai
+            sudahDipindai || !lokasiSiapScan
               ? undefined
               : ({ data }) => {
                   void prosesScan(data);
                 }
           }
         />
-        {sedangMemproses && (
-          <Text style={styles.qrInfo}>Memproses presensi...</Text>
-        )}
+        {sedangMemproses ? (
+          <Text style={styles.qrInfo}>Memverifikasi lokasi & presensi...</Text>
+        ) : !lokasiSiapScan ? (
+          <Text style={styles.qrInfo}>
+            Pemindaian QR ditahan hingga lokasi GPS memenuhi syarat.
+          </Text>
+        ) : null}
       </View>
 
       <View style={styles.actions}>
@@ -272,6 +433,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 300,
   },
-  qrInfo: { fontSize: 14, color: Colors.light.textSecondary },
+  qrInfo: { fontSize: 14, color: Colors.light.textSecondary, textAlign: 'center' },
   actions: { gap: Spacing.two },
 });

@@ -1,6 +1,3 @@
-
-// Kontrak Data v1.1 — Hadir.in Sprint 2
-
 export type Peran = 'PRAKTIKAN' | 'ASISTEN';
 
 export type StatusSesi =
@@ -23,11 +20,9 @@ export type StatusAi =
   | 'GAGAL';
 
 export type KategoriIzin =
-  | 'KESEHATAN'
-  | 'KELUARGA'
-  | 'AKADEMIK'
-  | 'LAINNYA'
-  | 'TIDAK_JELAS';
+  | 'SAKIT'
+  | 'IZIN'
+  | 'ALPHA';
 
 export type StatusRekap =
   | 'HADIR'
@@ -94,6 +89,7 @@ export interface Sesi {
   idSesi: string;
   kelasId: string;
   judul: string;
+  labId?: string | null;
   lokasi: string;
   waktuMulai: Date;
   waktuSelesai: Date | null;
