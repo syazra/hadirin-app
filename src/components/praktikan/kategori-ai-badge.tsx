@@ -1,18 +1,20 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Colors, Spacing } from '@/constants/theme';
-import type { StatusAi } from '@/types';
+import type { KategoriIzin, StatusAi } from '@/types';
 
 type Props = {
-  kategori: string | null | undefined;
+  kategori: KategoriIzin | null | undefined;
   statusAi?: StatusAi;
 };
 
 export function KategoriAiBadge({ kategori, statusAi }: Props) {
-  const labelStatus = statusAi === 'SUKSES'
+  const labelStatus = statusAi === 'SUKSES' && kategori
     ? 'Klasifikasi berhasil'
-    : statusAi === 'GAGAL'
-      ? 'Klasifikasi gagal'
-      : 'Belum diklasifikasikan';
+    : statusAi === 'SUKSES'
+      ? 'Klasifikasi belum tersedia'
+      : statusAi === 'GAGAL'
+        ? 'Klasifikasi gagal'
+        : 'Belum diklasifikasikan';
 
   if (!kategori && !statusAi) return null;
 

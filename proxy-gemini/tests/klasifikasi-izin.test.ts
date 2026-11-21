@@ -31,7 +31,7 @@ function siapkan(overrides: Partial<DependensiKlasifikasiIzin> = {}) {
         klasifikasikan: async (alasan) => {
             jumlahPanggilanModel += 1;
             alasanDikirimKeModel.push(alasan);
-            return { teks: '{"kategori":"KESEHATAN"}', model: 'gemini-model-uji' };
+            return { teks: '{"kategori":"SAKIT"}', model: 'gemini-model-uji' };
         },
         simpanFieldAi: async (idIzin, fields) => {
             tersimpan.push({ idIzin, fields });
@@ -64,24 +64,24 @@ test('mengklasifikasikan alasan, menyimpan hanya field AI, dan mengembalikan kat
     const response = await fixture.handler(request());
 
     assert.equal(response.status, 200);
-    assert.deepEqual(await json(response), { ok: true, data: { kategori: 'KESEHATAN' } });
+    assert.deepEqual(await json(response), { ok: true, data: { kategori: 'SAKIT' } });
     assert.deepEqual(fixture.alasanDikirimKeModel, [IZIN.alasan]);
     assert.deepEqual(fixture.tersimpan, [{
         idIzin: 'izin-1',
-        fields: { kategoriAi: 'KESEHATAN', statusAi: 'SUKSES', modelAi: 'gemini-model-uji' },
+        fields: { kategoriAi: 'SAKIT', statusAi: 'SUKSES', modelAi: 'gemini-model-uji' },
     }]);
     assert.equal('statusIzin' in fixture.tersimpan[0].fields, false);
 });
 
 test('menggunakan hasil sukses yang tersimpan tanpa memanggil model lagi', async () => {
     const fixture = siapkan({
-        ambilIzin: async () => ({ ...IZIN, statusAi: 'SUKSES', kategoriAi: 'AKADEMIK' }),
+        ambilIzin: async () => ({ ...IZIN, statusAi: 'SUKSES', kategoriAi: 'IZIN' }),
     });
 
     const response = await fixture.handler(request());
 
     assert.equal(response.status, 200);
-    assert.deepEqual(await json(response), { ok: true, data: { kategori: 'AKADEMIK' } });
+    assert.deepEqual(await json(response), { ok: true, data: { kategori: 'IZIN' } });
     assert.equal(fixture.jumlahPanggilanModel, 0);
     assert.equal(fixture.tersimpan.length, 0);
 });
@@ -181,4 +181,59 @@ test('menolak method dan payload yang tidak sesuai', async () => {
     assert.equal(getResponse.status, 405);
     assert.equal(badPayload.status, 400);
     assert.equal(fixture.jumlahPanggilanModel, 0);
+});
+
+for (const [alasan, kategori] of [
+    ['Saya sakit demam.', 'SAKIT'],
+    ['Menghadiri acara keluarga.', 'IZIN'],
+    ['Mengikuti kegiatan akademik.', 'IZIN'],
+] as const) {
+    test(`menerima kategori ${kategori} untuk fixture alasan: ${alasan}`, async () => {
+        const fixture = siapkan({
+            ambilIzin: async () => ({ ...IZIN, alasan }),
+            klasifikasikan: async (teks) => {
+                assert.equal(teks, alasan);
+                return { teks: JSON.stringify({ kategori }), model: 'model-uji' };
+            },
+        });
+        assert.equal((await fixture.handler(request())).status, 200);
+        assert.equal(fixture.tersimpan[0].fields.kategoriAi, kategori);
+        assert.equal('statusIzin' in fixture.tersimpan[0].fields, false);
+    });
+}
+
+for (const kategori of ['KESEHATAN', 'KELUARGA', 'AKADEMIK', 'LAINNYA', 'TIDAK_JELAS', 'ALPHA', 'sakit', null]) {
+    test(`menolak output model lama/tidak valid: ${kategori}`, async () => {
+        const fixture = siapkan({
+            klasifikasikan: async () => ({ teks: JSON.stringify({ kategori }), model: 'model-uji' }),
+        });
+        const response = await fixture.handler(request());
+        assert.equal(response.status, 502);
+        assert.equal((await json(response)).alasan, 'RESPONS_TIDAK_VALID');
+        assert.equal(fixture.tersimpan[0].fields.kategoriAi, null);
+        assert.equal(fixture.tersimpan[0].fields.statusAi, 'GAGAL');
+    });
+}
+
+for (const kategoriAi of ['KESEHATAN', 'KELUARGA', 'AKADEMIK', 'LAINNYA', 'TIDAK_JELAS', 'ALPHA']) {
+    test(`cache kategori lama ${kategoriAi} diklasifikasikan ulang`, async () => {
+        const fixture = siapkan({
+            ambilIzin: async () => ({ ...IZIN, statusAi: 'SUKSES', kategoriAi }),
+        });
+        const response = await fixture.handler(request());
+        assert.equal(response.status, 200);
+        assert.equal(fixture.jumlahPanggilanModel, 1);
+        assert.equal(fixture.tersimpan[0].fields.kategoriAi, 'SAKIT');
+    });
+}
+
+test('network failure tidak mengubah keputusan manual', async () => {
+    const fixture = siapkan({
+        klasifikasikan: async () => { throw new KegagalanKlasifikasi('JARINGAN', 'offline'); },
+    });
+    const response = await fixture.handler(request());
+    assert.equal(response.status, 502);
+    assert.equal((await json(response)).alasan, 'JARINGAN');
+    assert.equal(fixture.tersimpan[0].fields.statusAi, 'GAGAL');
+    assert.equal('statusIzin' in fixture.tersimpan[0].fields, false);
 });
