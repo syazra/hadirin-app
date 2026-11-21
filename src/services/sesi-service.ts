@@ -12,11 +12,7 @@ import {
     where,
     writeBatch,
 } from '@react-native-firebase/firestore';
-
-import {
-    getFirebaseServices,
-    isFirebaseAvailable,
-} from '@/lib/firebase';
+import { getFirebaseServices, isFirebaseAvailable } from '@/lib/firebase';
 import type {
     AlasanGagal,
     Hasil,
@@ -24,14 +20,13 @@ import type {
     Sesi,
     StatusSesi,
 } from '@/types';
+import { DATA_LABORATORIUM } from '@/constants/laboratorium';
 
-/**
- * Input untuk membuat sesi baru.
- */
+/*Input untuk membuat sesi baru.*/
 export type InputBuatSesi = {
     kelasId: string;
     judul: string;
-    lokasi: string;
+    labId: string;
     waktuMulai: Date;
     waktuSelesai: Date | null;
 };
@@ -39,19 +34,10 @@ export type InputBuatSesi = {
 /**
  * Data yang boleh diubah melalui edit sesi.
  */
-export type InputUbahSesi = Partial<
-    Pick<
-        Sesi,
-        'judul' | 'lokasi' | 'waktuMulai' | 'waktuSelesai'
-    >
->;
+export type InputUbahSesi = Partial<Pick<Sesi, 'judul' | 'labId' | 'waktuMulai' | 'waktuSelesai'>>;
 
 const PANJANG_MAKS_TEKS = 100;
-const STATUS_SESI_VALID: readonly StatusSesi[] = [
-    'BELUM_DIBUKA',
-    'DIBUKA',
-    'DITUTUP',
-];
+const STATUS_SESI_VALID: readonly StatusSesi[] = ['BELUM_DIBUKA', 'DIBUKA', 'DITUTUP'];
 
 function gagal(alasan: AlasanGagal, pesan: string): Hasil<never> {
     return { ok: false, alasan, pesan };
@@ -243,7 +229,10 @@ function petakanDokumenSesi(
         idSesi: snap.id,
         kelasId: typeof data.kelasId === 'string' ? data.kelasId : '',
         judul: typeof data.judul === 'string' ? data.judul : '',
-        lokasi: typeof data.lokasi === 'string' ? data.lokasi : '',
+        labId: typeof data.labId === 'string' ? data.labId : null,
+        lokasi: typeof data.labId === 'string'
+            ? DATA_LABORATORIUM.find((lab) => lab.idLab === data.labId)?.nama ?? (typeof data.lokasi === 'string' ? data.lokasi : '')
+            : (typeof data.lokasi === 'string' ? data.lokasi : ''),
         waktuMulai,
         waktuSelesai: konversiKeDate(data.waktuSelesai),
         statusSesi: bacaStatusSesi(data.statusSesi),
@@ -320,9 +309,13 @@ export async function buatSesi(
         return cekJudul.hasil;
     }
 
-    const cekLokasi = validasiTeksWajib(input.lokasi, 'Lokasi sesi');
-    if (!cekLokasi.ok) {
-        return cekLokasi.hasil;
+    const labIdRapi = typeof input.labId === 'string' ? input.labId.trim() : '';
+    const labTerpilih = DATA_LABORATORIUM.find(
+        (lab) => lab.idLab === labIdRapi && lab.aktif,
+    );
+
+    if (!labTerpilih) {
+        return gagal('INPUT_TIDAK_VALID', 'Laboratorium tidak ditemukan atau sedang tidak aktif.');
     }
 
     const errorWaktu = validasiRentangWaktu(
@@ -368,12 +361,9 @@ export async function buatSesi(
         batch.set(sesiRef, {
             kelasId: idKelasRapi,
             judul: cekJudul.nilai,
-            lokasi: cekLokasi.nilai,
+            labId: labIdRapi,
             waktuMulai: Timestamp.fromDate(input.waktuMulai),
-            waktuSelesai:
-                input.waktuSelesai !== null
-                    ? Timestamp.fromDate(input.waktuSelesai)
-                    : null,
+            waktuSelesai: input.waktuSelesai !== null ? Timestamp.fromDate(input.waktuSelesai) : null,
             statusSesi: 'BELUM_DIBUKA' satisfies StatusSesi,
             diarsipkan: false,
         });
@@ -402,7 +392,7 @@ export async function ubahSesi(
 
     const adaInputField =
         data.judul !== undefined ||
-        data.lokasi !== undefined ||
+        data.labId !== undefined ||
         data.waktuMulai !== undefined ||
         data.waktuSelesai !== undefined;
 
@@ -420,13 +410,20 @@ export async function ubahSesi(
         judulBaru = cekJudul.nilai;
     }
 
-    let lokasiBaru: string | undefined;
-    if (data.lokasi !== undefined) {
-        const cekLokasi = validasiTeksWajib(data.lokasi, 'Lokasi sesi');
-        if (!cekLokasi.ok) {
-            return cekLokasi.hasil;
+    let labIdBaru: string | undefined;
+    if (data.labId !== undefined) {
+        labIdBaru = typeof data.labId === 'string' ? data.labId.trim() : '';
+
+        const labTerpilih = DATA_LABORATORIUM.find(
+            (lab) => lab.idLab === labIdBaru && lab.aktif,
+        );
+
+        if (!labTerpilih) {
+            return gagal(
+                'INPUT_TIDAK_VALID',
+                'Laboratorium tidak ditemukan atau sedang tidak aktif.',
+            );
         }
-        lokasiBaru = cekLokasi.nilai;
     }
 
     if (data.waktuMulai !== undefined && !isDateValid(data.waktuMulai)) {
@@ -514,16 +511,13 @@ export async function ubahSesi(
             if (errorWaktu) {
                 return errorWaktu;
             }
-
-            // Hanya kirim field yang benar-benar berubah. Aturan Firestore
-            // menolak update yang tidak mengubah apa pun (affectedKeys kosong),
-            // dan penolakan itu muncul sebagai "permission-denied".
+            
             const payloadUpdate: Record<string, unknown> = {};
             if (judulBaru !== undefined && judulBaru !== sesiData.judul) {
                 payloadUpdate.judul = judulBaru;
             }
-            if (lokasiBaru !== undefined && lokasiBaru !== sesiData.lokasi) {
-                payloadUpdate.lokasi = lokasiBaru;
+            if (labIdBaru !== undefined && labIdBaru !== sesiData.labId) {
+                payloadUpdate.labId = labIdBaru;
             }
             if (
                 data.waktuMulai !== undefined &&

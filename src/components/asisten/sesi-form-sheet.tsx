@@ -7,14 +7,14 @@ import {
     TextInput,
     View,
 } from 'react-native';
-
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Colors } from '@/constants/theme';
 import type { Sesi } from '@/types';
+import { DATA_LABORATORIUM } from '@/constants/laboratorium';
 
 export type NilaiFormSesi = {
     judul: string;
-    lokasi: string;
+    labId: string;
     waktuMulai: Date;
     waktuSelesai: Date | null;
 };
@@ -94,8 +94,8 @@ function SesiFormSheetIsi({
     const [judul, setJudul] = useState(() =>
         mode === 'ubah' && sesiAwal ? sesiAwal.judul : '',
     );
-    const [lokasi, setLokasi] = useState(() =>
-        mode === 'ubah' && sesiAwal ? sesiAwal.lokasi : '',
+    const [labId, setLabId] = useState(() =>
+        mode === 'ubah' && sesiAwal?.labId ? sesiAwal.labId : '',
     );
     const [waktuMulaiTeks, setWaktuMulaiTeks] = useState(waktuMulaiAwalTeks);
     const [waktuSelesaiTeks, setWaktuSelesaiTeks] =
@@ -112,7 +112,7 @@ function SesiFormSheetIsi({
 
         return (
             judul.trim() !== sesiAwal.judul.trim() ||
-            lokasi.trim() !== sesiAwal.lokasi.trim() ||
+            labId !== (sesiAwal.labId ?? '') ||
             waktuMulaiNorm !== waktuMulaiAwalTeks ||
             waktuSelesaiNorm !== waktuSelesaiAwalTeks
         );
@@ -120,7 +120,7 @@ function SesiFormSheetIsi({
         mode,
         sesiAwal,
         judul,
-        lokasi,
+        labId,
         waktuMulaiTeks,
         waktuSelesaiTeks,
         waktuMulaiAwalTeks,
@@ -131,7 +131,6 @@ function SesiFormSheetIsi({
         if (loading || !adaPerubahan) return;
 
         const judulRapi = judul.trim();
-        const lokasiRapi = lokasi.trim();
 
         if (!judulRapi) {
             setErrorLokal('Judul sesi wajib diisi.');
@@ -141,12 +140,8 @@ function SesiFormSheetIsi({
             setErrorLokal('Judul sesi maksimal 100 karakter.');
             return;
         }
-        if (!lokasiRapi) {
-            setErrorLokal('Lokasi sesi wajib diisi.');
-            return;
-        }
-        if (lokasiRapi.length > 100) {
-            setErrorLokal('Lokasi sesi maksimal 100 karakter.');
+        if (!DATA_LABORATORIUM.some((lab) => lab.idLab === labId && lab.aktif)) {
+            setErrorLokal('Pilih laboratorium yang masih aktif.');
             return;
         }
 
@@ -178,7 +173,7 @@ function SesiFormSheetIsi({
         setErrorLokal(null);
         onSubmit({
             judul: judulRapi,
-            lokasi: lokasiRapi,
+            labId,
             waktuMulai,
             waktuSelesai,
         });
@@ -211,16 +206,28 @@ function SesiFormSheetIsi({
                 </View>
 
                 <View style={styles.field}>
-                    <Text style={styles.label}>Lokasi</Text>
-                    <TextInput
-                        value={lokasi}
-                        onChangeText={setLokasi}
-                        placeholder="Contoh: Lab Komputasi B"
-                        placeholderTextColor={Colors.light.textSecondary}
-                        maxLength={100}
-                        editable={!loading}
-                        style={styles.input}
-                    />
+                    <Text style={styles.label}>Laboratorium</Text>
+                    {DATA_LABORATORIUM.filter((lab) => lab.aktif).map((lab) => (
+                        <Pressable
+                            key={lab.idLab}
+                            disabled={loading}
+                            onPress={() => setLabId(lab.idLab)}
+                            style={[
+                                styles.labOption,
+                                labId === lab.idLab && styles.labOptionSelected,
+                                loading && styles.disabled,
+                            ]}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: labId === lab.idLab, disabled: loading }}
+                        >
+                            <Text style={styles.labOptionText}>
+                                {lab.nama} · {lab.lokasiGedung}
+                            </Text>
+                            {labId === lab.idLab ? (
+                                <Text style={styles.labSelectedText}>Terpilih ✓</Text>
+                            ) : null}
+                        </Pressable>
+                    ))}
                 </View>
 
                 <View style={styles.field}>
@@ -361,6 +368,31 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         fontSize: 14,
         color: Colors.light.text,
+    },
+    labOption: {
+        minHeight: 46,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+        backgroundColor: Colors.light.background,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    labOptionSelected: {
+        borderColor: Colors.light.primary,
+        backgroundColor: '#EFF6FF',
+    },
+    labOptionText: {
+        fontSize: 14,
+        color: Colors.light.text,
+    },
+    labSelectedText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: Colors.light.primary,
     },
     errorBox: {
         padding: 12,

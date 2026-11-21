@@ -1,8 +1,5 @@
 import { KelasFormSheet } from '@/components/asisten/kelas-form-sheet';
-import {
-    SesiFormSheet,
-    type NilaiFormSesi,
-} from '@/components/asisten/sesi-form-sheet';
+import { SesiFormSheet, type NilaiFormSesi } from '@/components/asisten/sesi-form-sheet';
 import { TambahPesertaSheet } from '@/components/asisten/tambah-peserta-sheet';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -14,16 +11,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { useKelasAsisten } from '@/hooks/use-kelas-asisten';
 import { usePesertaKelas } from '@/hooks/use-peserta-kelas';
 import { arsipkanKelas, ubahKelas } from '@/services/kelas-service';
-import {
-    nonaktifkanPeserta,
-    tambahPesertaByKode,
-} from '@/services/peserta-service';
-import {
-    arsipkanSesi,
-    buatSesi,
-    listenSesiKelas,
-    ubahSesi,
-} from '@/services/sesi-service';
+import { nonaktifkanPeserta, tambahPesertaByKode } from '@/services/peserta-service';
+import { arsipkanSesi, buatSesi, listenSesiKelas, ubahSesi } from '@/services/sesi-service';
 import type { Keanggotaan, Sesi } from '@/types';
 import { formatWaktu } from '@/utils/format-waktu';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -405,18 +394,9 @@ export default function DetailKelasScreen() {
         if (!kelasAktif || kelasAktif.diarsipkan) return;
         setLoadingTambahPeserta(true);
         setErrorTambahPeserta(null);
-
-        const hasil = await tambahPesertaByKode(
-            kelasAktif.idKelas,
-            kodePeserta,
-        );
+        const hasil = await tambahPesertaByKode(kelasAktif.idKelas, kodePeserta);
         setLoadingTambahPeserta(false);
-
-        if (!hasil.ok) {
-            setErrorTambahPeserta(hasil.pesan);
-            return;
-        }
-
+        if (!hasil.ok) { setErrorTambahPeserta(hasil.pesan); return; }
         setTambahPesertaTerbuka(false);
     };
 
@@ -454,14 +434,14 @@ export default function DetailKelasScreen() {
                 ? await buatSesi({
                       kelasId: kelasAktif.idKelas,
                       judul: nilai.judul,
-                      lokasi: nilai.lokasi,
+                      labId: nilai.labId,
                       waktuMulai: nilai.waktuMulai,
                       waktuSelesai: nilai.waktuSelesai,
                   })
                 : sesiDiedit
                   ? await ubahSesi(sesiDiedit.idSesi, {
                         judul: nilai.judul,
-                        lokasi: nilai.lokasi,
+                        labId: nilai.labId,
                         waktuMulai: nilai.waktuMulai,
                         waktuSelesai: nilai.waktuSelesai,
                     })

@@ -76,6 +76,11 @@ export interface Kelas {
   dibuatPada: Date | null;
 }
 
+export interface Laboratorium {
+  idLab: string; kodeLab: string; nama: string; lokasiGedung: string;
+  latitude: number; longitude: number; radiusPresensi: number; aktif: boolean;
+}
+
 export interface Keanggotaan {
   idKeanggotaan: string;
   kelasId: string;
@@ -86,14 +91,14 @@ export interface Keanggotaan {
 }
 
 export interface Sesi {
-  idSesi: string;
-  kelasId: string;
+  idSesi: string; 
+  kelasId: string; 
   judul: string;
-  labId?: string | null;
-  lokasi: string;
-  waktuMulai: Date;
+  labId?: string | null; 
+  lokasi?: string;
+  waktuMulai: Date; 
   waktuSelesai: Date | null;
-  statusSesi: StatusSesi;
+  statusSesi: StatusSesi; 
   diarsipkan: boolean;
 }
 
