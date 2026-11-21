@@ -19,6 +19,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.aqillazhr.hadirin",
+      "permissions": ["android.permission.POST_NOTIFICATIONS"],
       "googleServicesFile": "./google-services.json"
     },
     "web": {
@@ -61,7 +62,13 @@
             "kotlinVersion": "2.4.20"
           }
         }
-      ]
+      ],
+      [
+        "@react-native-firebase/messaging",
+        { "android": { "notificationIcon": "./assets/images/notification-icon.xml" } }
+      ],
+      "./plugins/with-notification-icon.cjs",
+      "@react-native-firebase/app-check"
     ],
     "experiments": {
       "typedRoutes": true,
