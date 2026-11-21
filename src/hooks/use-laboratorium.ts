@@ -21,6 +21,7 @@ export function useLaboratorium() {
     setLoading(false);
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void muatData(); }, [muatData]);
 
   const tambah = async (data: InputLaboratorium) => {
