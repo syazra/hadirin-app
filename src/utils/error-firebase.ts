@@ -48,7 +48,7 @@ export function hasilErrorFirebase<T = never>(error: unknown): Hasil<T> {
     ) {
         return gagal(
             'AUTENTIKASI_GAGAL',
-            'Email atau kata sandi tidak sesuai, atau akun sementara dibatasi.',
+            'Email atau password tidak sesuai.',
         );
     }
 

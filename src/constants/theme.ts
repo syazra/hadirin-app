@@ -1,52 +1,51 @@
-
 import '@/global.css';
 import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#172B4D',
-    background: '#F6F8FC',
-    backgroundElement: '#FFFFFF',
-    backgroundSelected: '#E8F4F3',
-    textSecondary: '#718096',
+    text: '#0D1330',
+    background: '#FFFFFF',
+    backgroundElement: '#F6F8FC',
+    backgroundSelected: '#E8EEFF',
+    textSecondary: '#7B86A6',
 
-    primary: '#234E70',
-    primarySoft: '#E8F0F7',
-    accent: '#159A91',
-    accentSoft: '#E3F5F2',
+    primary: '#2554FF',
+    primarySoft: '#E8EEFF',
+    accent: '#F46FAE',
+    accentSoft: '#FFE3F0',
 
     success: '#21865B',
     successSoft: '#E5F6EC',
     warning: '#B7791F',
     warningSoft: '#FFF4D6',
-    danger: '#C74747',
-    dangerSoft: '#FDECEC',
+    danger: '#D63A85',
+    dangerSoft: '#FFE3F0',
 
-    border: '#E2E8F0',
+    border: '#E3E8F5',
     card: '#FFFFFF',
-    overlay: '#172B4D',
+    overlay: '#0D1330',
   },
   dark: {
-    text: '#F1F5F9',
-    background: '#101923',
-    backgroundElement: '#1B2836',
-    backgroundSelected: '#263C4C',
-    textSecondary: '#A7B5C5',
+    text: '#E8ECF8',
+    background: '#121726',
+    backgroundElement: '#1B2236',
+    backgroundSelected: '#242E49',
+    textSecondary: '#8E99B8',
 
-    primary: '#8CC5E8',
-    primarySoft: '#263C4C',
-    accent: '#56C9BD',
-    accentSoft: '#203E40',
+    primary: '#5D82FF',
+    primarySoft: '#1E2A4A',
+    accent: '#F46FAE',
+    accentSoft: '#3B2032',
 
     success: '#73D6A0',
     successSoft: '#203D32',
     warning: '#F2C66D',
     warningSoft: '#40351F',
-    danger: '#FF9999',
-    dangerSoft: '#46292D',
+    danger: '#FF7EB6',
+    dangerSoft: '#3B2032',
 
-    border: '#344354',
-    card: '#1B2836',
+    border: '#2A334D',
+    card: '#1B2236',
     overlay: '#000000',
   },
 } as const;
@@ -56,22 +55,28 @@ export type ThemeColor =
 
 export const Fonts = Platform.select({
   ios: {
-    sans: 'system-ui',
+    sans: 'SpaceGrotesk_400Regular',
+    sansMedium: 'SpaceGrotesk_500Medium',
+    sansBold: 'SpaceGrotesk_700Bold',
     serif: 'ui-serif',
     rounded: 'ui-rounded',
-    mono: 'ui-monospace',
+    mono: 'JetBrainsMono_500Medium',
   },
   default: {
-    sans: 'normal',
+    sans: 'SpaceGrotesk_400Regular',
+    sansMedium: 'SpaceGrotesk_500Medium',
+    sansBold: 'SpaceGrotesk_700Bold',
     serif: 'serif',
     rounded: 'normal',
-    mono: 'monospace',
+    mono: 'JetBrainsMono_500Medium',
   },
   web: {
-    sans: 'var(--font-display)',
+    sans: "'Space Grotesk', system-ui, sans-serif",
+    sansMedium: "'Space Grotesk', system-ui, sans-serif",
+    sansBold: "'Space Grotesk', system-ui, sans-serif",
     serif: 'var(--font-serif)',
     rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
+    mono: "'JetBrains Mono', monospace",
   },
 });
 
