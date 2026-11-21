@@ -40,6 +40,10 @@ export default function AsistenLayout() {
       }}
     >
       <Tabs.Screen
+        name="laboratorium"
+        options={{ title: 'Laboratorium' }}
+      />
+      <Tabs.Screen
         name="kelas"
         options={{
           title: 'Kelas',
