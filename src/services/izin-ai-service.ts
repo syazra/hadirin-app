@@ -2,13 +2,8 @@ import { getIdToken } from '@react-native-firebase/auth';
 
 import { getFirebaseServices } from '@/lib/firebase';
 import type { AlasanGagal, Hasil, KategoriIzin } from '@/types';
+import { adalahKategoriIzin } from '@/utils/kategori-izin';
 import { hasilErrorFirebase } from '@/utils/error-firebase';
-
-const KATEGORI_IZIN: readonly KategoriIzin[] = [
-    'SAKIT',
-    'IZIN',
-    'ALPHA',
-];
 
 const ALASAN_GAGAL: readonly AlasanGagal[] = [
     'INPUT_TIDAK_VALID',
@@ -24,24 +19,6 @@ const ALASAN_GAGAL: readonly AlasanGagal[] = [
 
 function adalahObjek(nilai: unknown): nilai is Record<string, unknown> {
     return typeof nilai === 'object' && nilai !== null && !Array.isArray(nilai);
-}
-
-function normalisasiKategoriIzin(nilai: unknown): KategoriIzin | null {
-    if (typeof nilai !== 'string') return null;
-    const atas = nilai.trim().toUpperCase();
-
-    if (KATEGORI_IZIN.includes(atas as KategoriIzin)) {
-        return atas as KategoriIzin;
-    }
-
-    // Kompatibilitas mundur jika endpoint proxy masih mengembalikan label lama
-    if (atas === 'KESEHATAN') return 'SAKIT';
-    if (atas === 'KELUARGA' || atas === 'AKADEMIK' || atas === 'LAINNYA') {
-        return 'IZIN';
-    }
-    if (atas === 'TIDAK_JELAS') return 'ALPHA';
-
-    return null;
 }
 
 /** Meminta klasifikasi dari proxy tanpa pernah mengirim kunci Gemini dari aplikasi. */
@@ -90,8 +67,8 @@ export async function klasifikasikanIzin(
         }
 
         if (response.ok && adalahObjek(body) && body.ok === true && adalahObjek(body.data)) {
-            const kategori = normalisasiKategoriIzin(body.data.kategori);
-            if (kategori) {
+            const kategori = body.data.kategori;
+            if (adalahKategoriIzin(kategori)) {
                 return { ok: true, data: { kategori } };
             }
             return {

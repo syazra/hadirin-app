@@ -21,8 +21,7 @@ export type StatusAi =
 
 export type KategoriIzin =
   | 'SAKIT'
-  | 'IZIN'
-  | 'ALPHA';
+  | 'IZIN';
 
 export type StatusRekap =
   | 'HADIR'
