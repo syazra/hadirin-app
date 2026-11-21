@@ -11,6 +11,7 @@ import {
 
 import { getFirebaseServices } from '@/lib/firebase';
 import type { AlasanGagal, Hasil, Izin, StatusIzin } from '@/types';
+import { normalisasiKategoriIzinTersimpan } from '@/utils/kategori-izin';
 
 function gagal(alasan: AlasanGagal, pesan: string): Hasil<Izin> {
   return { ok: false, alasan, pesan };
@@ -45,7 +46,7 @@ function petakanIzin(
     statusIzin: data.statusIzin as StatusIzin,
     diperiksaOleh: (data.diperiksaOleh as string | null) ?? null,
     waktuPeriksa: tanggal(data.waktuPeriksa),
-    kategoriAi: (data.kategoriAi as Izin['kategoriAi']) ?? null,
+    kategoriAi: normalisasiKategoriIzinTersimpan(data.kategoriAi),
     statusAi: data.statusAi as Izin['statusAi'],
     modelAi: (data.modelAi as string | null) ?? null,
     waktuAi: tanggal(data.waktuAi),

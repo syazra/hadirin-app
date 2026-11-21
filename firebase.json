@@ -1,4 +1,9 @@
 {
+  "react-native": {
+    "app_check_token_auto_refresh": false,
+    "messaging_auto_init_enabled": false,
+    "messaging_installation_id_enabled": false
+  },
   "firestore": {
     "database": "(default)",
     "location": "asia-southeast2",
