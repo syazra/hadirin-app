@@ -52,11 +52,15 @@ perubahan Rules.
 
 ## Deployment dan rollback
 
-Rilis client yang menerima ALPHA terlebih dahulu, lalu deploy proxy dengan prompt
-baru. Client dua kategori lama menolak ALPHA dari HTTP, sehingga rollout perlu
-memperbarui perangkat uji sebelum proxy mulai menghasilkan kategori ketiga.
-Mengubah prompt tanpa memeriksa versi cache dapat mempertahankan IZIN keluarga
-lama; versi cache menghindari itu pada permintaan klasifikasi berikutnya.
+Perangkat uji perlu memakai client yang menerima ALPHA. Deploy proxy yang sudah
+mendukung `versiKategoriAi` sebelum merilis client yang mengirim field tersebut.
+Proxy tetap menerima permintaan dari client tiga kategori sebelumnya.
+
+Periksa URL yang dipakai aplikasi melalui `GET /api/klasifikasi-izin`. Deployment
+yang sesuai mengembalikan HTTP 200, `versiKategoriAi: sakit-delegasi-lomba-alpha-v1`,
+dan kategori SAKIT, IZIN, serta ALPHA. Jika GET masih mengembalikan HTTP 405,
+perbarui deployment pada domain yang ditetapkan di `EXPO_PUBLIC_GEMINI_PROXY_URL`.
+Sesudah deploy, uji alasan acara keluarga dari akun Asisten dan periksa hasil ALPHA.
 
 Untuk rollback kebijakan dua kategori, rollback proxy dan client secara terkoordinasi.
 Proxy lama tidak memahami versi kebijakan dan bisa memakai cache IZIN dari kebijakan

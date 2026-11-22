@@ -73,8 +73,11 @@ export function buatHandlerKlasifikasiIzin(
     dependensi: DependensiKlasifikasiIzin,
 ): (request: Request) => Promise<Response> {
     return async (request) => {
+        if (request.method === 'GET') {
+            return respons(200, { ok: true, data: { kategoriDidukung: KATEGORI_IZIN } }, { 'Cache-Control': 'no-store' });
+        }
         if (request.method !== 'POST') {
-            return respons(405, { ok: false, alasan: 'INPUT_TIDAK_VALID', pesan: 'Gunakan metode POST.' }, { Allow: 'POST' });
+            return respons(405, { ok: false, alasan: 'INPUT_TIDAK_VALID', pesan: 'Gunakan metode GET atau POST.' }, { Allow: 'GET, POST' });
         }
 
         const token = tokenDariHeader(request.headers.get('authorization'));
@@ -89,9 +92,17 @@ export function buatHandlerKlasifikasiIzin(
             return respons(400, { ok: false, alasan: 'INPUT_TIDAK_VALID', pesan: 'Body harus berupa JSON yang valid.' });
         }
 
-        const idIzin = ambilIdIzin(isi);
-        if (!idIzin) {
+        const permintaan = bacaPermintaan(isi);
+        if (!permintaan) {
             return respons(400, { ok: false, alasan: 'INPUT_TIDAK_VALID', pesan: 'idIzin wajib diisi dan harus valid.' });
+        }
+        const { idIzin, versiKategoriAi } = permintaan;
+        if (versiKategoriAi !== undefined && versiKategoriAi !== VERSI_KATEGORI_AI) {
+            return respons(409, {
+                ok: false,
+                alasan: 'INPUT_TIDAK_VALID',
+                pesan: 'Versi klasifikasi aplikasi dan layanan berbeda. Hubungi pengelola aplikasi.',
+            });
         }
 
         let uid: string;
@@ -204,8 +215,8 @@ function tokenDariHeader(authorization: string | null): string | null {
     return match?.[1] ?? null;
 }
 
-function ambilIdIzin(body: unknown): string | null {
-    if (!adalahObjek(body) || Object.keys(body).some((key) => key !== 'idIzin')) {
+function bacaPermintaan(body: unknown): { idIzin: string; versiKategoriAi: unknown } | null {
+    if (!adalahObjek(body) || Object.keys(body).some((key) => key !== 'idIzin' && key !== 'versiKategoriAi')) {
         return null;
     }
 
@@ -214,7 +225,7 @@ function ambilIdIzin(body: unknown): string | null {
 
     const idBersih = idIzin.trim();
     return idBersih.length > 0 && idBersih.length <= 256 && !idBersih.includes('/')
-        ? idBersih
+        ? { idIzin: idBersih, versiKategoriAi: body.versiKategoriAi }
         : null;
 }
 
@@ -275,7 +286,7 @@ function respons(
     body: Record<string, unknown>,
     headers: Record<string, string> = {},
 ): Response {
-    return new Response(JSON.stringify(body), {
+    return new Response(JSON.stringify({ ...body, versiKategoriAi: VERSI_KATEGORI_AI }), {
         status,
         headers: { 'content-type': 'application/json; charset=utf-8', ...headers },
     });

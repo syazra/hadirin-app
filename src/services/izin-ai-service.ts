@@ -2,7 +2,7 @@ import { getIdToken } from '@react-native-firebase/auth';
 
 import { getFirebaseServices } from '@/lib/firebase';
 import type { AlasanGagal, Hasil, KategoriIzin } from '@/types';
-import { adalahKategoriIzin } from '@/utils/kategori-izin';
+import { adalahKategoriIzin, VERSI_KATEGORI_AI } from '@/utils/kategori-izin';
 import { hasilErrorFirebase } from '@/utils/error-firebase';
 
 const ALASAN_GAGAL: readonly AlasanGagal[] = [
@@ -16,6 +16,12 @@ const ALASAN_GAGAL: readonly AlasanGagal[] = [
     'RESPONS_TIDAK_VALID',
     'TIDAK_DIKENAL',
 ];
+
+const GAGAL_VERSI_PROXY = {
+    ok: false,
+    alasan: 'RESPONS_TIDAK_VALID',
+    pesan: 'Versi layanan AI belum cocok dengan aplikasi. Hubungi pengelola aplikasi untuk memperbarui proxy AI.',
+} as const;
 
 function adalahObjek(nilai: unknown): nilai is Record<string, unknown> {
     return typeof nilai === 'object' && nilai !== null && !Array.isArray(nilai);
@@ -52,7 +58,7 @@ export async function klasifikasikanIzin(
                 Authorization: `Bearer ${token}`,
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ idIzin }),
+            body: JSON.stringify({ idIzin, versiKategoriAi: VERSI_KATEGORI_AI }),
         });
 
         let body: unknown;
@@ -66,7 +72,20 @@ export async function klasifikasikanIzin(
             };
         }
 
+        // Proxy lama menolak field versi sebelum mulai memproses izin.
+        if (
+            response.status === 400 &&
+            adalahObjek(body) &&
+            body.alasan === 'INPUT_TIDAK_VALID' &&
+            !('versiKategoriAi' in body)
+        ) {
+            return GAGAL_VERSI_PROXY;
+        }
+
         if (response.ok && adalahObjek(body) && body.ok === true && adalahObjek(body.data)) {
+            if (body.versiKategoriAi !== VERSI_KATEGORI_AI) {
+                return GAGAL_VERSI_PROXY;
+            }
             const kategori = body.data.kategori;
             if (adalahKategoriIzin(kategori)) {
                 return { ok: true, data: { kategori } };
