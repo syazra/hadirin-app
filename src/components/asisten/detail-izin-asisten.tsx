@@ -69,7 +69,11 @@ export function DetailIzinAsisten({ izin }: Props) {
       <Text style={styles.value}>{izin.alasan}</Text>
 
       <Text style={styles.label}>Hasil klasifikasi AI</Text>
-      <KategoriAiBadge kategori={izin.kategoriAi} statusAi={izin.statusAi} />
+      <KategoriAiBadge kategori={izin.kategoriAi} statusAi={izin.statusAi} versiKategoriAi={izin.versiKategoriAi} />
+      <Text style={styles.note}>IZIN khusus lomba sebagai delegasi UNDIP/Departemen. Alasan di luar sakit dan delegasi lomba termasuk ALPHA.</Text>
+      {izin.kategoriAi === 'ALPHA' && (
+        <Text style={styles.note}>ALPHA dari AI tidak otomatis menolak pengajuan. Jika Asisten menyetujui, rekap tetap IZIN.</Text>
+      )}
 
       {izin.statusIzin === 'MENUNGGU' && (
         <>

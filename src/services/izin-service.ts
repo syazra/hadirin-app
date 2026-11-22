@@ -47,6 +47,7 @@ function petakanIzin(
     diperiksaOleh: (data.diperiksaOleh as string | null) ?? null,
     waktuPeriksa: tanggal(data.waktuPeriksa),
     kategoriAi: normalisasiKategoriIzinTersimpan(data.kategoriAi),
+    versiKategoriAi: typeof data.versiKategoriAi === 'string' ? data.versiKategoriAi : null,
     statusAi: data.statusAi as Izin['statusAi'],
     modelAi: (data.modelAi as string | null) ?? null,
     waktuAi: tanggal(data.waktuAi),
