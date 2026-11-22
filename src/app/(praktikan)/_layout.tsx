@@ -39,7 +39,17 @@ export default function PraktikanLayout() {
         },
       }}
     >
-      <Tabs.Screen name="maps" options={{ href: null, title: 'Peta' }} />
+      <Tabs.Screen
+        name="maps"
+        options={{
+          title: 'Peta',
+          tabBarIcon: ({ color, size }) => (
+            <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8}>
+              <Path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Zm6-3v15m6-12v15" />
+            </Svg>
+          ),
+        }}
+      />
       <Tabs.Screen
         name="jadwal-praktikan"
         options={{
