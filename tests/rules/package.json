@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "test:b07": "tsx --test presensi-izin.rules.test.ts",
+    "test:notification-tokens": "tsx --test notification-tokens.rules.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

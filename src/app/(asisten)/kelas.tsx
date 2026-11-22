@@ -152,6 +152,25 @@ export default function KelasScreen() {
                 </Pressable>
             </View>
 
+            {/* Akses cepat fitur Asisten */}
+            <View style={styles.menuFitur}>
+                <Pressable
+                    style={styles.menuFiturItem}
+                    onPress={() => router.navigate('/(asisten)/laboratorium')}
+                >
+                    <Text style={styles.menuFiturJudul}>Laboratorium</Text>
+                    <Text style={styles.menuFiturDeskripsi}>Kelola data dan lokasi lab</Text>
+                </Pressable>
+
+                <Pressable
+                    style={styles.menuFiturItem}
+                    onPress={() => router.navigate('/(asisten)/jadwal-asisten')}
+                >
+                    <Text style={styles.menuFiturJudul}>Jadwal Anda</Text>
+                    <Text style={styles.menuFiturDeskripsi}>Lihat jadwal praktikum</Text>
+                </Pressable>
+            </View>
+
             <View style={styles.filterRow}>
                 {opsiFilter.map((opsi) => {
                     const aktif = filter === opsi.key;
@@ -301,6 +320,30 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '700',
         color: Colors.light.backgroundElement,
+    },
+    menuFitur: {
+        flexDirection: 'row',
+        gap: 10,
+        paddingHorizontal: 20,
+        marginBottom: 12,
+    },
+    menuFiturItem: {
+        flex: 1,
+        padding: 12,
+        borderRadius: 12,
+        backgroundColor: Colors.light.card,
+        borderWidth: 1,
+        borderColor: Colors.light.border,
+    },
+    menuFiturJudul: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: Colors.light.primary,
+    },
+    menuFiturDeskripsi: {
+        fontSize: 11,
+        color: Colors.light.textSecondary,
+        marginTop: 4,
     },
     filterRow: {
         flexDirection: 'row',

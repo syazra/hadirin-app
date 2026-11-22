@@ -53,3 +53,12 @@ google-services.json
 # Firebase local files
 .firebase/
 *-debug.log
+
+# Firestore Seeder credentials & env
+scripts/seed/.env
+scripts/seed/.env.*
+!scripts/seed/.env.example
+scripts/seed/*.json
+!scripts/seed/package.json
+!scripts/seed/package-lock.json
+!scripts/seed/tsconfig.json

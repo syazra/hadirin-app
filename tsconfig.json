@@ -20,6 +20,8 @@
   "exclude": [
     "tests/rules/**",
     "node_modules",
-    "proxy-gemini"
+    "proxy-gemini",
+    "functions/**",
+    "scripts/**"
   ]
 }

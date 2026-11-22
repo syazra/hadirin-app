@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
 import { ProfilCard } from '@/components/shared/profil-card';
 import { Colors, Spacing } from '@/constants/theme';
@@ -8,14 +8,23 @@ export default function ProfilPraktikanScreen() {
     const { pengguna } = useAuth();
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Profil Praktikan</Text>
+        <ScrollView
+            style={styles.screen}
+            contentContainerStyle={styles.container}
+        >
             {pengguna?.peran === 'PRAKTIKAN' ? <ProfilCard pengguna={pengguna} /> : null}
-        </View>
+        </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, gap: Spacing.three, padding: Spacing.four, backgroundColor: Colors.light.background },
-    title: { color: Colors.light.text, fontSize: 20, fontWeight: '700' },
+    screen: {
+        flex: 1,
+        backgroundColor: Colors.light.background,
+    },
+    container: {
+        flexGrow: 1,
+        gap: Spacing.three,
+        padding: Spacing.four,
+    },
 });

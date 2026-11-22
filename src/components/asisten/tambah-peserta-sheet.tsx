@@ -19,7 +19,7 @@ type TambahPesertaSheetProps = {
     loading?: boolean;
     /** Pesan gagal dari service (mis. kode tidak ditemukan, peserta sudah aktif). */
     errorPesan?: string | null;
-    /** Dipanggil dengan kode 8 karakter huruf kapital/angka. Pemanggil menutup sheet setelah hasil ok. */
+    
     onSubmit: (kodePeserta: string) => void;
     onTutup: () => void;
 };

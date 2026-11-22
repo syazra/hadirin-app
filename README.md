@@ -136,7 +136,9 @@ Nama variable tanpa nilai contoh tersedia di `proxy-gemini/.env.example`. Pastik
 
 Atur `EXPO_PUBLIC_GEMINI_PROXY_URL` ke URL publik deployment proxy pada `.env.local` di root aplikasi, misalnya `https://<deployment>.vercel.app`. URL ini bukan rahasia. Jangan menaruh API key Gemini atau kredensial Firebase Admin di environment Expo.
 
-Client memanggil `POST /api/klasifikasi-izin` dengan header `Authorization: Bearer <Firebase ID token>` dan JSON `{ "idIzin": "<id izin>" }`. Keberhasilan mengembalikan `{ "ok": true, "data": { "kategori": "KESEHATAN" } }`; kategori valid adalah `KESEHATAN`, `KELUARGA`, `AKADEMIK`, `LAINNYA`, atau `TIDAK_JELAS`. Respons gagal memakai `{ "ok": false, "alasan": "...", "pesan": "..." }`. Proxy membatasi permintaan Gemini hingga 15 detik dan hasil sukses digunakan kembali dari Firestore.
+Client memanggil `POST /api/klasifikasi-izin` dengan header `Authorization: Bearer <Firebase ID token>` dan JSON `{ "idIzin": "<id izin>", "versiKategoriAi": "sakit-delegasi-lomba-alpha-v1" }`. Keberhasilan mengembalikan `{ "ok": true, "data": { "kategori": "SAKIT" }, "versiKategoriAi": "sakit-delegasi-lomba-alpha-v1" }`. Kategori AI: `SAKIT` untuk sakit/kesehatan, `IZIN` khusus lomba sebagai delegasi UNDIP/Departemen, dan `ALPHA` untuk alasan yang tidak memenuhi keduanya. Keputusan tetap milik Asisten: jika kategori AI `ALPHA` tetapi pengajuan disetujui, rekap tetap `IZIN`. Respons gagal memakai `{ "ok": false, "alasan": "...", "pesan": "..." }`. Proxy membatasi Gemini hingga 15 detik dan hanya memakai cache dengan versi kebijakan terkini (`versiKategoriAi`). Panduan kompatibilitas dan uji: [FAR-S2-01](docs/far-s2-01-ai-categories.md).
+
+Deploy proxy dengan dukungan versi sebelum merilis aplikasi yang mengirim `versiKategoriAi`. Buka `/api/klasifikasi-izin` pada URL proxy yang dipakai aplikasi untuk memeriksa versi deployment. Endpoint GET tanpa login menampilkan versi dan kategori yang didukung.
 
 ### Pemeriksaan proxy
 

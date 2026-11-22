@@ -1,5 +1,5 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -25,6 +25,9 @@ import { useAuth } from '@/hooks/use-auth';
 import { useIzinPengguna } from '@/hooks/use-izin-pengguna';
 import { useRekapSesi } from '@/hooks/use-rekap-sesi';
 import { useSesiDetail } from '@/hooks/use-sesi-detail';
+import { listenPresensiPengguna } from '@/services/presensi-service';
+import type { Presensi } from '@/types';
+import { formatWaktu } from '@/utils/format-waktu';
 
 export default function DetailSesiScreen() {
   const { id } = useLocalSearchParams<{
@@ -34,6 +37,7 @@ export default function DetailSesiScreen() {
   const router = useRouter();
   const { pengguna, peran, loading: authLoading } = useAuth();
   const { izin, loading: izinLoading } = useIzinPengguna(pengguna?.uid ?? null);
+  const [daftarPresensi, setDaftarPresensi] = useState<Presensi[]>([]);
   const [caraMemindaiTerbuka, setCaraMemindaiTerbuka] = useState(false);
 
   const idSesi = Array.isArray(id) ? id[0] : id;
@@ -45,9 +49,22 @@ export default function DetailSesiScreen() {
     muatUlang,
   } = useSesiDetail(idSesi ?? null);
 
+  useEffect(() => {
+    if (peran !== 'PRAKTIKAN' || !pengguna?.uid) {
+      return;
+    }
+
+    return listenPresensiPengguna(
+      pengguna.uid,
+      (data) => setDaftarPresensi(data),
+      () => {},
+    );
+  }, [peran, pengguna?.uid]);
+
   const rekap = useRekapSesi(
     peran === 'ASISTEN' ? (sesi?.idSesi ?? null) : null,
     peran === 'ASISTEN' ? (sesi?.kelasId ?? null) : null,
+    sesi?.statusSesi ?? 'DIBUKA',
   );
 
   if (authLoading) {
@@ -103,6 +120,10 @@ export default function DetailSesiScreen() {
   }
 
   const dataDiarsipkan = Boolean(sesi.diarsipkan || kelas?.diarsipkan);
+  const presensiSesiIni =
+    peran === 'PRAKTIKAN' && pengguna?.uid
+      ? daftarPresensi.find((item) => item.sesiId === sesi.idSesi)
+      : undefined;
 
   return (
     <ScrollView
@@ -151,7 +172,9 @@ export default function DetailSesiScreen() {
               <>
                 <RingkasanHadir
                   jumlahHadir={rekap.jumlahHadir}
+                  jumlahSakit={rekap.jumlahSakit}
                   jumlahIzin={rekap.jumlahIzin}
+                  jumlahAlpha={rekap.jumlahAlpha}
                   jumlahBelumHadir={rekap.jumlahBelumHadir}
                   jumlahIzinMenunggu={rekap.jumlahIzinMenunggu}
                 />
@@ -183,8 +206,12 @@ export default function DetailSesiScreen() {
               null
             }
             izinLoading={izinLoading}
-            sudahPresensi={false}
-            waktuPresensi={undefined}
+            sudahPresensi={Boolean(presensiSesiIni)}
+            waktuPresensi={
+              presensiSesiIni?.waktuHadir
+                ? formatWaktu(presensiSesiIni.waktuHadir)
+                : undefined
+            }
             onPressPresensi={() =>
               router.push({
                 pathname: '/scan-qr',

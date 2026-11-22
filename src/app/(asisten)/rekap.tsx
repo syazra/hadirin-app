@@ -13,8 +13,10 @@ import { useJadwalAsisten } from '@/hooks/use-jadwal-asisten';
 import { useKelasAsisten } from '@/hooks/use-kelas-asisten';
 import { useRekapSesi } from '@/hooks/use-rekap-sesi';
 import { formatWaktu } from '@/utils/format-waktu';
+import { useRouter } from 'expo-router';
 
 export default function RekapScreen() {
+  const router = useRouter();
   const { pengguna } = useAuth();
   const {
     kelas,
@@ -55,6 +57,7 @@ export default function RekapScreen() {
   const rekap = useRekapSesi(
     sesiAktif?.idSesi ?? null,
     sesiAktif?.kelasId ?? null,
+    sesiAktif?.statusSesi ?? 'DIBUKA',
   );
 
   if (loadingKelas || loadingSesi) {
@@ -82,12 +85,30 @@ export default function RekapScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Rekap Kehadiran</Text>
-        <Text style={styles.subtitle}>
-          Pantau daftar hadir, izin disetujui, dan status peserta secara realtime.
-        </Text>
-      </View>
+          <View style={styles.header}>
+            <Text style={styles.title}>Rekap Kehadiran</Text>
+            <Text style={styles.subtitle}>
+              Pantau daftar hadir, sakit, izin disetujui, dan status peserta secara
+              realtime.
+            </Text>
+          </View>
+
+          <Pressable
+            style={styles.tombolPerizinan}
+            onPress={() => router.navigate('/(asisten)/izin-asisten')}
+          >
+            <View>
+              <Text style={styles.tombolPerizinanJudul}>
+                Rekap Perizinan Mahasiswa
+              </Text>
+              <Text style={styles.tombolPerizinanDeskripsi}>
+                Lihat dan kelola pengajuan izin mahasiswa
+              </Text>
+            </View>
+            <Text style={styles.panahPerizinan}>›</Text>
+          </Pressable>
+
+          <Text style={styles.label}>Pilih Kelas</Text>
 
       <Text style={styles.label}>Pilih Kelas</Text>
       <ScrollView
@@ -161,7 +182,9 @@ export default function RekapScreen() {
             <>
               <RingkasanHadir
                 jumlahHadir={rekap.jumlahHadir}
+                jumlahSakit={rekap.jumlahSakit}
                 jumlahIzin={rekap.jumlahIzin}
+                jumlahAlpha={rekap.jumlahAlpha}
                 jumlahBelumHadir={rekap.jumlahBelumHadir}
                 jumlahIzinMenunggu={rekap.jumlahIzinMenunggu}
               />
@@ -191,28 +214,36 @@ export default function RekapScreen() {
                     )}
                   </View>
 
-                  <View style={styles.section}>
-                    <Text style={styles.label}>
-                      Izin Disetujui ({rekap.daftarIzinDisetujui.length})
-                    </Text>
-                    {rekap.daftarIzinDisetujui.length > 0 ? (
+                  {rekap.daftarSakit.length > 0 && (
+                    <View style={styles.section}>
+                      <Text style={styles.label}>
+                        Sakit ({rekap.daftarSakit.length})
+                      </Text>
+                      <View style={styles.daftar}>
+                        {rekap.daftarSakit.map((item) => (
+                          <RekapItem key={item.uid} {...item} />
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {rekap.daftarIzinDisetujui.length > 0 && (
+                    <View style={styles.section}>
+                      <Text style={styles.label}>
+                        Izin ({rekap.daftarIzinDisetujui.length})
+                      </Text>
                       <View style={styles.daftar}>
                         {rekap.daftarIzinDisetujui.map((item) => (
                           <RekapItem key={item.uid} {...item} />
                         ))}
                       </View>
-                    ) : (
-                      <EmptyState
-                        judul="Tidak ada izin disetujui"
-                        pesan="Belum ada pengajuan izin yang disetujui pada sesi ini."
-                      />
-                    )}
-                  </View>
+                    </View>
+                  )}
 
                   {rekap.daftarIzinLainnya.length > 0 && (
                     <View style={styles.section}>
                       <Text style={styles.label}>
-                        Pengajuan Izin Menunggu / Ditolak (
+                        Pengajuan Izin Menunggu (
                         {rekap.daftarIzinLainnya.length})
                       </Text>
                       <View style={styles.daftar}>
@@ -223,23 +254,46 @@ export default function RekapScreen() {
                     </View>
                   )}
 
-                  <View style={styles.section}>
-                    <Text style={styles.label}>
-                      Belum Hadir ({rekap.daftarBelumHadir.length})
-                    </Text>
-                    {rekap.daftarBelumHadir.length > 0 ? (
-                      <View style={styles.daftar}>
-                        {rekap.daftarBelumHadir.map((item) => (
-                          <RekapItem key={item.uid} {...item} />
-                        ))}
-                      </View>
-                    ) : (
-                      <EmptyState
-                        judul="Semua peserta tercatat"
-                        pesan="Seluruh peserta sudah hadir atau memiliki izin disetujui."
-                      />
-                    )}
-                  </View>
+                  {(sesiAktif.statusSesi === 'DITUTUP' ||
+                    rekap.daftarAlpha.length > 0) && (
+                    <View style={styles.section}>
+                      <Text style={styles.label}>
+                        Alpha ({rekap.daftarAlpha.length})
+                      </Text>
+                      {rekap.daftarAlpha.length > 0 ? (
+                        <View style={styles.daftar}>
+                          {rekap.daftarAlpha.map((item) => (
+                            <RekapItem key={item.uid} {...item} />
+                          ))}
+                        </View>
+                      ) : (
+                        <EmptyState
+                          judul="Tidak ada yang alpha"
+                          pesan="Seluruh peserta memiliki catatan hadir, sakit, atau izin yang disetujui."
+                        />
+                      )}
+                    </View>
+                  )}
+
+                  {sesiAktif.statusSesi !== 'DITUTUP' && (
+                    <View style={styles.section}>
+                      <Text style={styles.label}>
+                        Belum Hadir ({rekap.daftarBelumHadir.length})
+                      </Text>
+                      {rekap.daftarBelumHadir.length > 0 ? (
+                        <View style={styles.daftar}>
+                          {rekap.daftarBelumHadir.map((item) => (
+                            <RekapItem key={item.uid} {...item} />
+                          ))}
+                        </View>
+                      ) : (
+                        <EmptyState
+                          judul="Semua peserta tercatat"
+                          pesan="Seluruh peserta sudah hadir atau memiliki status akhir."
+                        />
+                      )}
+                    </View>
+                  )}
                 </View>
               )}
             </>
@@ -326,4 +380,28 @@ const styles = StyleSheet.create({
   sections: { gap: Spacing.four },
   section: { gap: 10 },
   daftar: { gap: 10 },
+  tombolPerizinan: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.light.primarySoft,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  tombolPerizinanJudul: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.light.primary,
+  },
+  tombolPerizinanDeskripsi: {
+    fontSize: 11,
+    color: Colors.light.textSecondary,
+    marginTop: 4,
+  },
+  panahPerizinan: {
+    fontSize: 24,
+    color: Colors.light.primary,
+  },
 });

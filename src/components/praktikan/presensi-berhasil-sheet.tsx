@@ -10,7 +10,7 @@ type PresensiBerhasilSheetProps = {
     berhasil: boolean;
     judul: string;
     pesan: string;
-    waktuPresensi?: string;
+    waktuPresensi?: Date | string | null;
     onClose: () => void;
 };
 
@@ -26,6 +26,17 @@ export function PresensiBerhasilSheet({
     const latarStatus = berhasil
         ? Colors.light.successSoft
         : Colors.light.dangerSoft;
+
+    const teksWaktu = (() => {
+        if (!waktuPresensi) return null;
+        if (waktuPresensi instanceof Date) {
+            return formatWaktu(waktuPresensi);
+        }
+        const hasilFormat = formatWaktu(waktuPresensi);
+        return hasilFormat === '-' && waktuPresensi.trim() !== '-'
+            ? waktuPresensi
+            : hasilFormat;
+    })();
 
     return (
         <BottomSheet
@@ -50,11 +61,11 @@ export function PresensiBerhasilSheet({
                 <Text style={styles.title}>{judul}</Text>
                 <Text style={styles.description}>{pesan}</Text>
 
-                {berhasil && waktuPresensi && (
+                {berhasil && teksWaktu && (
                     <View style={styles.timeCard}>
                         <Text style={styles.timeLabel}>Waktu presensi</Text>
                         <Text style={styles.timeValue}>
-                            {formatWaktu(waktuPresensi)}
+                            {teksWaktu}
                         </Text>
                     </View>
                 )}

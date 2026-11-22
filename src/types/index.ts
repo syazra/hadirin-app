@@ -1,6 +1,3 @@
-
-// Kontrak Data v1.1 — Hadir.in Sprint 2
-
 export type Peran = 'PRAKTIKAN' | 'ASISTEN';
 
 export type StatusSesi =
@@ -23,15 +20,15 @@ export type StatusAi =
   | 'GAGAL';
 
 export type KategoriIzin =
-  | 'KESEHATAN'
-  | 'KELUARGA'
-  | 'AKADEMIK'
-  | 'LAINNYA'
-  | 'TIDAK_JELAS';
+  | 'SAKIT'
+  | 'IZIN'
+  | 'ALPHA';
 
 export type StatusRekap =
   | 'HADIR'
+  | 'SAKIT'
   | 'IZIN'
+  | 'ALPHA'
   | 'BELUM_HADIR';
 
 export type AlasanGagal =
@@ -79,6 +76,11 @@ export interface Kelas {
   dibuatPada: Date | null;
 }
 
+export interface Laboratorium {
+  idLab: string; kodeLab: string; nama: string; lokasiGedung: string;
+  latitude: number; longitude: number; radiusPresensi: number; aktif: boolean;
+}
+
 export interface Keanggotaan {
   idKeanggotaan: string;
   kelasId: string;
@@ -91,11 +93,13 @@ export interface Keanggotaan {
 export interface Sesi {
   idSesi: string;
   kelasId: string;
+  namaPraktikum?: string;
   judul: string;
-  lokasi: string;
-  waktuMulai: Date;
+  labId?: string | null; 
+  lokasi?: string;
+  waktuMulai: Date; 
   waktuSelesai: Date | null;
-  statusSesi: StatusSesi;
+  statusSesi: StatusSesi; 
   diarsipkan: boolean;
 }
 
@@ -117,6 +121,7 @@ export interface Izin {
   diperiksaOleh: string | null;
   waktuPeriksa: Date | null;
   kategoriAi: KategoriIzin | null;
+  versiKategoriAi?: string | null;
   statusAi: StatusAi;
   modelAi: string | null;
   waktuAi: Date | null;
