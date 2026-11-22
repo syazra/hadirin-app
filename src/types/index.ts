@@ -91,8 +91,9 @@ export interface Keanggotaan {
 }
 
 export interface Sesi {
-  idSesi: string; 
-  kelasId: string; 
+  idSesi: string;
+  kelasId: string;
+  namaPraktikum?: string;
   judul: string;
   labId?: string | null; 
   lokasi?: string;
