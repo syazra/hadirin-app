@@ -19,7 +19,9 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.aqillazhr.hadirin",
-      "permissions": ["android.permission.POST_NOTIFICATIONS"],
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
+      ],
       "googleServicesFile": "./google-services.json"
     },
     "web": {
@@ -65,10 +67,15 @@
       ],
       [
         "@react-native-firebase/messaging",
-        { "android": { "notificationIcon": "./assets/images/notification-icon.xml" } }
+        {
+          "android": {
+            "notificationIcon": "./assets/images/notification-icon.xml"
+          }
+        }
       ],
       "./plugins/with-notification-icon.cjs",
-      "@react-native-firebase/app-check"
+      "@react-native-firebase/app-check",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
