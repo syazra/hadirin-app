@@ -2,8 +2,8 @@ import type { Pengguna } from '@/types';
 
 export type TujuanNavigasiAuth =
     | '/(auth)/login'
-    | '/(asisten)/jadwal-asisten'
-    | '/(praktikan)/jadwal-praktikan';
+    | '/(asisten)/(tabs)/beranda-asisten'
+    | '/(praktikan)/(tabs)/beranda-praktikan';
 
 export function tentukanTujuanNavigasiAuth(state: {
     pengguna: Pengguna | null;
@@ -14,6 +14,6 @@ export function tentukanTujuanNavigasiAuth(state: {
     if (!state.pengguna || state.profilBelumLengkap) return '/(auth)/login';
 
     return state.pengguna.peran === 'ASISTEN'
-        ? '/(asisten)/jadwal-asisten'
-        : '/(praktikan)/jadwal-praktikan';
+        ? '/(asisten)/(tabs)/beranda-asisten'
+        : '/(praktikan)/(tabs)/beranda-praktikan';
 }

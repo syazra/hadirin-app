@@ -216,13 +216,13 @@ const styles = StyleSheet.create({
     },
     titleLeft: {
         fontFamily: Fonts.sansBold,
-        fontSize: 26,
+        fontSize: 24,
         lineHeight: 34,
         letterSpacing: -0.6,
     },
     titleCenter: {
         fontFamily: Fonts.sansBold,
-        fontSize: 26,
+        fontSize: 24,
         lineHeight: 34,
         letterSpacing: -0.6,
         textAlign: 'center',
