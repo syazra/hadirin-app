@@ -1,10 +1,13 @@
+
 import { Link, Redirect } from 'expo-router';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,15 +20,26 @@ import { FormLogin } from '@/components/auth/form-login';
 import { Colors, Fonts, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { masuk } from '@/services/auth-service';
+import {
+  demoLoginTersedia,
+  masukDemo,
+} from '@/services/demo-login-service';
+
+type PeranDemo = 'ASISTEN' | 'PRAKTIKAN';
 
 export default function LoginScreen() {
   const { profilBelumLengkap, error: errorAuth } = useAuth();
   const [pesan, setPesan] = useState<string | null>(null);
   const [mengirim, setMengirim] = useState(false);
+  const [demoMemuat, setDemoMemuat] = useState<PeranDemo | null>(null);
 
   if (profilBelumLengkap) return <Redirect href="/(auth)/daftar" />;
 
-  async function handleMasuk(email: string, password: string, rememberMe: boolean,) {
+  async function handleMasuk(
+    email: string,
+    password: string,
+    rememberMe: boolean,
+  ) {
     setMengirim(true);
     setPesan(null);
     try {
@@ -43,10 +57,26 @@ export default function LoginScreen() {
     }
   }
 
+  async function handleMasukDemo(peran: PeranDemo) {
+    if (mengirim || demoMemuat !== null) return;
+
+    setDemoMemuat(peran);
+    setPesan(null);
+
+    try {
+      const hasil = await masukDemo(peran);
+      if (!hasil.ok) setPesan(hasil.pesan);
+    } catch {
+      setPesan('Terjadi kesalahan saat masuk menggunakan akun demo.');
+    } finally {
+      setDemoMemuat(null);
+    }
+  }
+
   function handleLupaPassword() {
     Alert.alert(
       'Reset Password',
-      'Hubungi koordinator asisten praktikum atau gunakan fitur reset password melalui email kampus UNDIP Anda.'
+      'Hubungi koordinator asisten praktikum atau gunakan fitur reset password melalui email kampus UNDIP Anda.',
     );
   }
 
@@ -56,7 +86,10 @@ export default function LoginScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.heading}>
             <View style={styles.logoWrapper}>
               <Image
@@ -74,7 +107,7 @@ export default function LoginScreen() {
 
           <FormLogin
             error={pesan ?? errorAuth}
-            loading={mengirim}
+            loading={mengirim || demoMemuat !== null}
             onForgotPassword={handleLupaPassword}
             onSubmit={handleMasuk}
           />
@@ -85,6 +118,50 @@ export default function LoginScreen() {
               Daftar
             </Link>
           </View>
+
+          {demoLoginTersedia && (
+            <View style={styles.demoButtonsRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Masuk sebagai Asisten"
+                disabled={mengirim || demoMemuat !== null}
+                onPress={() => void handleMasukDemo('ASISTEN')}
+                style={({ pressed }) => [
+                  styles.demoButton,
+                  pressed && styles.demoButtonPressed,
+                  (mengirim || demoMemuat !== null) && styles.demoButtonDisabled,
+                ]}
+              >
+                {demoMemuat === 'ASISTEN' ? (
+                  <ActivityIndicator color={Colors.light.primary} />
+                ) : (
+                  <Text style={styles.demoButtonText}>
+                    Masuk sebagai Asisten
+                  </Text>
+                )}
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Masuk sebagai Praktikan"
+                disabled={mengirim || demoMemuat !== null}
+                onPress={() => void handleMasukDemo('PRAKTIKAN')}
+                style={({ pressed }) => [
+                  styles.demoButton,
+                  pressed && styles.demoButtonPressed,
+                  (mengirim || demoMemuat !== null) && styles.demoButtonDisabled,
+                ]}
+              >
+                {demoMemuat === 'PRAKTIKAN' ? (
+                  <ActivityIndicator color={Colors.light.primary} />
+                ) : (
+                  <Text style={styles.demoButtonText}>
+                    Masuk sebagai Praktikan
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -148,5 +225,34 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sansMedium,
     color: Colors.light.primary,
     fontSize: 14,
+  },
+  demoButtonsRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    marginTop: Spacing.one,
+  },
+  demoButton: {
+    flex: 1,
+    minHeight: 68,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.two,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  demoButtonText: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 14,
+    color: Colors.light.text,
+    textAlign: 'center',
+  },
+  demoButtonPressed: {
+    opacity: 0.7,
+  },
+  demoButtonDisabled: {
+    opacity: 0.5,
   },
 });
