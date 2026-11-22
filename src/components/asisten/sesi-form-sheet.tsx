@@ -10,7 +10,7 @@ import {
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Colors } from '@/constants/theme';
 import type { Sesi } from '@/types';
-import { DATA_LABORATORIUM } from '@/constants/laboratorium';
+import { useLaboratorium } from '@/hooks/use-laboratorium';
 
 export type NilaiFormSesi = {
     judul: string;
@@ -97,9 +97,10 @@ function SesiFormSheetIsi({
     const [labId, setLabId] = useState(() =>
         mode === 'ubah' && sesiAwal?.labId ? sesiAwal.labId : '',
     );
+    const { daftarLaboratorium, loading: loadingLab, error: errorLab } = useLaboratorium();
+    const labAktif = daftarLaboratorium.filter((lab) => lab.aktif);
     const [waktuMulaiTeks, setWaktuMulaiTeks] = useState(waktuMulaiAwalTeks);
-    const [waktuSelesaiTeks, setWaktuSelesaiTeks] =
-        useState(waktuSelesaiAwalTeks);
+    const [waktuSelesaiTeks, setWaktuSelesaiTeks] = useState(waktuSelesaiAwalTeks);
     const [errorLokal, setErrorLokal] = useState<string | null>(null);
 
     const adaPerubahan = useMemo(() => {
@@ -140,7 +141,12 @@ function SesiFormSheetIsi({
             setErrorLokal('Judul sesi maksimal 100 karakter.');
             return;
         }
-        if (!DATA_LABORATORIUM.some((lab) => lab.idLab === labId && lab.aktif)) {
+        if (loadingLab) {
+            setErrorLokal('Tunggu sampai daftar laboratorium selesai dimuat.');
+            return;
+        }
+
+        if (!labAktif.some((lab) => lab.idLab === labId)) {
             setErrorLokal('Pilih laboratorium yang masih aktif.');
             return;
         }
@@ -180,7 +186,7 @@ function SesiFormSheetIsi({
     };
 
     const pesanError = errorLokal ?? errorPesan;
-    const tombolSimpanNonaktif = loading || !adaPerubahan;
+    const tombolSimpanNonaktif = loading || loadingLab || labAktif.length === 0 || !adaPerubahan;
 
     return (
         <View style={styles.container}>
@@ -207,27 +213,42 @@ function SesiFormSheetIsi({
 
                 <View style={styles.field}>
                     <Text style={styles.label}>Laboratorium</Text>
-                    {DATA_LABORATORIUM.filter((lab) => lab.aktif).map((lab) => (
-                        <Pressable
-                            key={lab.idLab}
-                            disabled={loading}
-                            onPress={() => setLabId(lab.idLab)}
-                            style={[
-                                styles.labOption,
-                                labId === lab.idLab && styles.labOptionSelected,
-                                loading && styles.disabled,
-                            ]}
-                            accessibilityRole="button"
-                            accessibilityState={{ selected: labId === lab.idLab, disabled: loading }}
-                        >
-                            <Text style={styles.labOptionText}>
-                                {lab.nama} · {lab.lokasiGedung}
-                            </Text>
-                            {labId === lab.idLab ? (
-                                <Text style={styles.labSelectedText}>Terpilih ✓</Text>
-                            ) : null}
-                        </Pressable>
-                    ))}
+
+                    {loadingLab ? (
+                        <Text style={styles.labOptionText}>Memuat laboratorium...</Text>
+                    ) : errorLab ? (
+                        <Text style={styles.errorText}>{errorLab}</Text>
+                    ) : labAktif.length === 0 ? (
+                        <Text style={styles.errorText}>Belum ada laboratorium aktif.</Text>
+                    ) : (
+                        labAktif.map((lab) => (
+                            <Pressable
+                                key={lab.idLab}
+                                disabled={loading}
+                                onPress={() => {
+                                    setLabId(lab.idLab);
+                                    setErrorLokal(null);
+                                }}
+                                style={[
+                                    styles.labOption,
+                                    labId === lab.idLab && styles.labOptionSelected,
+                                    loading && styles.disabled,
+                                ]}
+                                accessibilityRole="button"
+                                accessibilityState={{
+                                    selected: labId === lab.idLab,
+                                    disabled: loading,
+                                }}
+                            >
+                                <Text style={styles.labOptionText}>
+                                    {lab.nama} · {lab.lokasiGedung}
+                                </Text>
+                                {labId === lab.idLab ? (
+                                    <Text style={styles.labSelectedText}>Terpilih ✓</Text>
+                                ) : null}
+                            </Pressable>
+                        ))
+                    )}
                 </View>
 
                 <View style={styles.field}>

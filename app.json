@@ -20,7 +20,8 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.aqillazhr.hadirin",
       "permissions": [
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.CAMERA"
       ],
       "googleServicesFile": "./google-services.json"
     },
@@ -37,14 +38,6 @@
           "microphonePermission": false,
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": true
-        }
-      ],
-      [
-        "expo-location",
-        {
-          "locationWhenInUsePermission": "Izinkan Hadir.in mengakses lokasi saat aplikasi digunakan untuk memverifikasi kehadiran praktikum di laboratorium.",
-          "isAndroidBackgroundLocationEnabled": false,
-          "isIosBackgroundLocationEnabled": false
         }
       ],
       [
@@ -82,10 +75,23 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {},
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
       "eas": {
-        "projectId": "92cc7b24-69f8-401b-acc1-24a2ecd61591"
+        "projectId": "11a4d066-053e-404d-a8c6-7f333424cf9e"
+      },
+      "maps": {
+        "androidConfigured": false
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/11a4d066-053e-404d-a8c6-7f333424cf9e"
     }
   }
 }
