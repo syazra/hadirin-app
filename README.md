@@ -1,144 +1,180 @@
-# Hadir.in – Sistem Informasi Praktikum
+# Hadir.in — Sistem Informasi Praktikum
 
-Sistem pencatatan kehadiran praktikum berbasis mobile (React Native) yang memudahkan asisten dalam mengelola sesi praktikum dan membantu praktikan dalam melakukan presensi serta melihat riwayat kehadiran secara real-time menggunakan state lokal.
+Hadir.in adalah aplikasi mobile untuk mendukung pengelolaan kegiatan praktikum di lingkungan kampus. Aplikasi menyediakan fitur bagi **Asisten** untuk mengelola kelas, jadwal, sesi, presensi, perizinan, dan rekap kehadiran, serta bagi **Praktikan** untuk melihat jadwal, melakukan presensi, mengajukan izin, dan memantau riwayat kehadiran.
+
+Aplikasi dikembangkan menggunakan React Native dan Expo, dengan Firebase sebagai layanan autentikasi dan penyimpanan data. Beberapa fitur pendukung menggunakan Google Maps, Firebase Cloud Messaging (FCM), serta layanan klasifikasi izin berbasis Gemini melalui server-side proxy.
 
 ---
 
 ## Daftar Isi
 
-1. [Konteks & Latar Belakang](#1-konteks--latar-belakang)
+1. [Fitur Utama](#1-fitur-utama)
 2. [Peran Pengguna](#2-peran-pengguna)
-3. [Daftar SRS (Software Requirements Specification)](#3-daftar-srs-software-requirements-specification)
-4. [Teknologi yang Digunakan](#4-teknologi-yang-digunakan)
-5. [Menjalankan Proyek](#5-menjalankan-proyek)
-6. [Struktur Folder](#6-struktur-folder)
+3. [Teknologi](#3-teknologi)
+4. [Persiapan Proyek](#4-persiapan-proyek)
+5. [Konfigurasi Environment](#5-konfigurasi-environment)
+6. [Menjalankan Aplikasi](#6-menjalankan-aplikasi)
+7. [Gemini Proxy untuk Klasifikasi Izin](#7-gemini-proxy-untuk-klasifikasi-izin)
+8. [Firebase dan Backend](#8-firebase-dan-backend)
+9. [Pengujian](#9-pengujian)
+10. [Struktur Folder](#10-struktur-folder)
 
 ---
 
-## 1. Konteks & Latar Belakang
+## 1. Fitur Utama
 
-Kegiatan praktikum membutuhkan pencatatan kehadiran yang mudah digunakan. Asisten perlu melihat jadwal, membuka sesi ketika praktikum dimulai, memantau kehadiran, dan menutup sesi setelah selesai. Praktikan perlu mengetahui jadwal dan detail sesi, melakukan presensi, serta melihat catatan kehadirannya.
-
-Aplikasi ini mendemonstrasikan kegiatan tersebut dari dua sudut pandang pengguna (Praktikan dan Asisten) dengan tampilan yang nyaman digunakan di perangkat mobile. Pada Sprint 1, aplikasi berfokus pada antarmuka dan alur, memakai data dummy/lokal yang dikelola dengan state, **tanpa database dan tanpa login sungguhan**.
-
-Alur utama yang didemokan: **asisten membuka sesi → praktikan presensi → asisten melihat rekap → asisten menutup sesi.**
+- **Autentikasi dan role pengguna** — login dan registrasi menggunakan Firebase Authentication, dengan profil serta role pengguna yang tersimpan di Firestore.
+- **Remember Me** — menyimpan preferensi sesi login pengguna.
+- **Pengelolaan kelas dan jadwal** — Asisten dapat mengelola kelas dan sesi praktikum; Asisten dan Praktikan dapat melihat jadwal beserta nama praktikum, waktu, lokasi, dan status sesi.
+- **Presensi berbasis QR dan lokasi** — Praktikan melakukan presensi melalui pemindaian QR dengan pemeriksaan lokasi sesuai ketentuan sesi.
+- **Perizinan praktikum** — Praktikan dapat mengajukan izin, sedangkan Asisten dapat memeriksa dan memberikan keputusan.
+- **Klasifikasi izin berbasis AI** — Gemini membantu mengelompokkan alasan izin. Hasil AI merupakan rekomendasi klasifikasi, bukan keputusan akhir persetujuan izin.
+- **Rekap dan riwayat kehadiran** — Asisten dapat memantau rekap per sesi, sedangkan Praktikan dapat melihat riwayat kehadirannya.
+- **Laboratorium dan peta** — menampilkan informasi laboratorium dan mendukung tampilan lokasi melalui Google Maps.
+- **Push notification** — integrasi Firebase Cloud Messaging untuk mendukung pemberitahuan terkait aktivitas praktikum.
+- **Demo Login** — menyediakan tombol masuk sebagai Asisten atau Praktikan menggunakan akun khusus pengujian.
 
 ## 2. Peran Pengguna
 
-- **Praktikan**: Peserta praktikum yang dapat melihat jadwal, melakukan presensi saat sesi dibuka, dan melihat riwayat kehadiran pribadi.
-- **Asisten**: Pengelola sesi praktikum yang dapat membuka/menutup sesi dan memantau rekap kehadiran praktikan.
+### Asisten
 
-Satu identitas hanya memiliki satu peran. Status sesi memiliki tiga nilai: **Belum dibuka**, **Dibuka**, dan **Ditutup**.
+Asisten dapat mengelola kelas dan sesi praktikum, melihat jadwal, membuka atau menutup sesi, menampilkan QR presensi, memantau rekap kehadiran, mengelola pengajuan izin, serta melihat informasi laboratorium.
 
-## 3. Daftar SRS (Software Requirements Specification)
+### Praktikan
 
-Berikut adalah daftar kebutuhan fungsional dan interaksi (SRS) yang diimplementasikan pada Sprint 1. Kode kebutuhan PRD yang terkait ditulis di akhir deskripsi.
+Praktikan dapat melihat jadwal dan detail sesi, melakukan presensi sesuai status sesi dan ketentuan lokasi, mengajukan izin, serta melihat riwayat kehadiran dan informasi laboratorium.
 
-| Kode | Deskripsi | Acceptance Criteria |
-|---|---|---|
-| SRS-01 | **Memilih peran dan identitas.** Pengguna memilih peran dan identitas dummy lewat pilihan sederhana tanpa login. *(AKN-1, AKN-2, AKN-3, UIX-1, UIX-5)* | 1. Layar awal menampilkan pilihan peran Praktikan dan Asisten.<br>2. Setelah memilih peran, daftar identitas dummy hanya berisi identitas sesuai peran tersebut.<br>3. Setelah memilih identitas, pengguna diarahkan ke tampilan sesuai perannya (Asisten: Jadwal dan Rekap; Praktikan: Jadwal dan Riwayat).<br>4. Tidak ada form login, kata sandi, atau autentikasi nyata.<br>5. Pengguna tidak dapat masuk sebelum memilih peran dan identitas. |
-| SRS-02 | **Mengganti peran atau identitas.** Pengguna berganti peran atau identitas tanpa menutup aplikasi dan tanpa kehilangan data. *(AKN-4, UIX-10, NFR-1)* | 1. Tombol atau menu ganti peran dapat diakses dari tampilan utama kedua peran.<br>2. Setelah ganti peran atau identitas, pengguna kembali ke layar pilihan tanpa menutup atau me-reload aplikasi.<br>3. Status sesi dan data presensi tetap sama setelah pergantian.<br>4. Presensi Praktikan langsung terlihat pada rekap Asisten setelah berganti peran.<br>5. Layar detail sesi menampilkan panel sesuai identitas aktif, bukan peran sebelumnya.<br>6. Jika aplikasi di-reload, seluruh data kembali ke kondisi awal data dummy. |
-| SRS-03 | **Validasi QR sebelum presensi.** Sistem memvalidasi payload QR, kode QR, ID sesi, status sesi, dan identitas sebelum presensi dicatat. *(PRS-7, NFR-5)* | 1. Payload berformat `hadirin:<idSesi>:<kodeQr>`; format lain ditolak dengan alasan `QR_TIDAK_VALID`.<br>2. Ditolak (`QR_TIDAK_VALID`) jika `idSesi` tidak ditemukan atau `kodeQr` tidak cocok dengan data sesi.<br>3. QR milik sesi lain ditolak dan tidak mencatat presensi.<br>4. Sesi Belum dibuka ditolak dengan alasan `BELUM_DIBUKA`; sesi Ditutup dengan alasan `SUDAH_DITUTUP`.<br>5. Presensi hanya dapat dicatat untuk identitas aktif berperan Praktikan.<br>6. Praktikan yang sudah presensi pada sesi yang sama ditolak dengan alasan `SUDAH_PRESENSI`.<br>7. Setiap penolakan menampilkan pesan jelas dan jumlah catatan presensi tidak bertambah. |
-| SRS-04 | **Jadwal dan detail sesi.** Pengguna melihat daftar jadwal dan detail sesi. *(JDW-1 s.d. JDW-5)* | 1. Daftar jadwal tersedia untuk Praktikan dan Asisten; tiap item menampilkan nama praktikum, kelas/lab, waktu, dan status sesi.<br>2. Tiga status tampil dengan label dan warna berbeda (mengikuti token tema).<br>3. Mengetuk item membuka detail sesi; panel ditentukan oleh peran identitas aktif, bukan parameter route.<br>4. Perubahan status sesi langsung tercermin pada daftar dan detail tanpa reload.<br>5. Jika daftar jadwal kosong, tampil empty state.<br>6. Jika identitas aktif kosong atau sesi tidak ditemukan, tampil pesan atau pengguna diarahkan kembali. |
-| SRS-05 | **Asisten membuka sesi.** Asisten membuka sesi lewat konfirmasi; QR dummy otomatis tersedia. *(SES-1, SES-2, SES-3, SES-6, SES-7, SES-8, UIX-2)* | 1. Tombol "Buka Sesi" hanya muncul untuk sesi Belum dibuka dan hanya pada panel Asisten.<br>2. Menekan tombol menampilkan modal/bottom sheet konfirmasi; pilihan batal tidak mengubah status.<br>3. Setelah dikonfirmasi, status menjadi Dibuka dan terlihat di jadwal, detail, serta sisi Praktikan.<br>4. QR sesi tampil otomatis pada detail sisi Asisten, dirender dari payload `hadirin:<idSesi>:<kodeQr>`.<br>5. Sebelum sesi dibuka, QR tidak tampil dan diganti pesan penjelas.<br>6. Asisten dapat memperbesar QR (bottom sheet atau layar penuh).<br>7. Aksi memberi umpan balik visual yang jelas. |
-| SRS-06 | **Asisten menutup sesi.** Asisten menutup sesi lewat konfirmasi; presensi tidak dapat dilakukan lagi. *(SES-4, SES-5, SES-7, UIX-2)* | 1. Tombol "Tutup Sesi" hanya muncul untuk sesi Dibuka dan hanya pada panel Asisten.<br>2. Menekan tombol menampilkan modal/bottom sheet konfirmasi; pilihan batal tidak mengubah status.<br>3. Setelah dikonfirmasi, status menjadi Ditutup di semua tampilan terkait.<br>4. QR sesi disembunyikan dan diganti pesan bahwa sesi sudah ditutup.<br>5. Tombol Scan QR Praktikan pada sesi tersebut nonaktif dengan pesan penjelas.<br>6. QR atau Simulasi Scan pada sesi Ditutup ditolak (`SUDAH_DITUTUP`).<br>7. Rekap sesi tetap dapat dibuka setelah sesi ditutup. |
-| SRS-07 | **Presensi lewat Simulasi Scan.** Praktikan melakukan presensi saat sesi Dibuka dan mendapat informasi jelas jika gagal atau sudah tercatat. *(PRS-1 s.d. PRS-5, PRS-9, NFR-4)* | 1. Tombol "Scan QR" aktif hanya ketika sesi Dibuka.<br>2. Pada sesi Belum dibuka atau Ditutup, tombol nonaktif dan tampil pesan penjelas sesuai status.<br>3. Layar scan menyediakan tombol "Simulasi Scan" yang memproses QR sesi yang sedang dibuka tanpa kamera.<br>4. Simulasi Scan yang valid mencatat presensi dengan waktu jam perangkat dan menampilkan "Presensi berhasil".<br>5. Setelah presensi, tombol di detail berubah menjadi "Sudah presensi" beserta waktu hadir (contoh `20 Okt 2026, 09.15`).<br>6. Presensi kedua pada sesi yang sama ditolak dengan pesan jelas dan catatan tidak bertambah. |
-| SRS-08 | **Rekap kehadiran Asisten.** Asisten memantau praktikan yang sudah presensi per sesi. *(RKP-1 s.d. RKP-4)* | 1. Asisten dapat memilih sesi pada layar rekap.<br>2. Rekap menampilkan nama praktikan dan waktu hadir, diurutkan dari presensi terbaru di atas.<br>3. Rekap menampilkan ringkasan jumlah hadir memakai komponen bersama `RingkasanHadir`.<br>4. Jika belum ada yang presensi, tampil empty state.<br>5. Presensi baru dari sisi Praktikan langsung muncul di rekap setelah berganti peran, tanpa reload.<br>6. Rekap sesi yang sudah ditutup tetap dapat dilihat. |
-| SRS-09 | **Riwayat kehadiran Praktikan.** Praktikan melihat sesi yang dia hadiri beserta waktunya; jika belum ada, tampil empty state. *(RKP-5 direvisi, RKP-6)* | 1. Riwayat hanya berisi sesi yang memiliki presensi milik identitas aktif.<br>2. Setiap item menampilkan nama praktikum, kelas/lab, status "Hadir", dan waktu presensi.<br>3. Item diurutkan dari presensi terbaru di atas.<br>4. Ringkasan berbunyi "Total hadir: N sesi".<br>5. Jika belum ada presensi, tampil empty state "Belum ada catatan kehadiran" dengan deskripsi "Presensi yang kamu lakukan akan muncul di sini." memakai komponen `EmptyState` bersama.<br>6. Setelah Simulasi Scan berhasil, riwayat bertambah satu item tanpa reload. |
+Status sesi yang digunakan adalah `BELUM_DIBUKA`, `DIBUKA`, dan `DITUTUP`. Status kehadiran dan perizinan dikelola sesuai alur pada aplikasi dan aturan Firestore.
 
-## 4. Teknologi yang Digunakan
+## 3. Teknologi
 
 | Bagian | Teknologi |
 |---|---|
-| Framework | React Native dengan Expo |
-| Bahasa | TypeScript (`.tsx` untuk JSX, `.ts` untuk non-JSX) |
-| Navigasi | Expo Router (routing berbasis file di `src/app`, stack dan tab) |
-| State | React Context dan `useReducer` (satu state global) |
-| Tata letak dan gaya | Flexbox, StyleSheet, token tema di `src/constants/theme.ts` |
-| Tampilan QR | Pustaka QR yang kompatibel Expo (usulan: `react-native-qrcode-svg`) |
-| Pemindaian kamera | `expo-camera` (ditunda; presensi memakai Simulasi Scan) |
-| Kualitas kode | ESLint dan pemeriksaan tipe TypeScript |
-| Versi kontrol | Git dan GitHub (branch `main` dan `develop`) |
+| Mobile framework | React Native, Expo |
+| Bahasa | TypeScript |
+| Navigasi | Expo Router |
+| UI | React Native StyleSheet, komponen bersama, dan token tema |
+| Autentikasi | Firebase Authentication (React Native Firebase) |
+| Database | Cloud Firestore |
+| App attestation | Firebase App Check |
+| Push notification | Firebase Cloud Messaging (FCM) |
+| Peta dan lokasi | Google Maps, layanan lokasi perangkat |
+| AI klasifikasi izin | Gemini melalui proxy server di `proxy-gemini/` |
+| Backend tambahan | Firebase Cloud Functions (source tersedia di `functions/`) |
+| Build aplikasi | EAS Build |
+| Quality check | TypeScript, ESLint, dan automated tests |
 
-## 5. Menjalankan Proyek
+## 4. Persiapan Proyek
 
-Prasyarat: [Node.js](https://nodejs.org) (versi LTS), npm, Git, dan HP Android atau iOS (atau emulator) yang berada pada jaringan yang sama dengan komputer.
+### Prasyarat
 
-1. **Clone repository**
+- Node.js dan npm sesuai konfigurasi proyek.
+- Git.
+- Android Studio atau perangkat Android.
+- Development build Hadir.in untuk menjalankan modul native Firebase, App Check, Maps, dan notifikasi.
+- Akses ke Firebase project yang digunakan tim.
 
-   ```bash
-   git clone https://github.com/syazra/hadirin-app.git
-   cd hadirin-app
-   ```
+> Integrasi Firebase native pada konfigurasi aplikasi saat ini diaktifkan untuk Android. Pengujian fitur yang memakai Firebase perlu dilakukan pada development build Android.
 
-2. **Install dependencies**
+> **Catatan:** Expo Go tidak digunakan sebagai pengganti development build untuk konfigurasi aplikasi ini karena proyek menggunakan modul native React Native Firebase dan layanan Android terkait.
 
-   ```bash
-   npm install
-   ```
+### Clone dan install dependencies
 
-3. **Install development build** di HP: [Demo](https://expo.dev/accounts/syafirazkas-team/projects/hadirin/builds/b15ec38f-696a-480c-8dc7-261ef6a5873e)
-
-   Buka tautan dari HP, unduh, lalu pasang aplikasi **Hadir.in (development)**. Pada Android, izinkan pemasangan dari sumber tidak dikenal jika diminta.
-
-   > Alternatif tanpa development build: pasang **Expo Go** dari Play Store atau App Store, lalu lanjut ke langkah 4.
-
-4. **Jalankan server pengembangan**
-
-   ```bash
-   npx expo start
-   ```
-
-5. **Buka aplikasi di HP**
-
-   Buka aplikasi **Hadir.in (development)** (atau Expo Go), lalu pindai QR yang muncul di terminal. Pada emulator, tekan `a` untuk Android atau `i` untuk iOS.
-
-6. **Pilih peran dan identitas** pada layar awal, lalu ikuti alur: Asisten membuka sesi, Praktikan presensi lewat Simulasi Scan, Asisten melihat rekap, Asisten menutup sesi.
-
-> Data bersifat dummy dan kembali ke kondisi awal setiap aplikasi dijalankan ulang. Presensi tidak disinkronkan antar perangkat, jadi demo dilakukan pada satu HP dengan fitur ganti peran.
-
-## 6. Struktur Folder
-
-```text
-hadirin-app/
-├── src/
-│   ├── app/                # Expo Router (halaman & layout)
-│   ├── components/         # Komponen UI, shared, asisten, praktikan
-│   ├── constants/          # Tema & konfigurasi status
-│   ├── context/            # State global (React Context & Reducer)
-│   ├── data/               # Data dummy pengguna, sesi, & presensi
-│   ├── hooks/              # Custom hooks
-│   ├── types/              # Definisi TypeScript
-│   └── utils/              # Fungsi helper & format waktu
-├── app.json / package.json
-└── README.md
+```bash
+git clone https://github.com/syazra/hadirin-app.git
+cd hadirin-app
+npm ci
 ```
 
-## Proxy klasifikasi izin (Sprint 2 — S2-05)
+Siapkan file konfigurasi Firebase Android (`google-services.json`) dari Firebase Console sesuai konfigurasi `app.json`/`app.config.ts`. File konfigurasi lokal ini tidak perlu dimasukkan ke repository.
 
-Klasifikasi alasan izin dijalankan melalui serverless function di `proxy-gemini/`. Aplikasi hanya mengirim `idIzin` dan Firebase ID token; proxy memeriksa token, peran asisten, serta kepemilikan kelas sebelum membaca alasan dari Firestore. Proxy mengirim alasan tersimpan ke Gemini dan hanya mengubah `kategoriAi`, `statusAi`, `modelAi`, serta `waktuAi`. Hasil klasifikasi tidak mengambil keputusan izin.
+## 5. Konfigurasi Environment
 
-### Konfigurasi server
+Buat file `.env.local` di root proyek. Contoh variabel yang dapat digunakan:
 
-Deploy direktori `proxy-gemini/` sebagai root proyek Vercel. Tambahkan environment variables berikut pada konfigurasi server Vercel dan lingkungan lokal server. Nilai rahasia hanya disimpan di Vercel atau file lokal yang diabaikan Git, bukan di aplikasi Expo.
+```env
+# Gemini proxy
+EXPO_PUBLIC_GEMINI_PROXY_URL=
 
-| Variable | Isi |
+# Demo Login untuk pengujian
+EXPO_PUBLIC_DEMO_LOGIN_ENABLED=false
+EXPO_PUBLIC_DEMO_LOGIN_ENVIRONMENT=production
+EXPO_PUBLIC_DEMO_LOGIN_PROJECT_ID=
+EXPO_PUBLIC_DEMO_ASISTEN_EMAIL=
+EXPO_PUBLIC_DEMO_ASISTEN_PASSWORD=
+EXPO_PUBLIC_DEMO_PRAKTIKAN_EMAIL=
+EXPO_PUBLIC_DEMO_PRAKTIKAN_PASSWORD=
+
+# Google Maps (dibaca oleh app.config.ts)
+GOOGLE_MAPS_API_KEY=
+```
+
+Isi nilai sesuai environment dan akun pengujian tim. Variabel yang tidak digunakan dapat dibiarkan kosong atau tidak ditambahkan.
+
+**Penting terkait keamanan:**
+
+- `.env.local` diabaikan oleh Git melalui `.gitignore`; jangan commit file tersebut.
+- Nilai dengan prefix `EXPO_PUBLIC_` akan dimasukkan ke bundle aplikasi dan dapat diekstrak dari APK. Karena itu, kredensial Demo Login hanya boleh menggunakan akun dummy khusus pengujian, bukan akun pribadi atau akun produksi.
+- Jangan menyimpan Gemini API key, Firebase Admin private key, service account key, atau secret backend di environment Expo. Simpan nilai rahasia hanya di lingkungan server.
+- Batasi Google Maps API key melalui pengaturan Google Cloud sesuai aplikasi Android yang digunakan.
+
+Untuk EAS Build, atur `GOOGLE_MAPS_API_KEY` pada environment EAS yang sesuai dengan profile build. `app.config.ts` membaca nilai tersebut untuk membentuk konfigurasi Google Maps Android.
+
+## 6. Menjalankan Aplikasi
+
+1. Pastikan development build Hadir.in sudah terpasang di perangkat Android.
+2. Pastikan file konfigurasi Firebase dan `.env.local` sudah disiapkan.
+3. Jalankan Metro bundler:
+
+   ```bash
+   npx expo start --dev-client
+   ```
+
+4. Buka aplikasi **Hadir.in (development)** pada perangkat, lalu hubungkan ke development server melalui QR code atau pilihan koneksi yang ditampilkan Expo.
+
+Untuk membuat development build Android melalui EAS, gunakan profile yang tersedia pada `eas.json`:
+
+```bash
+npx eas-cli build --profile development --platform android
+```
+
+Setelah ada perubahan pada kode JavaScript/TypeScript, umumnya development build yang sudah terpasang dapat digunakan kembali. Perubahan native dependency atau konfigurasi native tertentu dapat memerlukan build ulang.
+
+## 7. Gemini Proxy untuk Klasifikasi Izin
+
+Klasifikasi alasan izin dijalankan melalui server-side proxy di direktori `proxy-gemini/`. Aplikasi mengirim identitas pengajuan dan Firebase ID token. Proxy memvalidasi autentikasi, role, serta hak akses sebelum meneruskan alasan izin ke Gemini.
+
+Proxy mengelompokkan alasan menjadi:
+
+- `SAKIT` — alasan terkait sakit atau kesehatan.
+- `IZIN` — izin mengikuti lomba sebagai delegasi UNDIP/Departemen.
+- `ALPHA` — alasan yang tidak memenuhi kategori tersebut.
+
+Hasil klasifikasi AI tidak mengambil keputusan akhir. Keputusan persetujuan atau penolakan tetap dilakukan oleh Asisten.
+
+### Environment server
+
+Deploy `proxy-gemini/` sebagai root proyek Vercel. Siapkan environment variables berikut pada Vercel dan lingkungan lokal server:
+
+| Variable | Keterangan |
 |---|---|
-| `FIREBASE_PROJECT_ID` | ID proyek Firebase Hadir.in |
+| `FIREBASE_PROJECT_ID` | ID Firebase project |
 | `FIREBASE_CLIENT_EMAIL` | Email service account Firebase Admin |
-| `FIREBASE_PRIVATE_KEY` | Private key service account; newline dapat ditulis sebagai `\n` |
+| `FIREBASE_PRIVATE_KEY` | Private key service account |
 | `GEMINI_API_KEY` | API key Gemini khusus server |
-| `GEMINI_MODEL` | Nama model Gemini yang tersedia untuk project/key tim |
+| `GEMINI_MODEL` | Model Gemini yang digunakan |
 
-Nama variable tanpa nilai contoh tersedia di `proxy-gemini/.env.example`. Pastikan model dan akses kuota yang dipilih tersedia pada akun Gemini tim sebelum deploy.
+Gunakan `proxy-gemini/.env.example` sebagai referensi nama variabel. Jangan menaruh nilai rahasia tersebut pada `.env.local` aplikasi Expo atau repository.
 
-### Konfigurasi aplikasi
+### Environment aplikasi
 
-Atur `EXPO_PUBLIC_GEMINI_PROXY_URL` ke URL publik deployment proxy pada `.env.local` di root aplikasi, misalnya `https://<deployment>.vercel.app`. URL ini bukan rahasia. Jangan menaruh API key Gemini atau kredensial Firebase Admin di environment Expo.
+Atur `EXPO_PUBLIC_GEMINI_PROXY_URL` pada `.env.local` ke URL publik deployment proxy, misalnya:
 
-Client memanggil `POST /api/klasifikasi-izin` dengan header `Authorization: Bearer <Firebase ID token>` dan JSON `{ "idIzin": "<id izin>", "versiKategoriAi": "sakit-delegasi-lomba-alpha-v1" }`. Keberhasilan mengembalikan `{ "ok": true, "data": { "kategori": "SAKIT" }, "versiKategoriAi": "sakit-delegasi-lomba-alpha-v1" }`. Kategori AI: `SAKIT` untuk sakit/kesehatan, `IZIN` khusus lomba sebagai delegasi UNDIP/Departemen, dan `ALPHA` untuk alasan yang tidak memenuhi keduanya. Keputusan tetap milik Asisten: jika kategori AI `ALPHA` tetapi pengajuan disetujui, rekap tetap `IZIN`. Respons gagal memakai `{ "ok": false, "alasan": "...", "pesan": "..." }`. Proxy membatasi Gemini hingga 15 detik dan hanya memakai cache dengan versi kebijakan terkini (`versiKategoriAi`). Panduan kompatibilitas dan uji: [FAR-S2-01](docs/far-s2-01-ai-categories.md).
+```env
+EXPO_PUBLIC_GEMINI_PROXY_URL=https://<deployment>.vercel.app
+```
 
-Deploy proxy dengan dukungan versi sebelum merilis aplikasi yang mengirim `versiKategoriAi`. Buka `/api/klasifikasi-izin` pada URL proxy yang dipakai aplikasi untuk memeriksa versi deployment. Endpoint GET tanpa login menampilkan versi dan kategori yang didukung.
+Endpoint klasifikasi yang digunakan aplikasi adalah `POST /api/klasifikasi-izin`.
 
 ### Pemeriksaan proxy
 
@@ -149,3 +185,84 @@ npm install
 npm run typecheck
 npm test
 ```
+
+Panduan kebijakan klasifikasi tersedia di [`docs/far-s2-01-ai-categories.md`](docs/far-s2-01-ai-categories.md).
+
+## 8. Firebase dan Backend
+
+Aplikasi menggunakan Firebase Authentication dan Cloud Firestore untuk autentikasi serta data aplikasi. Firestore Security Rules dan indexes berada di root repository pada `firestore.rules` dan `firestore.indexes.json`.
+
+Source Firebase Cloud Functions tersedia di direktori `functions/`, termasuk handler untuk presensi, Demo Login berbasis Custom Token, dan notifikasi. **Keberadaan source code di repository tidak berarti Function sudah ter-deploy pada Firebase project.** Aktivasi handler tersebut bergantung pada konfigurasi dan dukungan billing Firebase project yang digunakan.
+
+Demo Login pada versi aplikasi yang dijelaskan di README ini menggunakan Firebase Authentication secara langsung dengan akun dummy yang dikonfigurasi secara lokal. Alur tersebut tidak memerlukan deployment Cloud Functions. Kredensial demo hanya ditujukan untuk pengujian dan tidak boleh menggunakan akun pribadi atau akun produksi.
+
+Fitur notifikasi otomatis yang bergantung pada event handler Cloud Functions memerlukan backend Functions yang sudah ter-deploy. Integrasi FCM pada sisi aplikasi saja tidak otomatis mengaktifkan seluruh pemicu notifikasi server-side.
+
+Firebase App Check dikonfigurasi melalui `src/lib/firebase-app-check.ts`. Development menggunakan debug provider, sedangkan build release menggunakan Play Integrity. Debug token harus dikelola melalui Firebase Console dan tidak boleh dimasukkan ke repository.
+
+Pengaturan Firebase Emulator untuk Authentication dan Firestore tersedia pada `firebase.json`.
+
+## 9. Pengujian
+
+Pemeriksaan tipe aplikasi:
+
+```bash
+npx tsc --noEmit
+```
+
+Pengujian Demo Login pada source Cloud Functions:
+
+```bash
+npm --prefix functions run test:demo-auth
+```
+
+Pengujian backend notifikasi pada source Cloud Functions:
+
+```bash
+npm --prefix functions run test:notifications
+```
+
+Pengujian proxy Gemini dijalankan dari `proxy-gemini/` menggunakan perintah pada bagian [Gemini Proxy](#7-gemini-proxy-untuk-klasifikasi-izin).
+
+Automated tests tidak menggantikan pengujian langsung pada development build Android. Sebelum release, uji alur login, jadwal, presensi dan validasi lokasi, perizinan, Maps, serta notifikasi pada perangkat.
+
+## 10. Struktur Folder
+
+```text
+hadirin-app/
+├── assets/                 # Logo, ikon, dan aset aplikasi
+├── docs/                   # Dokumentasi teknis dan pengujian sprint
+├── functions/              # Source Firebase Cloud Functions dan tests
+├── plugins/                 # Konfigurasi plugin native Expo
+├── proxy-gemini/            # Server-side proxy klasifikasi izin
+├── scripts/seed/            # Seeder data pengujian Firestore
+├── src/
+│   ├── app/                 # Halaman dan layout Expo Router
+│   ├── components/          # Komponen UI shared, Asisten, Praktikan, Maps
+│   ├── constants/           # Konstanta dan token tema
+│   ├── context/             # React Context
+│   ├── data/                # Data pendukung aplikasi
+│   ├── hooks/               # Custom hooks dan listener data
+│   ├── lib/                 # Inisialisasi Firebase dan layanan dasar
+│   ├── services/             # Integrasi Auth, Firestore, lokasi, notifikasi, AI
+│   ├── types/                # Definisi tipe TypeScript
+│   └── utils/                # Fungsi helper dan utilitas
+├── tests/                    # Automated tests aplikasi dan Firestore Rules
+├── app.config.ts             # Konfigurasi Expo dinamis
+├── app.json                  # Konfigurasi Expo
+├── eas.json                  # Konfigurasi EAS Build
+├── firebase.json             # Konfigurasi Firebase
+├── firestore.rules           # Firestore Security Rules
+└── README.md
+```
+
+---
+
+## Dokumentasi Tambahan
+
+- [Dokumentasi Android Native Services](docs/android-native-services.md)
+- [Dokumentasi backend notifikasi](docs/notification-backend.md)
+- [Panduan pengujian notifikasi Sprint 3](docs/sprint-3-notifications.md)
+- [Panduan pengujian presensi Sprint 3](docs/sprint-3-attendance-test.md)
+- [Panduan klasifikasi izin AI](docs/far-s2-01-ai-categories.md)
+- [Panduan data seed Firestore](docs/seed-data.md)
