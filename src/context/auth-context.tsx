@@ -6,7 +6,12 @@ import {
     type ReactNode,
 } from 'react';
 
-import { onAuthStateChanged } from '@react-native-firebase/auth';
+import {
+    onAuthStateChanged,
+    signOut,
+} from '@react-native-firebase/auth';
+
+import { ambilRememberMe } from '@/services/remember-me-service';
 
 import { AuthSessionController } from '@/context/auth-session-controller';
 import {
@@ -38,9 +43,31 @@ function buatAuthSessionController(): AuthSessionController {
             if (!isFirebaseAvailable) return () => undefined;
 
             const { auth } = getFirebaseServices();
+            let pemeriksaanAwalSelesai = false;
+
             return onAuthStateChanged(
                 auth,
-                (akun) => listener(akun ? { uid: akun.uid } : null),
+                async (akun) => {
+                    if (!pemeriksaanAwalSelesai) {
+                        pemeriksaanAwalSelesai = true;
+
+                        try {
+                            const rememberMe = await ambilRememberMe();
+
+                            // Jika Remember Me tidak aktif,
+                            // keluarkan akun yang dipulihkan Firebase.
+                            if (!rememberMe && akun) {
+                                await signOut(auth);
+                                return;
+                            }
+                        } catch (error) {
+                            onError(error);
+                            return;
+                        }
+                    }
+
+                    listener(akun ? { uid: akun.uid } : null);
+                },
                 onError,
             );
         },

@@ -4,6 +4,7 @@ module.exports = ({ config }) => ({
   ...config,
   plugins: [
     ...(config.plugins ?? []),
+    'expo-secure-store',
     [
       'react-native-maps',
       { androidGoogleMapsApiKey: apiKey || '' },

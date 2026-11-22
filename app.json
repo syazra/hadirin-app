@@ -80,7 +80,7 @@
         }
       },
       "eas": {
-        "projectId": "11a4d066-053e-404d-a8c6-7f333424cf9e"
+        "projectId": "92cc7b24-69f8-401b-acc1-24a2ecd61591"
       },
       "maps": {
         "androidConfigured": false
@@ -90,7 +90,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/11a4d066-053e-404d-a8c6-7f333424cf9e"
+      "url": "https://u.expo.dev/92cc7b24-69f8-401b-acc1-24a2ecd61591"
     }
   }
 }
