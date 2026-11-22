@@ -1,6 +1,8 @@
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { sendToUsers, type EnqueueResult } from './send-notification';
+import { existingDomainEvent } from './domain-sender';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -24,28 +26,21 @@ export interface PayloadNotifikasiSesiDibuka {
 
 export type SharedNotificationSender = (
   payload: PayloadNotifikasiSesiDibuka,
-) => Promise<void>;
+) => Promise<EnqueueResult | void>;
 
-/**
- * Adapter sementara ke shared sender helper milik Farhan.
- * Saat helper Farhan sudah masuk di `functions/src/notifications/`,
- * ganti isi fungsi ini (atau injeksikan langsung) ke helper Farhan.
- */
 async function kirimViaSharedSender(
   payload: PayloadNotifikasiSesiDibuka,
-): Promise<void> {
-  // TODO(Farhan): Hubungkan ke shared notification sender helper
-  // Contoh: await sendNotificationToUsers(payload);
-  logger.info('Mengirim notifikasi sesi dibuka ke shared sender', {
-    idempotencyKey: payload.idempotencyKey,
-    sesiId: payload.sesiId,
-    kelasId: payload.kelasId,
-    jumlahPenerima: payload.recipientUids.length,
+): Promise<EnqueueResult> {
+  return sendToUsers({
+    eventId: payload.idempotencyKey, type: 'SESI_DIBUKA', entityId: payload.sesiId,
+    routeKey: 'SESI', recipientUids: payload.recipientUids,
+    title: 'Presensi praktikum dibuka', body: 'Buka Hadir.in untuk melihat sesi praktikum.',
   });
 }
 
 export interface EvaluasiPerubahanSesiInput {
   sesiId: string;
+  eventId?: string;
   beforeData: Record<string, unknown> | undefined;
   afterData: Record<string, unknown> | undefined;
 }
@@ -102,13 +97,18 @@ export async function prosesNotifikasiSesiDibuka(
   db: admin.firestore.Firestore,
   input: EvaluasiPerubahanSesiInput,
   sender: SharedNotificationSender = kirimViaSharedSender,
-): Promise<{ dikirim: boolean; jumlahPenerima: number; idempotencyKey?: string }> {
+): Promise<{ dikirim: boolean; jumlahPenerima: number; idempotencyKey?: string; status?: EnqueueResult['status'] }> {
   const transisi = cekTransisiSesiDibuka(input);
   if (!transisi) {
     return { dikirim: false, jumlahPenerima: 0 };
   }
 
   const { sesiId, kelasId, judulSesi, lokasi } = transisi;
+  const idempotencyKey = `session-opened:${input.eventId ?? sesiId}`;
+  if (sender === kirimViaSharedSender) {
+    const existing = await existingDomainEvent(db, idempotencyKey);
+    if (existing) return { dikirim: false, jumlahPenerima: 0, idempotencyKey, status: existing.status };
+  }
 
   const [kelasSnap, anggotaSnap] = await Promise.all([
     db.collection('kelas').doc(kelasId).get(),
@@ -155,10 +155,9 @@ export async function prosesNotifikasiSesiDibuka(
     return { dikirim: false, jumlahPenerima: 0 };
   }
 
-  const idempotencyKey = `session-opened:${sesiId}`;
   const infoLokasi = lokasi ? ` di ${lokasi}` : '';
 
-  await sender({
+  const result = await sender({
     idempotencyKey,
     eventType: 'SESI_DIBUKA',
     sesiId,
@@ -175,7 +174,8 @@ export async function prosesNotifikasiSesiDibuka(
   });
 
   return {
-    dikirim: true,
+    dikirim: result ? result.status === 'QUEUED' : true,
+    status: result?.status,
     jumlahPenerima: recipientUids.length,
     idempotencyKey,
   };
@@ -190,17 +190,20 @@ export async function prosesNotifikasiSesiDibuka(
  * `onSessionOpened`
  */
 export const onSessionOpened = onDocumentUpdated(
-  'sesi/{sesiId}',
+  { document: 'sesi/{sesiId}', region: 'asia-southeast2', retry: true, timeoutSeconds: 60, maxInstances: 3 },
   async (event) => {
     if (!event.data) {
       return;
     }
 
     const db = admin.firestore();
-    await prosesNotifikasiSesiDibuka(db, {
-      sesiId: event.params.sesiId,
-      beforeData: event.data.before.data(),
-      afterData: event.data.after.data(),
-    });
+    try {
+      await prosesNotifikasiSesiDibuka(db, {
+        sesiId: event.params.sesiId, eventId: event.id,
+        beforeData: event.data.before.data(), afterData: event.data.after.data(),
+      });
+    } catch {
+      throw new Error('Session notification enqueue requires retry');
+    }
   },
 );

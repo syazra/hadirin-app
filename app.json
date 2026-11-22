@@ -67,7 +67,8 @@
         }
       ],
       "./plugins/with-notification-icon.cjs",
-      "@react-native-firebase/app-check"
+      "@react-native-firebase/app-check",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

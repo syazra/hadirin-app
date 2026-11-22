@@ -1,9 +1,9 @@
 # FAR-S3-02 — Shared notification backend
 
-This PR provides a server-only queue/sender and an exported delivery worker. It
-does not enable the session-open, schedule-change, or izin-decision producers.
-Those remain separate PRs with their existing domain owners. No deployment or
-mobile token/permission flow is performed here.
+The original FAR-S3-02 change provides a server-only queue/sender and an exported
+delivery worker. The subsequent FAR-S3-01..05 implementation connects the domain
+producers and Android client; see [sprint-3-notifications.md](sprint-3-notifications.md).
+No live deployment or device validation has been performed here.
 
 ## Contract for domain handlers
 
@@ -37,9 +37,11 @@ event ID fails instead of silently dropping a different event. Schedule changes
 must use each source update's identity, not just the session ID. Repeated source
 delivery must preserve event identity/content.
 
-FCM data is strings only: `{ version: '1', eventId, type, entityId, routeKey }`.
-No arbitrary URL or raw route is emitted. Version/route/type validation must also
-be implemented by the later client-routing PR. Message size is checked in UTF-8.
+FCM data is strings only: `{ version: '1', eventId, type, entityId, routeKey,
+recipientUid }`. The worker assigns `recipientUid` per recipient's device batch;
+domain producers do not accept it from clients. No arbitrary URL or raw route is
+emitted. The Android client validates the contract, account and entity access.
+Message size is checked in UTF-8 with headroom for recipient metadata.
 
 ## Storage and retry behavior
 

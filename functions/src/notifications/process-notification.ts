@@ -78,7 +78,7 @@ export async function processNotification(db: Firestore, sender: Sender, eventKe
           responses = (await sender.sendEachForMulticast({
             tokens: pending.map(d => d.token),
             notification: { title: input.title, body: input.body },
-            data: notificationData(input),
+            data: { ...notificationData(input), recipientUid: uid },
             android: { priority: 'high', notification: { tag: eventKey, icon: 'notification_icon' } },
           })).responses;
           if (responses.length !== pending.length) throw new Error('Incomplete FCM response');

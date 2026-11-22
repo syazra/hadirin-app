@@ -11,6 +11,7 @@ import Svg, { Path, Polyline, Rect } from 'react-native-svg';
 
 import { Colors, Fonts, Spacing } from '@/constants/theme';
 import { keluar } from '@/services/auth-service';
+import { NotificationSettings } from '@/components/shared/notification-settings';
 import type { Pengguna } from '@/types';
 
 interface ProfilCardProps {
@@ -178,6 +179,8 @@ export function ProfilCard({ pengguna }: ProfilCardProps) {
                     </Text>
                 )}
             </View>
+
+            <NotificationSettings />
 
             {/* Tombol Keluar dengan simbol pintu keluar SVG */}
             <Pressable
