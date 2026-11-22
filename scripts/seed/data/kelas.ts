@@ -8,13 +8,13 @@ export interface SeedKelas {
 export const DATA_KELAS: SeedKelas[] = [
   {
     idKelas: 'kelas-ppk-a2-26',
-    namaPraktikum: 'Pengembangan Perangkat Bergerak A2 - 2026',
+    namaPraktikum: 'Pengembangan Platform Khusus A2 - 2026',
     asistenUid: 'asisten-01',
     diarsipkan: false,
   },
   {
     idKelas: 'kelas-ppk-b2-26',
-    namaPraktikum: 'Pengembangan Perangkat Bergerak B2 - 2026',
+    namaPraktikum: 'Pengembangan Platform Khusus B2 - 2026',
     asistenUid: 'asisten-01',
     diarsipkan: false,
   },
