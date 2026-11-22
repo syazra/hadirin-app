@@ -35,6 +35,28 @@ export default function AsistenLayout() {
       }}
     >
       <Tabs.Screen
+        name="maps"
+        options={{
+          title: 'Peta',
+          tabBarIcon: ({ color, size }) => (
+            <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8}>
+              <Path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Zm6-3v15m6-12v15" />
+            </Svg>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="laboratorium"
+        options={{
+          title: 'Laboratorium',
+          tabBarIcon: ({ color, size }) => (
+            <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8}>
+              <Path d="M9 3h6m-5 0v7l-5 9a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-9V3M8 15h8m-10 4h12" />
+            </Svg>
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="kelas"
         options={{
           title: 'Beranda',

@@ -13,14 +13,18 @@ import {
     writeBatch,
 } from '@react-native-firebase/firestore';
 import { getFirebaseServices, isFirebaseAvailable } from '@/lib/firebase';
-import type {
-    AlasanGagal,
-    Hasil,
-    Peran,
-    Sesi,
-    StatusSesi,
-} from '@/types';
-import { DATA_LABORATORIUM } from '@/constants/laboratorium';
+import type { AlasanGagal, Hasil, Laboratorium, Peran, Sesi, StatusSesi } from '@/types';
+
+async function ambilLabAktif(
+  db: ReturnType<typeof getFirebaseServices>['db'],
+  labId: string,
+): Promise<Laboratorium | null> {
+  const snapshot = await getDoc(doc(db, 'laboratorium', labId));
+  if (!snapshot.exists()) return null;
+  const data = snapshot.data() as Omit<Laboratorium, 'idLab'>;
+  if (data.aktif !== true) return null;
+  return { ...data, idLab: snapshot.id };
+}
 
 /*Input untuk membuat sesi baru.*/
 export type InputBuatSesi = {
@@ -212,27 +216,40 @@ type DokumenSnapshotMinimal = {
     data: () => Record<string, unknown> | undefined;
 };
 
-function petakanDokumenSesi(
+
+async function petakanDokumenSesi(
     snap: DokumenSnapshotMinimal,
-): Sesi | null {
+): Promise<Sesi | null> {
     const data = snap.data();
-    if (!data) {
-        return null;
-    }
+    if (!data) return null;
 
     const waktuMulai = konversiKeDate(data.waktuMulai);
-    if (!waktuMulai) {
-        return null;
+    if (!waktuMulai) return null;
+
+    const labId = typeof data.labId === 'string' ? data.labId : null;
+    let namaLab = typeof data.lokasi === 'string' ? data.lokasi : '';
+
+    // Ambil nama terbaru dari dokumen laboratorium.
+    // Jika dokumen hilang atau gagal dibaca, gunakan lokasi lama sebagai fallback.
+    if (labId) {
+        try {
+            const { db } = getFirebaseServices();
+            const labSnap = await getDoc(doc(db, 'laboratorium', labId));
+            if (labSnap.exists()) {
+                const nama = labSnap.data().nama;
+                if (typeof nama === 'string' && nama.trim()) namaLab = nama;
+            }
+        } catch {
+            // Pertahankan fallback lokasi dari dokumen sesi.
+        }
     }
 
     return {
         idSesi: snap.id,
         kelasId: typeof data.kelasId === 'string' ? data.kelasId : '',
         judul: typeof data.judul === 'string' ? data.judul : '',
-        labId: typeof data.labId === 'string' ? data.labId : null,
-        lokasi: typeof data.labId === 'string'
-            ? DATA_LABORATORIUM.find((lab) => lab.idLab === data.labId)?.nama ?? (typeof data.lokasi === 'string' ? data.lokasi : '')
-            : (typeof data.lokasi === 'string' ? data.lokasi : ''),
+        labId,
+        lokasi: namaLab || (labId ? 'Laboratorium tidak ditemukan' : 'Lokasi belum ditentukan'),
         waktuMulai,
         waktuSelesai: konversiKeDate(data.waktuSelesai),
         statusSesi: bacaStatusSesi(data.statusSesi),
@@ -309,15 +326,6 @@ export async function buatSesi(
         return cekJudul.hasil;
     }
 
-    const labIdRapi = typeof input.labId === 'string' ? input.labId.trim() : '';
-    const labTerpilih = DATA_LABORATORIUM.find(
-        (lab) => lab.idLab === labIdRapi && lab.aktif,
-    );
-
-    if (!labTerpilih) {
-        return gagal('INPUT_TIDAK_VALID', 'Laboratorium tidak ditemukan atau sedang tidak aktif.');
-    }
-
     const errorWaktu = validasiRentangWaktu(
         input.waktuMulai,
         input.waktuSelesai,
@@ -333,6 +341,12 @@ export async function buatSesi(
         }
 
         const { uid, db } = cekAsisten;
+        const labIdRapi = typeof input.labId === 'string' ? input.labId.trim() : '';
+        const labTerpilih = await ambilLabAktif(db, labIdRapi);
+
+        if (!labTerpilih) {
+            return gagal('INPUT_TIDAK_VALID', 'Laboratorium tidak ditemukan atau sedang tidak aktif.');
+        }
         const kelasSnap = await getDoc(doc(db, 'kelas', idKelasRapi));
         const kelasData = kelasSnap.data();
         if (!kelasData) {
@@ -361,7 +375,8 @@ export async function buatSesi(
         batch.set(sesiRef, {
             kelasId: idKelasRapi,
             judul: cekJudul.nilai,
-            labId: labIdRapi,
+            labId: labTerpilih.idLab,
+            lokasi: labTerpilih.nama,
             waktuMulai: Timestamp.fromDate(input.waktuMulai),
             waktuSelesai: input.waktuSelesai !== null ? Timestamp.fromDate(input.waktuSelesai) : null,
             statusSesi: 'BELUM_DIBUKA' satisfies StatusSesi,
@@ -413,16 +428,8 @@ export async function ubahSesi(
     let labIdBaru: string | undefined;
     if (data.labId !== undefined) {
         labIdBaru = typeof data.labId === 'string' ? data.labId.trim() : '';
-
-        const labTerpilih = DATA_LABORATORIUM.find(
-            (lab) => lab.idLab === labIdBaru && lab.aktif,
-        );
-
-        if (!labTerpilih) {
-            return gagal(
-                'INPUT_TIDAK_VALID',
-                'Laboratorium tidak ditemukan atau sedang tidak aktif.',
-            );
+        if (!labIdBaru) {
+            return gagal('INPUT_TIDAK_VALID', 'Pilih laboratorium terlebih dahulu.');
         }
     }
 
@@ -445,6 +452,15 @@ export async function ubahSesi(
         }
 
         const { uid, db } = cekAsisten;
+        let labTerpilih: Awaited<ReturnType<typeof ambilLabAktif>> = null;
+
+        if (labIdBaru !== undefined) {
+            labTerpilih = await ambilLabAktif(db, labIdBaru);
+            if (!labTerpilih) {
+                return gagal('INPUT_TIDAK_VALID', 'Laboratorium tidak ditemukan atau sedang tidak aktif.');
+            }
+        }
+
         const sesiRef = doc(db, 'sesi', idSesiRapi);
 
         const hasilTransaksi = await runTransaction(db, async (tx) => {
@@ -516,8 +532,9 @@ export async function ubahSesi(
             if (judulBaru !== undefined && judulBaru !== sesiData.judul) {
                 payloadUpdate.judul = judulBaru;
             }
-            if (labIdBaru !== undefined && labIdBaru !== sesiData.labId) {
-                payloadUpdate.labId = labIdBaru;
+            if (labTerpilih && labIdBaru !== sesiData.labId) {
+                payloadUpdate.labId = labTerpilih.idLab;
+                payloadUpdate.lokasi = labTerpilih.nama;
             }
             if (
                 data.waktuMulai !== undefined &&
@@ -807,19 +824,15 @@ export function listenSesiKelas(
     return onSnapshot(
         q,
         (snapshot) => {
-            const daftarSesi: Sesi[] = [];
-            for (const docSnap of snapshot.docs) {
-                const sesi = petakanDokumenSesi(docSnap);
-                if (sesi) {
-                    daftarSesi.push(sesi);
-                }
-            }
-            if (sertakanArsip) {
-                daftarSesi.sort(
-                    (a, b) => a.waktuMulai.getTime() - b.waktuMulai.getTime(),
-                );
-            }
-            callback(daftarSesi);
+            void Promise.all(snapshot.docs.map((docSnap) => petakanDokumenSesi(docSnap)))
+                .then((hasil) => {
+                    const daftarSesi = hasil.filter((sesi): sesi is Sesi => sesi !== null);
+                    if (sertakanArsip) {
+                        daftarSesi.sort((a, b) => a.waktuMulai.getTime() - b.waktuMulai.getTime());
+                    }
+                    callback(daftarSesi);
+                })
+                .catch((error: Error) => onError(error));
         },
         (error) => {
             onError(error);
@@ -858,7 +871,9 @@ export function listenSesiById(
                 callback(null);
                 return;
             }
-            callback(petakanDokumenSesi(docSnap));
+            void petakanDokumenSesi(docSnap)
+                .then(callback)
+                .catch((error: Error) => onError(error));
         },
         (error) => {
             onError(error);
