@@ -83,6 +83,7 @@ export function useJadwalPraktikan(
         const unsubscribeSesiPerKelas = new Map<string, () => void>();
 
         const sesiPerKelas = new Map<string, Sesi[]>();
+        const namaPraktikumPerKelas = new Map<string, string>();
         const kelasBelumDimuat = new Set<string>();
         const sesiBelumDimuat = new Set<string>();
         const errorPerKelas = new Map<string, string>();
@@ -103,6 +104,7 @@ export function useJadwalPraktikan(
                 unsubscribeSesiPerKelas.delete(kelasId);
             }
             sesiPerKelas.delete(kelasId);
+            namaPraktikumPerKelas.delete(kelasId);
             sesiBelumDimuat.delete(kelasId);
         }
 
@@ -152,6 +154,7 @@ export function useJadwalPraktikan(
                 // Hentikan listener kelas & sesi lama sebelum membangun langganan baru.
                 bersihkanListenerKelasDanSesi();
                 sesiPerKelas.clear();
+                namaPraktikumPerKelas.clear();
                 kelasBelumDimuat.clear();
                 sesiBelumDimuat.clear();
                 errorPerKelas.clear();
@@ -198,6 +201,23 @@ export function useJadwalPraktikan(
                                 return;
                             }
 
+                            namaPraktikumPerKelas.set(
+                                kelasId,
+                                String(kelasData.namaPraktikum ?? ''),
+                            );
+
+                            const sesiSaatIni = sesiPerKelas.get(kelasId);
+
+                            if (sesiSaatIni) {
+                                sesiPerKelas.set(
+                                    kelasId,
+                                    sesiSaatIni.map((sesi) => ({
+                                        ...sesi,
+                                        namaPraktikum: String(kelasData.namaPraktikum ?? ''),
+                                    })),
+                                );
+                            }
+
                             if (!unsubscribeSesiPerKelas.has(kelasId)) {
                                 sesiBelumDimuat.add(kelasId);
 
@@ -211,9 +231,13 @@ export function useJadwalPraktikan(
                                         errorPerKelas.delete(kelasId);
                                         sesiPerKelas.set(
                                             kelasId,
-                                            daftarSesi.filter(
-                                                (sesi) => !sesi.diarsipkan,
-                                            ),
+                                            daftarSesi
+                                                .filter((sesi) => !sesi.diarsipkan)
+                                                .map((sesi) => ({
+                                                    ...sesi,
+                                                    namaPraktikum:
+                                                        namaPraktikumPerKelas.get(kelasId) ?? '',
+                                                })),
                                         );
                                         sesiBelumDimuat.delete(kelasId);
 
@@ -275,6 +299,7 @@ export function useJadwalPraktikan(
 
                 bersihkanListenerKelasDanSesi();
                 sesiPerKelas.clear();
+                namaPraktikumPerKelas.clear();
                 kelasBelumDimuat.clear();
                 sesiBelumDimuat.clear();
                 errorPerKelas.clear();

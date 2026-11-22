@@ -29,6 +29,7 @@ export function JadwalList({
                 <SesiCard
                     key={item.idSesi}
                     sesi={item}
+                    namaPraktikum={item.namaPraktikum}
                     onPress={() => onPilihSesi(item.idSesi)}
                 />
             ))}

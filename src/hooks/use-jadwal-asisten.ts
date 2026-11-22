@@ -142,7 +142,12 @@ export function useJadwalAsisten(uid: string | null): HasilUseJadwalAsisten {
                             errorPerKelas.delete(kelas.idKelas);
                             sesiPerKelas.set(
                                 kelas.idKelas,
-                                daftarSesi.filter((sesi) => !sesi.diarsipkan),
+                                daftarSesi
+                                    .filter((sesi) => !sesi.diarsipkan)
+                                    .map((sesi) => ({
+                                        ...sesi,
+                                        namaPraktikum: kelas.namaPraktikum,
+                                    })),
                             );
                             sesiBelumDimuat.delete(kelas.idKelas);
 
