@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
 import {
   collection,
   onSnapshot,
   query,
   where,
 } from '@react-native-firebase/firestore';
+import { useEffect, useState } from 'react';
 
 import { getFirebaseServices } from '@/lib/firebase';
 import { listenIzinKelas } from '@/services/izin-service';
@@ -42,7 +42,7 @@ export function useIzinAsisten(uid: string | null | undefined) {
     const unsubscribeKelas = onSnapshot(
       qKelas,
       (snapshot) => {
-        if (!aktif) return;
+        if (!aktif || !snapshot) return;
 
         const idSiklus = ++siklus;
 
@@ -98,25 +98,31 @@ export function useIzinAsisten(uid: string | null | undefined) {
             where('kelasId', '==', kelasId),
           );
 
-          const unsubscribeAnggota = onSnapshot(qAnggota, (snapshot) => {
-            if (!aktif || idSiklus !== siklus) return;
+          const unsubscribeAnggota = onSnapshot(
+            qAnggota,
+            (anggotaSnapshot) => {
+              if (!aktif || idSiklus !== siklus || !anggotaSnapshot) return;
 
-            const namaKelas: Record<string, string> = {};
+              const namaKelas: Record<string, string> = {};
 
-            snapshot.docs.forEach((item) => {
-              const data = item.data();
+              anggotaSnapshot.docs.forEach((item) => {
+                const data = item.data();
 
-              if (typeof data.uid === 'string' && typeof data.nama === 'string') {
-                namaKelas[data.uid] = data.nama;
-              }
-            });
+                if (typeof data.uid === 'string' && typeof data.nama === 'string') {
+                  namaKelas[data.uid] = data.nama;
+                }
+              });
 
-            namaPerKelas.set(kelasId, namaKelas);
+              namaPerKelas.set(kelasId, namaKelas);
 
-            setNamaPraktikanByUid(
-              Object.assign({}, ...Array.from(namaPerKelas.values())),
-            );
-          });
+              setNamaPraktikanByUid(
+                Object.assign({}, ...Array.from(namaPerKelas.values())),
+              );
+            },
+            () => {
+              // Abaikan error listener keanggotaan saat pengguna logout atau sesi berakhir.
+            },
+          );
 
           unsubscribeIzin.push(unsubscribeAnggota);
 

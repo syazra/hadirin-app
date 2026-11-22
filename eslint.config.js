@@ -7,6 +7,7 @@ module.exports = defineConfig([
     ignores: ['dist/**', '.tmp/**'],
     rules: {
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      'import/no-unresolved': ['error', { ignore: ['^react-native-maps$'] }],
     },
   },
   {
