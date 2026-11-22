@@ -1,13 +1,15 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Colors, Spacing } from '@/constants/theme';
 import type { KategoriIzin, StatusAi } from '@/types';
+import { VERSI_KATEGORI_AI } from '@/utils/kategori-izin';
 
 type Props = {
   kategori: KategoriIzin | null | undefined;
   statusAi?: StatusAi;
+  versiKategoriAi?: string | null;
 };
 
-export function KategoriAiBadge({ kategori, statusAi }: Props) {
+export function KategoriAiBadge({ kategori, statusAi, versiKategoriAi }: Props) {
   const labelStatus = statusAi === 'SUKSES' && kategori
     ? 'Klasifikasi berhasil'
     : statusAi === 'SUKSES'
@@ -21,6 +23,9 @@ export function KategoriAiBadge({ kategori, statusAi }: Props) {
   return (
     <View style={styles.badge}>
       <Text style={styles.label}>Klasifikasi AI · {labelStatus}</Text>
+      {statusAi === 'SUKSES' && kategori && versiKategoriAi !== VERSI_KATEGORI_AI ? (
+        <Text style={styles.empty}>Kebijakan lama · perlu klasifikasi ulang</Text>
+      ) : null}
       {kategori ? <Text style={styles.value}>{kategori}</Text> : <Text style={styles.empty}>Kategori belum tersedia</Text>}
     </View>
   );

@@ -6,16 +6,15 @@ module.exports = defineConfig([
   {
     ignores: ['dist/**', '.tmp/**'],
     rules: {
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_' },
+      ],
     },
   },
   {
     settings: {
       'import/resolver': {
-        node: {
-          extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
-          moduleDirectory: ['node_modules'],
-        },
         typescript: {
           alwaysTryTypes: true,
           project: './tsconfig.json',

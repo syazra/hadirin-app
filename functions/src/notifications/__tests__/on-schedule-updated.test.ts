@@ -140,5 +140,5 @@ test('mengirim payload ke anggota aktif tanpa UID duplikat atau asisten', async 
   );
   assert.equal(terkirim.length, 1);
   assert.deepEqual(terkirim[0].recipientUids, ['uid-1', 'uid-2']);
-  assert.equal(terkirim[0].eventType, 'JADWAL_SESI_DIPERBARUI');
+  assert.equal(terkirim[0].eventType, 'JADWAL_BERUBAH');
 });

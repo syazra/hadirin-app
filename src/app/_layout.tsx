@@ -13,6 +13,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Colors, Fonts } from '@/constants/theme';
 import { AppProvider } from '@/context/app-context';
 import { AuthProvider } from '@/context/auth-context';
+import { NotificationProvider } from '@/context/notification-context';
 import { useAuth } from '@/hooks/use-auth';
 
 void preventAutoHideAsync();
@@ -99,9 +100,11 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <AppProvider>
-          <AppNavigator />
-        </AppProvider>
+        <NotificationProvider>
+          <AppProvider>
+            <AppNavigator />
+          </AppProvider>
+        </NotificationProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

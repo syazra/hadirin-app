@@ -1,6 +1,8 @@
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { sendToUsers, type EnqueueResult } from './send-notification';
+import { existingDomainEvent } from './domain-sender';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -17,14 +19,14 @@ type FieldJadwal = (typeof FIELD_JADWAL)[number];
 
 export interface PayloadNotifikasiJadwalDiperbarui {
   idempotencyKey: string;
-  eventType: 'JADWAL_SESI_DIPERBARUI';
+  eventType: 'JADWAL_BERUBAH';
   sesiId: string;
   kelasId: string;
   recipientUids: string[];
   title: string;
   body: string;
   data: {
-    type: 'JADWAL_SESI_DIPERBARUI';
+    type: 'JADWAL_BERUBAH';
     sesiId: string;
     kelasId: string;
     route: string;
@@ -33,17 +35,15 @@ export interface PayloadNotifikasiJadwalDiperbarui {
 
 export type ScheduleNotificationSender = (
   payload: PayloadNotifikasiJadwalDiperbarui,
-) => Promise<void>;
+) => Promise<EnqueueResult | void>;
 
 async function kirimViaSharedSender(
   payload: PayloadNotifikasiJadwalDiperbarui,
-): Promise<void> {
-  // TODO: Sambungkan ke shared notification sender milik Farhan.
-  logger.info('Payload notifikasi jadwal sesi siap dikirim', {
-    idempotencyKey: payload.idempotencyKey,
-    sesiId: payload.sesiId,
-    kelasId: payload.kelasId,
-    jumlahPenerima: payload.recipientUids.length,
+): Promise<EnqueueResult> {
+  return sendToUsers({
+    eventId: payload.idempotencyKey, type: 'JADWAL_BERUBAH', entityId: payload.sesiId,
+    routeKey: 'SESI', recipientUids: payload.recipientUids,
+    title: 'Jadwal praktikum diperbarui', body: 'Buka Hadir.in untuk melihat jadwal terbaru.',
   });
 }
 
@@ -124,6 +124,7 @@ export async function prosesNotifikasiJadwalDiperbarui(
   dikirim: boolean;
   jumlahPenerima: number;
   idempotencyKey?: string;
+  status?: EnqueueResult['status'];
 }> {
   const perubahan = cekPerubahanJadwalSesi(input);
 
@@ -132,6 +133,11 @@ export async function prosesNotifikasiJadwalDiperbarui(
   }
 
   const { sesiId, kelasId, judulSesi, fieldBerubah } = perubahan;
+  const idempotencyKey = `schedule-updated:${sesiId}:${input.eventId}`;
+  if (sender === kirimViaSharedSender) {
+    const existing = await existingDomainEvent(db, idempotencyKey);
+    if (existing) return { dikirim: false, jumlahPenerima: 0, idempotencyKey, status: existing.status };
+  }
 
   const [kelasSnap, anggotaSnap] = await Promise.all([
     db.collection('kelas').doc(kelasId).get(),
@@ -178,18 +184,16 @@ export async function prosesNotifikasiJadwalDiperbarui(
     return { dikirim: false, jumlahPenerima: 0 };
   }
 
-  const idempotencyKey = `schedule-updated:${sesiId}:${input.eventId}`;
-
-  await sender({
+  const result = await sender({
     idempotencyKey,
-    eventType: 'JADWAL_SESI_DIPERBARUI',
+    eventType: 'JADWAL_BERUBAH',
     sesiId,
     kelasId,
     recipientUids,
     title: 'Jadwal Praktikum Diperbarui',
     body: `Jadwal "${judulSesi}" telah diperbarui. Silakan periksa jadwal terbaru.`,
     data: {
-      type: 'JADWAL_SESI_DIPERBARUI',
+      type: 'JADWAL_BERUBAH',
       sesiId,
       kelasId,
       route: `/sesi/${sesiId}`,
@@ -205,25 +209,30 @@ export async function prosesNotifikasiJadwalDiperbarui(
   });
 
   return {
-    dikirim: true,
+    dikirim: result ? result.status === 'QUEUED' : true,
+    status: result?.status,
     jumlahPenerima: recipientUids.length,
     idempotencyKey,
   };
 }
 
 export const onScheduleUpdated = onDocumentUpdated(
-  'sesi/{sesiId}',
+  { document: 'sesi/{sesiId}', region: 'asia-southeast2', retry: true, timeoutSeconds: 60, maxInstances: 3 },
   async (event) => {
     if (!event.data) return;
 
-    await prosesNotifikasiJadwalDiperbarui(
-      admin.firestore(),
-      {
-        sesiId: event.params.sesiId,
-        eventId: event.id,
-        beforeData: event.data.before.data(),
-        afterData: event.data.after.data(),
-      },
-    );
+    try {
+      await prosesNotifikasiJadwalDiperbarui(
+        admin.firestore(),
+        {
+          sesiId: event.params.sesiId,
+          eventId: event.id,
+          beforeData: event.data.before.data(),
+          afterData: event.data.after.data(),
+        },
+      );
+    } catch {
+      throw new Error('Schedule notification enqueue requires retry');
+    }
   },
 );

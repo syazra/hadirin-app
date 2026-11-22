@@ -25,6 +25,7 @@ import type {
     Pengguna,
 } from '@/types';
 import { hasilErrorFirebase } from '@/utils/error-firebase';
+import { restoreNotificationsAfterLogoutFailure, unregisterNotificationsBeforeLogout } from '@/services/notification-service';
 import {
     normalisasiEmail,
     validasiEmail,
@@ -467,7 +468,13 @@ export async function keluar(): Promise<Hasil> {
     try {
         const { auth } = getFirebaseServices();
 
-        await signOut(auth);
+        await unregisterNotificationsBeforeLogout();
+        try {
+            await signOut(auth);
+        } catch (error) {
+            restoreNotificationsAfterLogoutFailure();
+            throw error;
+        }
 
         return {
             ok: true,
