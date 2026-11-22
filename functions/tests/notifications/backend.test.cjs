@@ -84,9 +84,21 @@ test('multi-user/device fanout is targeted, records FCM acceptance, and suppress
   assert.equal(fcm.messages[0].tokens.length, 2);
   assert.ok(!fcm.messages[0].tokens.includes('synthetic-token-other'));
   assert.equal(fcm.messages[0].android.notification.tag, eventKey);
+  assert.equal(fcm.messages[0].data.recipientUid, 'student-1');
   assert.ok(deliveries(db).every(d => d.state === 'ACCEPTED' && !('token' in d) && !('message' in d)));
   await processNotification(db, fcm, eventKey);
   assert.equal(fcm.messages.length, 1);
+});
+
+test('each recipient batch carries only its own account binding', async () => {
+  const db = database(); token(db, 'student-1', 'phone'); token(db, 'student-2', 'tablet');
+  const { eventKey } = await enqueueNotification(db, input({ recipientUids: ['student-1', 'student-2'] }));
+  const fcm = sender(); await processNotification(db, fcm, eventKey);
+  assert.equal(fcm.messages.length, 2);
+  assert.deepEqual(fcm.messages.map(message => [message.data.recipientUid, message.tokens]), [
+    ['student-1', ['synthetic-token-phone']], ['student-2', ['synthetic-token-tablet']],
+  ]);
+  assert.ok(fcm.messages.every(message => Object.values(message.data).every(value => typeof value === 'string')));
 });
 
 test('no registered devices completes without calling FCM', async () => {
