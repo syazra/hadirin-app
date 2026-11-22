@@ -39,6 +39,7 @@ export default function PraktikanLayout() {
         },
       }}
     >
+      <Tabs.Screen name="maps" options={{ href: null, title: 'Peta' }} />
       <Tabs.Screen
         name="jadwal-praktikan"
         options={{

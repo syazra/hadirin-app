@@ -39,6 +39,7 @@ export default function AsistenLayout() {
         },
       }}
     >
+      <Tabs.Screen name="maps" options={{ href: null, title: 'Peta' }} />
       <Tabs.Screen
         name="laboratorium"
         options={{ title: 'Laboratorium' }}

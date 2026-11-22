@@ -38,14 +38,6 @@
         }
       ],
       [
-        "expo-location",
-        {
-          "locationWhenInUsePermission": "Izinkan Hadir.in mengakses lokasi saat aplikasi digunakan untuk memverifikasi kehadiran praktikum di laboratorium.",
-          "isAndroidBackgroundLocationEnabled": false,
-          "isIosBackgroundLocationEnabled": false
-        }
-      ],
-      [
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",

@@ -1,4 +1,3 @@
-
 import { Platform } from 'react-native';
 
 import { getApp } from '@react-native-firebase/app';
