@@ -82,13 +82,16 @@ export function DetailIzinAsisten({ izin }: Props) {
           </Pressable>
 
           <Text style={styles.note}>Hasil AI hanya rekomendasi. Asisten tetap menentukan keputusan secara manual.</Text>
-
           <View style={styles.actions}>
-            <Pressable style={[styles.button, styles.approve]} onPress={() => konfirmasi('DISETUJUI')} disabled={loadingKeputusan}>
-              <Text style={styles.buttonText}>Setujui</Text>
-            </Pressable>
-            <Pressable style={[styles.button, styles.reject]} onPress={() => konfirmasi('DITOLAK')} disabled={loadingKeputusan}>
+            <Pressable
+              style={[styles.button, styles.reject]} onPress={() => konfirmasi('DITOLAK')} disabled={loadingKeputusan}
+            >
               <Text style={styles.buttonText}>Tolak</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.button, styles.approve]} onPress={() => konfirmasi('DISETUJUI')} disabled={loadingKeputusan}
+            >
+              <Text style={styles.buttonText}>Setujui</Text>
             </Pressable>
           </View>
           {loadingKeputusan && <ActivityIndicator color={Colors.light.primary} />}
