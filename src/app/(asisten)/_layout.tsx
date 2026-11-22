@@ -9,7 +9,11 @@ export default function AsistenLayout() {
   const { pengguna, loading, profilBelumLengkap } = useAuth();
 
   if (loading) {
-    return <View style={styles.centered}><ActivityIndicator color={Colors.light.primary} /></View>;
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color={Colors.light.primary} />
+      </View>
+    );
   }
 
   if (!pengguna || profilBelumLengkap || pengguna.peran !== 'ASISTEN') {
@@ -50,17 +54,34 @@ export default function AsistenLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
         name="laboratorium"
         options={{
           title: 'Laboratorium',
-          tabBarIcon: ({ color, size }) => (
-            <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8}>
-              <Path d="M9 3h6m-5 0v7l-5 9a1 1 0 0 0 1 2h12a1 1 0 0 0 1-2l-5-9V3M8 15h8m-10 4h12" />
-            </Svg>
-          ),
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
         }}
       />
+
+      <Tabs.Screen
+        name="jadwal-asisten"
+        options={{
+          title: 'Jadwal Asisten',
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+
+      <Tabs.Screen
+        name="izin-asisten"
+        options={{
+          title: 'Pengajuan Izin',
+          tabBarButton: () => null,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+
       <Tabs.Screen
         name="kelas"
         options={{
@@ -74,36 +95,12 @@ export default function AsistenLayout() {
       />
 
       <Tabs.Screen
-        name="jadwal-asisten"
-        options={{
-          title: 'Jadwal',
-          tabBarIcon: ({ color, size }) => (
-            <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8}>
-              <Path d="M7 3v4m10-4v4M4 10h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Zm2 9h3m4 0h3m-10 3h3" />
-            </Svg>
-          ),
-        }}
-      />
-
-      <Tabs.Screen
         name="rekap"
         options={{
           title: 'Rekap',
           tabBarIcon: ({ color, size }) => (
             <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8}>
               <Path d="M9 5H5v16h14V5h-4M9 3h6v4H9V3Zm-2 9h10M7 16h10" />
-            </Svg>
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="izin-asisten"
-        options={{
-          title: 'Izin',
-          tabBarIcon: ({ color, size }) => (
-            <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8}>
-              <Path d="M7 3h10v18H7zM9 8h6m-6 4h6m-6 4h4" />
             </Svg>
           ),
         }}
@@ -125,7 +122,12 @@ export default function AsistenLayout() {
 }
 
 const styles = StyleSheet.create({
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.four,
+  },
   name: {
     color: Colors.light.text,
     fontSize: 15,

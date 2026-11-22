@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, type MapPressEvent } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE, type MapPressEvent } from 'react-native-maps';
 
 type Koordinat = { latitude: number; longitude: number };
 
@@ -44,8 +44,20 @@ export default function LaboratoryPickerMap({
             <View style={styles.container}>
                 <Text style={styles.title}>Pilih Lokasi Laboratorium</Text>
                 <Text style={styles.subtitle}>Ketuk peta untuk menentukan titik laboratorium.</Text>
-                <MapView key={sessionKey} style={styles.map} initialRegion={region} onPress={pilihTitik}>
-                    {selected && <Marker coordinate={selected} pinColor="#208AEF" title="Lokasi Laboratorium" />}
+                <MapView
+                    key={sessionKey}
+                    style={styles.map}
+                    provider={PROVIDER_GOOGLE}
+                    initialRegion={region}
+                    onPress={pilihTitik}
+                >
+                    {selected && (
+                        <Marker
+                            coordinate={selected}
+                            pinColor="#208AEF"
+                            title="Lokasi Laboratorium"
+                        />
+                    )}
                 </MapView>
                 <View style={styles.footer}>
                     <Text style={styles.coordinate}>
