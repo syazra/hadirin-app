@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ambilRememberMe } from '@/services/remember-me-service';
 import {
     Pressable,
     StyleSheet,
@@ -15,7 +16,11 @@ interface FormLoginProps {
     error?: string | null;
     loading?: boolean;
     onForgotPassword?: () => void;
-    onSubmit: (email: string, password: string) => void | Promise<void>;
+    onSubmit: (
+        email: string,
+        password: string,
+        rememberMe: boolean,
+    ) => void | Promise<void>;
 }
 
 function EyeIcon({ visible, color }: { visible: boolean; color: string }) {
@@ -63,6 +68,33 @@ export function FormLogin({
     const [showPassword, setShowPassword] = useState(false);
     const [errorEmail, setErrorEmail] = useState<string | null>(null);
     const [errorPassword, setErrorPassword] = useState<string | null>(null);
+    const [rememberMe, setRememberMe] = useState(false);
+    const [rememberMeSiap, setRememberMeSiap] = useState(false);
+
+    useEffect(() => {
+        let masihAktif = true;
+
+        ambilRememberMe()
+            .then((nilai) => {
+                if (masihAktif) {
+                    setRememberMe(nilai);
+                }
+            })
+            .catch(() => {
+                if (masihAktif) {
+                    setRememberMe(false);
+                }
+            })
+            .finally(() => {
+                if (masihAktif) {
+                    setRememberMeSiap(true);
+                }
+            });
+
+        return () => {
+            masihAktif = false;
+        };
+    }, []);
 
     function validasiPerKolom() {
         const emailBersih = email.trim();
@@ -88,7 +120,7 @@ export function FormLogin({
 
     function handleSubmit() {
         if (!validasiPerKolom()) return;
-        void onSubmit(email.trim(), password);
+        void onSubmit(email.trim(), password, rememberMe);
     }
 
     const pesanBawahPassword = errorPassword ?? error;
@@ -158,11 +190,41 @@ export function FormLogin({
                 )}
             </View>
 
-            {onForgotPassword && (
-                <Pressable onPress={onForgotPassword} style={styles.forgotButton}>
-                    <Text style={styles.forgotText}>Lupa password?</Text>
+            <View style={styles.optionsRow}>
+                <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityLabel="Remember Me"
+                    accessibilityState={{
+                        checked: rememberMe,
+                        disabled: loading || !rememberMeSiap,
+                    }}
+                    disabled={loading || !rememberMeSiap}
+                    onPress={() => setRememberMe((prev) => !prev)}
+                    style={styles.rememberButton}
+                >
+                    <View
+                        style={[
+                            styles.checkbox,
+                            rememberMe && styles.checkboxChecked,
+                        ]}
+                    >
+                        {rememberMe && (
+                            <Text style={styles.checkboxCheck}>✓</Text>
+                        )}
+                    </View>
+
+                    <Text style={styles.rememberText}>Remember Me</Text>
                 </Pressable>
-            )}
+
+                {onForgotPassword && (
+                    <Pressable
+                        onPress={onForgotPassword}
+                        style={styles.forgotButton}
+                    >
+                        <Text style={styles.forgotText}>Lupa password?</Text>
+                    </Pressable>
+                )}
+            </View>
 
             <AppButton
                 fullWidth
@@ -224,12 +286,48 @@ const styles = StyleSheet.create({
         paddingHorizontal: 4,
     },
     forgotButton: {
-        alignSelf: 'flex-end',
         paddingVertical: 4,
     },
     forgotText: {
         fontFamily: Fonts.sansMedium,
         color: Colors.light.primary,
         fontSize: 13,
+    },
+    optionsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: Spacing.two,
+    },
+    rememberButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingVertical: 4,
+    },
+    checkbox: {
+        width: 20,
+        height: 20,
+        borderWidth: 1.5,
+        borderColor: Colors.light.border,
+        borderRadius: 5,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.light.card,
+    },
+    checkboxChecked: {
+        backgroundColor: Colors.light.primary,
+        borderColor: Colors.light.primary,
+    },
+    checkboxCheck: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    rememberText: {
+        fontFamily: Fonts.sans,
+        fontSize: 13,
+        color: Colors.light.text,
     },
 });

@@ -21,7 +21,8 @@ export type StatusAi =
 
 export type KategoriIzin =
   | 'SAKIT'
-  | 'IZIN';
+  | 'IZIN'
+  | 'ALPHA';
 
 export type StatusRekap =
   | 'HADIR'
@@ -119,6 +120,7 @@ export interface Izin {
   diperiksaOleh: string | null;
   waktuPeriksa: Date | null;
   kategoriAi: KategoriIzin | null;
+  versiKategoriAi?: string | null;
   statusAi: StatusAi;
   modelAi: string | null;
   waktuAi: Date | null;

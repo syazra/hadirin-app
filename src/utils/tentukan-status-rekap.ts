@@ -39,8 +39,9 @@ export function tentukanStatusRekap({
 
       if (
         izin.statusAi === 'SUKSES' &&
-        (kategori === 'IZIN' || kategori === 'KELUARGA' || kategori === 'AKADEMIK')
+        (kategori === 'IZIN' || kategori === 'ALPHA' || kategori === 'KELUARGA' || kategori === 'AKADEMIK')
       ) {
+        // ALPHA dari AI hanya rekomendasi; persetujuan Asisten tetap menghasilkan IZIN.
         return {
           status: 'IZIN',
           aiBelumTersedia: false,
