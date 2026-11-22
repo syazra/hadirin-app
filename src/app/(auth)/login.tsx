@@ -1,16 +1,17 @@
 import { Link, Redirect } from 'expo-router';
 import { useState } from 'react';
 import {
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { simpanRememberMe } from '@/services/remember-me-service';
 
 import { FormLogin } from '@/components/auth/form-login';
 import { Colors, Fonts, Spacing } from '@/constants/theme';
@@ -24,14 +25,19 @@ export default function LoginScreen() {
 
   if (profilBelumLengkap) return <Redirect href="/(auth)/daftar" />;
 
-  async function handleMasuk(email: string, password: string) {
+  async function handleMasuk(email: string, password: string, rememberMe: boolean,) {
     setMengirim(true);
     setPesan(null);
     try {
+      await simpanRememberMe(rememberMe);
       const hasil = await masuk(email, password);
       if (!hasil.ok) setPesan(hasil.pesan);
     } catch (error) {
-      setPesan(error instanceof Error ? error.message : 'Terjadi kesalahan saat masuk.');
+      setPesan(
+        error instanceof Error
+          ? error.message
+          : 'Terjadi kesalahan saat masuk.',
+      );
     } finally {
       setMengirim(false);
     }
