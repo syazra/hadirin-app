@@ -80,18 +80,16 @@
           "web": true
         }
       },
-      "eas": {
-        "projectId": "92cc7b24-69f8-401b-acc1-24a2ecd61591"
-      },
       "maps": {
         "androidConfigured": false
+      },
+      "eas": {
+        "projectId": "677fdbdc-b741-43f2-85a8-a6429d0c69fb"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "updates": {
-      "url": "https://u.expo.dev/92cc7b24-69f8-401b-acc1-24a2ecd61591"
-    }
+    "owner": "syafirazkas-team"
   }
 }
