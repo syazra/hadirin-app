@@ -4,7 +4,15 @@ import { useLaboratorium } from '@/hooks/use-laboratorium';
 import type { Laboratorium } from '@/types';
 import LaboratoryPickerMap from '@/components/maps/laboratory-picker-map';
 
-const KOSONG = { kodeLab: '', nama: '', lokasiGedung: '', latitude: '', longitude: '', radiusPresensi: '40', aktif: true };
+const KOSONG = {
+  kodeLab: '',
+  nama: '',
+  lokasiGedung: '',
+  latitude: '',
+  longitude: '',
+  radiusPresensi: '',
+  aktif: true,
+};
 
 export default function LaboratoriumScreen() {
   const { daftarLaboratorium, loading, error, tambah, ubah, hapus } = useLaboratorium();
@@ -72,14 +80,23 @@ export default function LaboratoriumScreen() {
       { text: 'Hapus', style: 'destructive', onPress: () => { void hapus(lab.idLab); } },
     ]);
 
-  const field = (label: string, key: keyof typeof form, numeric = false) => (
+  const field = (
+    label: string,
+    key: keyof typeof form,
+    numeric = false,
+    placeholder = '',
+  ) => (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
         style={styles.input}
         value={String(form[key])}
+        placeholder={placeholder}
+        placeholderTextColor="#98A2B3"
         keyboardType={numeric ? 'decimal-pad' : 'default'}
-        onChangeText={(value) => setForm((old) => ({ ...old, [key]: value }))}
+        onChangeText={(value) =>
+          setForm((old) => ({ ...old, [key]: value }))
+        }
       />
     </View>
   );
@@ -100,9 +117,9 @@ export default function LaboratoriumScreen() {
           <Pressable style={styles.pickButton} onPress={() => setPickerVisible(true)}>
             <Text style={styles.pickButtonText}>Pilih Titik pada Peta</Text>
           </Pressable>
-          {field('Latitude', 'latitude', true)}
-          {field('Longitude', 'longitude', true)}
-          {field('Radius presensi (meter)', 'radiusPresensi', true)}
+          {field('Latitude', 'latitude', true, 'Contoh: -7.0512')}
+          {field('Longitude', 'longitude', true, 'Contoh: 110.4405')}
+          {field('Radius presensi (meter)', 'radiusPresensi', true, 'Contoh: 40')}
 
           <Pressable style={styles.switch} onPress={() => setForm((old) => ({ ...old, aktif: !old.aktif }))}>
             <Text style={styles.label}>Status: {form.aktif ? 'Aktif' : 'Tidak aktif'} (tekan untuk ubah)</Text>

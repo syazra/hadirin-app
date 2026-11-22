@@ -13,8 +13,10 @@ import { useJadwalAsisten } from '@/hooks/use-jadwal-asisten';
 import { useKelasAsisten } from '@/hooks/use-kelas-asisten';
 import { useRekapSesi } from '@/hooks/use-rekap-sesi';
 import { formatWaktu } from '@/utils/format-waktu';
+import { useRouter } from 'expo-router';
 
 export default function RekapScreen() {
+  const router = useRouter();
   const { pengguna } = useAuth();
   const {
     kelas,
@@ -83,13 +85,30 @@ export default function RekapScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Rekap Kehadiran</Text>
-        <Text style={styles.subtitle}>
-          Pantau daftar hadir, sakit, izin disetujui, dan status peserta secara
-          realtime.
-        </Text>
-      </View>
+          <View style={styles.header}>
+            <Text style={styles.title}>Rekap Kehadiran</Text>
+            <Text style={styles.subtitle}>
+              Pantau daftar hadir, sakit, izin disetujui, dan status peserta secara
+              realtime.
+            </Text>
+          </View>
+
+          <Pressable
+            style={styles.tombolPerizinan}
+            onPress={() => router.navigate('/(asisten)/izin-asisten')}
+          >
+            <View>
+              <Text style={styles.tombolPerizinanJudul}>
+                Rekap Perizinan Mahasiswa
+              </Text>
+              <Text style={styles.tombolPerizinanDeskripsi}>
+                Lihat dan kelola pengajuan izin mahasiswa
+              </Text>
+            </View>
+            <Text style={styles.panahPerizinan}>›</Text>
+          </Pressable>
+
+          <Text style={styles.label}>Pilih Kelas</Text>
 
       <Text style={styles.label}>Pilih Kelas</Text>
       <ScrollView
@@ -361,4 +380,28 @@ const styles = StyleSheet.create({
   sections: { gap: Spacing.four },
   section: { gap: 10 },
   daftar: { gap: 10 },
+  tombolPerizinan: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.light.primarySoft,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  tombolPerizinanJudul: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.light.primary,
+  },
+  tombolPerizinanDeskripsi: {
+    fontSize: 11,
+    color: Colors.light.textSecondary,
+    marginTop: 4,
+  },
+  panahPerizinan: {
+    fontSize: 24,
+    color: Colors.light.primary,
+  },
 });
