@@ -126,7 +126,7 @@ export function BottomSheet({
 
   const panGesture = usePanGesture({
     enabled: !nonaktifTutup,
-    activeOffsetY: [8, 999],
+    activeOffsetY: [-8, 8],
     onUpdate: (event) => {
       'worklet';
       if (event.translationY >= 0) {
