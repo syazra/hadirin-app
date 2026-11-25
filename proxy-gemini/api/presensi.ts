@@ -1,6 +1,6 @@
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore';
-import { firebaseAdminApp } from '../firebase-admin-app';
+import { firebaseAdminApp } from '../firebase-admin-app.js';
 
 export const BATAS_AKURASI_MAKSIMAL_METER = 50;
 export const BATAS_USIA_TIMESTAMP_MS = 60_000;

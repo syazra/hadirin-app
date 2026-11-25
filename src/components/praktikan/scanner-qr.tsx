@@ -124,11 +124,17 @@ function buatPesanHasil(hasil: Hasil<Presensi>): HasilTampilan {
           hasil.pesan ||
           'Pastikan GPS aktif, akurasi stabil, dan berada di dalam area laboratorium.',
       };
-    default:
+    case 'QR_TIDAK_VALID':
       return {
         berhasil: false,
         judul: 'QR tidak valid',
         pesan: hasil.pesan || 'QR tidak sesuai dengan sesi praktikum ini.',
+      };
+    default:
+      return {
+        berhasil: false,
+        judul: 'Presensi gagal',
+        pesan: hasil.pesan || 'Terjadi kendala saat memproses presensi.',
       };
   }
 }
