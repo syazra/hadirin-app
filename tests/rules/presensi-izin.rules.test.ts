@@ -11,12 +11,16 @@ import {
 } from '@firebase/rules-unit-testing';
 
 import {
+  collection,
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from 'firebase/firestore';
 
@@ -170,11 +174,12 @@ async function siapkanDataPresensiIzin(
 
     if (opsi.sudahPresensi) {
       await setDoc(doc(db, 'presensi', ID_IZIN), {
+        idPresensi: ID_IZIN,
         sesiId: ID_SESI,
         kelasId: ID_KELAS,
         uid: 'praktikan-01',
         waktuHadir: new Date(),
-        kodeQr: KODE_QR_VALID,
+        jarakMeter: 5,
       });
     }
   });
@@ -303,21 +308,34 @@ test('B07-11: keputusan menyimpan UID pemeriksa dan waktu server', async () => {
 });
 
 // ==========================================
-// B04 — PRESENSI DAN RIWAYAT
+// B04 — PRESENSI DAN RIWAYAT (SERVER-ONLY WRITES)
 // ==========================================
 
-test('B04-01: praktikan aktif dapat membuat presensi sendiri', async () => {
+test('B04-01: klien (praktikan maupun asisten) tidak dapat membuat presensi langsung', async () => {
   await siapkanDataPresensiIzin();
 
-  const db = dbSebagai('praktikan-01');
+  const dbPraktikan = dbSebagai('praktikan-01');
+  const dbAsisten = dbSebagai('asisten-01');
 
-  await assertSucceeds(
-    setDoc(doc(db, 'presensi', ID_IZIN), {
+  await assertFails(
+    setDoc(doc(dbPraktikan, 'presensi', ID_IZIN), {
+      idPresensi: ID_IZIN,
       sesiId: ID_SESI,
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
-      kodeQr: KODE_QR_VALID,
+      jarakMeter: 5,
+    }),
+  );
+
+  await assertFails(
+    setDoc(doc(dbAsisten, 'presensi', ID_IZIN), {
+      idPresensi: ID_IZIN,
+      sesiId: ID_SESI,
+      kelasId: ID_KELAS,
+      uid: 'praktikan-01',
+      waktuHadir: serverTimestamp(),
+      jarakMeter: 5,
     }),
   );
 });
@@ -329,11 +347,12 @@ test('B04-02: presensi dengan UID orang lain ditolak', async () => {
 
   await assertFails(
     setDoc(doc(db, 'presensi', ID_IZIN), {
+      idPresensi: ID_IZIN,
       sesiId: ID_SESI,
       kelasId: ID_KELAS,
       uid: 'praktikan-lain',
       waktuHadir: serverTimestamp(),
-      kodeQr: KODE_QR_VALID,
+      jarakMeter: 5,
     }),
   );
 });
@@ -345,11 +364,12 @@ test('B04-03: presensi pada sesi yang belum dibuka ditolak', async () => {
 
   await assertFails(
     setDoc(doc(db, 'presensi', ID_IZIN), {
+      idPresensi: ID_IZIN,
       sesiId: ID_SESI,
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
-      kodeQr: KODE_QR_VALID,
+      jarakMeter: 5,
     }),
   );
 });
@@ -361,11 +381,12 @@ test('B04-04: presensi pada sesi yang sudah ditutup ditolak', async () => {
 
   await assertFails(
     setDoc(doc(db, 'presensi', ID_IZIN), {
+      idPresensi: ID_IZIN,
       sesiId: ID_SESI,
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
-      kodeQr: KODE_QR_VALID,
+      jarakMeter: 5,
     }),
   );
 });
@@ -377,11 +398,12 @@ test('B04-05: anggota nonaktif tidak dapat melakukan presensi', async () => {
 
   await assertFails(
     setDoc(doc(db, 'presensi', ID_IZIN), {
+      idPresensi: ID_IZIN,
       sesiId: ID_SESI,
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
-      kodeQr: KODE_QR_VALID,
+      jarakMeter: 5,
     }),
   );
 });
@@ -393,11 +415,12 @@ test('B04-06: presensi kedua pada sesi yang sama ditolak', async () => {
 
   await assertFails(
     setDoc(doc(db, 'presensi', ID_IZIN), {
+      idPresensi: ID_IZIN,
       sesiId: ID_SESI,
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
-      kodeQr: KODE_QR_VALID,
+      jarakMeter: 5,
     }),
   );
 });
@@ -409,11 +432,12 @@ test('B04-07: presensi saat izin masih MENUNGGU ditolak', async () => {
 
   await assertFails(
     setDoc(doc(db, 'presensi', ID_IZIN), {
+      idPresensi: ID_IZIN,
       sesiId: ID_SESI,
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
-      kodeQr: KODE_QR_VALID,
+      jarakMeter: 5,
     }),
   );
 });
@@ -425,38 +449,44 @@ test('B04-08: presensi saat izin DISETUJUI ditolak', async () => {
 
   await assertFails(
     setDoc(doc(db, 'presensi', ID_IZIN), {
+      idPresensi: ID_IZIN,
       sesiId: ID_SESI,
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
-      kodeQr: KODE_QR_VALID,
+      jarakMeter: 5,
     }),
   );
 });
 
-test('B04-09: izin DITOLAK tidak menghalangi presensi', async () => {
+test('B04-09: penulisan presensi langsung dari klien tetap ditolak meski izin DITOLAK', async () => {
   await siapkanDataPresensiIzin({ statusIzin: 'DITOLAK' });
 
   const db = dbSebagai('praktikan-01');
 
-  await assertSucceeds(
+  await assertFails(
     setDoc(doc(db, 'presensi', ID_IZIN), {
+      idPresensi: ID_IZIN,
       sesiId: ID_SESI,
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
-      kodeQr: KODE_QR_VALID,
+      jarakMeter: 5,
     }),
   );
 });
 
-test('B04-10: praktikan tidak dapat membaca dokumen rahasia QR', async () => {
+test('B04-10: praktikan tidak dapat membaca dokumen rahasia QR, asisten pemilik dapat membacanya', async () => {
   await siapkanDataPresensiIzin();
 
-  const db = dbSebagai('praktikan-01');
+  const dbPraktikan = dbSebagai('praktikan-01');
+  const dbAsisten = dbSebagai('asisten-01');
 
   await assertFails(
-    getDoc(doc(db, 'sesi', ID_SESI, 'rahasia', 'qr')),
+    getDoc(doc(dbPraktikan, 'sesi', ID_SESI, 'rahasia', 'qr')),
+  );
+  await assertSucceeds(
+    getDoc(doc(dbAsisten, 'sesi', ID_SESI, 'rahasia', 'qr')),
   );
 });
 
@@ -469,11 +499,12 @@ test('B04-11: praktikan tidak dapat membaca riwayat akun lain', async () => {
     await setDoc(
       doc(context.firestore(), 'presensi', 'sesi-01_praktikan-lain'),
       {
+        idPresensi: 'sesi-01_praktikan-lain',
         sesiId: ID_SESI,
         kelasId: ID_KELAS,
         uid: 'praktikan-lain',
         waktuHadir: new Date(),
-        kodeQr: KODE_QR_VALID,
+        jarakMeter: 5,
       },
     );
   });
@@ -483,13 +514,14 @@ test('B04-11: praktikan tidak dapat membaca riwayat akun lain', async () => {
   );
 });
 
-test('B04-12: presensi dengan kode QR salah ditolak', async () => {
+test('B04-12: presensi langsung dengan kode QR salah ditolak', async () => {
   await siapkanDataPresensiIzin();
 
   const db = dbSebagai('praktikan-01');
 
   await assertFails(
     setDoc(doc(db, 'presensi', ID_IZIN), {
+      idPresensi: ID_IZIN,
       sesiId: ID_SESI,
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
@@ -506,11 +538,12 @@ test('B04-13: presensi pada kelas atau sesi yang diarsipkan ditolak', async () =
 
   await assertFails(
     setDoc(doc(db, 'presensi', ID_IZIN), {
+      idPresensi: ID_IZIN,
       sesiId: ID_SESI,
       kelasId: ID_KELAS,
       uid: 'praktikan-01',
       waktuHadir: serverTimestamp(),
-      kodeQr: KODE_QR_VALID,
+      jarakMeter: 5,
     }),
   );
 });
@@ -522,11 +555,12 @@ test('B04-14: batch presensi dan izin MENUNGGU bersamaan ditolak', async () => {
   const batch = writeBatch(db);
 
   batch.set(doc(db, 'presensi', ID_IZIN), {
+    idPresensi: ID_IZIN,
     sesiId: ID_SESI,
     kelasId: ID_KELAS,
     uid: 'praktikan-01',
     waktuHadir: serverTimestamp(),
-    kodeQr: KODE_QR_VALID,
+    jarakMeter: 5,
   });
 
   batch.set(doc(db, 'izin', ID_IZIN), {
@@ -535,6 +569,67 @@ test('B04-14: batch presensi dan izin MENUNGGU bersamaan ditolak', async () => {
   });
 
   await assertFails(batch.commit());
+});
+
+test('B04-15: klien tidak dapat mengubah atau menghapus dokumen presensi yang dibuat server', async () => {
+  await siapkanDataPresensiIzin({ sudahPresensi: true });
+
+  const dbPraktikan = dbSebagai('praktikan-01');
+  const dbAsisten = dbSebagai('asisten-01');
+
+  await assertFails(
+    updateDoc(doc(dbPraktikan, 'presensi', ID_IZIN), { jarakMeter: 1 }),
+  );
+  await assertFails(deleteDoc(doc(dbPraktikan, 'presensi', ID_IZIN)));
+  await assertFails(
+    updateDoc(doc(dbAsisten, 'presensi', ID_IZIN), { jarakMeter: 1 }),
+  );
+  await assertFails(deleteDoc(doc(dbAsisten, 'presensi', ID_IZIN)));
+});
+
+test('B04-16: praktikan pemilik dapat membaca dokumen dan daftar riwayat presensi miliknya', async () => {
+  await siapkanDataPresensiIzin({ sudahPresensi: true });
+
+  const dbPraktikan = dbSebagai('praktikan-01');
+
+  await assertSucceeds(getDoc(doc(dbPraktikan, 'presensi', ID_IZIN)));
+  await assertSucceeds(
+    getDocs(
+      query(
+        collection(dbPraktikan, 'presensi'),
+        where('uid', '==', 'praktikan-01'),
+      ),
+    ),
+  );
+});
+
+test('B04-17: asisten pemilik dapat membaca rekap presensi kelasnya, asisten lain ditolak', async () => {
+  await siapkanDataPresensiIzin({ sudahPresensi: true });
+
+  const dbAsisten = dbSebagai('asisten-01');
+  const dbAsistenLain = dbSebagai('asisten-02');
+
+  await assertSucceeds(getDoc(doc(dbAsisten, 'presensi', ID_IZIN)));
+  await assertSucceeds(
+    getDocs(
+      query(
+        collection(dbAsisten, 'presensi'),
+        where('kelasId', '==', ID_KELAS),
+        where('sesiId', '==', ID_SESI),
+      ),
+    ),
+  );
+
+  await assertFails(getDoc(doc(dbAsistenLain, 'presensi', ID_IZIN)));
+  await assertFails(
+    getDocs(
+      query(
+        collection(dbAsistenLain, 'presensi'),
+        where('kelasId', '==', ID_KELAS),
+        where('sesiId', '==', ID_SESI),
+      ),
+    ),
+  );
 });
 
 // ==========================================

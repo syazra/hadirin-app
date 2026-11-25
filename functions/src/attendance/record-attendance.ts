@@ -55,7 +55,7 @@ export function hitungJarakHaversineMeter(
 
 /**
  * Memvalidasi kecocokan bukti QR dari klien terhadap sesiId & tokenQrAktif di Firestore.
- * Mendukung format JSON ({ idSesi/sesiId, kodeQr/token }) maupun string token mentah.
+ * Mendukung format `hadirin:<idSesi>:<kodeQr>`, deep link, JSON, maupun string token mentah.
  */
 export function validasiBuktiQr(
   buktiQrRaw: string,
@@ -64,6 +64,11 @@ export function validasiBuktiQr(
 ): boolean {
   const bukti = buktiQrRaw.trim();
   if (!bukti || !tokenQrAktif) {
+    return false;
+  }
+
+  const tokenAktif = tokenQrAktif.trim();
+  if (!tokenAktif) {
     return false;
   }
 
@@ -78,13 +83,31 @@ export function validasiBuktiQr(
         return false;
       }
 
-      return tokenDariQr === tokenQrAktif.trim();
+      return tokenDariQr === tokenAktif;
     } catch {
       return false;
     }
   }
 
-  // 2. Format JSON: { idSesi/sesiId, kodeQr/token }
+  // 2. Format utama aplikasi: hadirin:<idSesi>:<kodeQr>
+  if (bukti.startsWith('hadirin:')) {
+    const bagian = bukti.split(':');
+    const [awalan, idSesiQr, kodeQr] = bagian;
+
+    if (
+      bagian.length !== 3 ||
+      awalan !== 'hadirin' ||
+      !idSesiQr ||
+      !kodeQr ||
+      /\s/.test(idSesiQr + kodeQr)
+    ) {
+      return false;
+    }
+
+    return idSesiQr === sesiId && kodeQr === tokenAktif;
+  }
+
+  // 3. Format JSON: { idSesi/sesiId, kodeQr/token }
   if (bukti.startsWith('{')) {
     try {
       const parsed = JSON.parse(bukti) as {
@@ -112,14 +135,14 @@ export function validasiBuktiQr(
             ? parsed.token
             : '';
 
-      return tokenDariQr.trim() === tokenQrAktif.trim();
+      return tokenDariQr.trim() === tokenAktif;
     } catch {
       return false;
     }
   }
 
-  // 3. Format Token Mentah
-  return bukti === tokenQrAktif.trim();
+  // 4. Format Token Mentah
+  return bukti === tokenAktif;
 }
 
 export interface EvaluasiPresensiInput {
@@ -245,6 +268,23 @@ export function evaluasiKelayakanPresensi(
     throw new HttpsError(
       'failed-precondition',
       'Lokasi laboratorium untuk sesi ini sedang nonaktif.',
+      { alasan: 'DATA_TIDAK_DITEMUKAN' },
+    );
+  }
+
+  if (
+    !Number.isFinite(lab.latitude) ||
+    lab.latitude < -90 ||
+    lab.latitude > 90 ||
+    !Number.isFinite(lab.longitude) ||
+    lab.longitude < -180 ||
+    lab.longitude > 180 ||
+    !Number.isFinite(lab.radiusPresensi) ||
+    lab.radiusPresensi <= 0
+  ) {
+    throw new HttpsError(
+      'failed-precondition',
+      'Konfigurasi koordinat atau radius laboratorium belum valid.',
       { alasan: 'DATA_TIDAK_DITEMUKAN' },
     );
   }
@@ -375,7 +415,7 @@ export async function prosesRecordAttendance(
       : tx.get(
           db
             .collection('laboratorium')
-            .where('namaLab', '==', lokasiNama)
+            .where('nama', '==', lokasiNama)
             .limit(1),
         );
 
@@ -432,9 +472,16 @@ export async function prosesRecordAttendance(
         tokenQrAktif,
       },
       lab: {
-        latitude: Number(labData.latitude),
-        longitude: Number(labData.longitude),
-        radiusPresensi: Number(labData.radiusPresensi ?? 50),
+        latitude:
+          typeof labData.latitude === 'number' ? labData.latitude : Number.NaN,
+        longitude:
+          typeof labData.longitude === 'number'
+            ? labData.longitude
+            : Number.NaN,
+        radiusPresensi:
+          typeof labData.radiusPresensi === 'number'
+            ? labData.radiusPresensi
+            : Number.NaN,
         aktif: labData.aktif !== false,
       },
       keanggotaan: anggotaData,

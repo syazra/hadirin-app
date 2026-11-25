@@ -8,8 +8,8 @@ import {
   where,
 } from '@react-native-firebase/firestore';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Linking, StyleSheet, Text, View } from 'react-native';
 
 import { PresensiBerhasilSheet } from '@/components/praktikan/presensi-berhasil-sheet';
 import {
@@ -25,6 +25,8 @@ import { getFirebaseServices, isFirebaseAvailable } from '@/lib/firebase';
 import { catatPresensiDariQr } from '@/services/presensi-service';
 import type { Hasil, Presensi } from '@/types';
 import { bacaPayloadQr } from '@/utils/qr-payload';
+
+const BATAS_USIA_LOKASI_MS = 30_000;
 
 export interface ScannerQrProps {
   idSesi: string;
@@ -140,81 +142,146 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
   const [sedangRefreshLokasi, setSedangRefreshLokasi] = useState(false);
   const [sudahDipindai, setSudahDipindai] = useState(false);
   const [targetLab, setTargetLab] = useState<TargetLabPresensi | null>(null);
+  const [sedangMuatLab, setSedangMuatLab] = useState(() =>
+    Boolean(isFirebaseAvailable && idSesi),
+  );
+  const [errorMuatLab, setErrorMuatLab] = useState<string | null>(null);
+  const [waktuSekarangMs, setWaktuSekarangMs] = useState(() => Date.now());
   const [permission, requestPermission] = useCameraPermissions();
 
   const lokasi = useUserLocation({ watch: true });
 
   useEffect(() => {
+    if (!lokasi.position) return;
+
+    const interval = setInterval(() => {
+      setWaktuSekarangMs(Date.now());
+    }, 5_000);
+
+    return () => clearInterval(interval);
+  }, [lokasi.position]);
+
+  const muatTargetLab = useCallback(async (): Promise<{
+    lab: TargetLabPresensi | null;
+    error: string | null;
+  }> => {
+    if (!isFirebaseAvailable || !idSesi) {
+      return { lab: null, error: null };
+    }
+
+    try {
+      const { db } = getFirebaseServices();
+      const sesiSnap = await getDoc(doc(db, 'sesi', idSesi));
+      if (!sesiSnap.exists()) {
+        return {
+          lab: null,
+          error: 'Data sesi tidak ditemukan. Periksa koneksi lalu coba lagi.',
+        };
+      }
+
+      const sesiData = sesiSnap.data();
+      const labId =
+        typeof sesiData?.labId === 'string' ? sesiData.labId.trim() : '';
+      const namaLokasi =
+        typeof sesiData?.lokasi === 'string' ? sesiData.lokasi.trim() : '';
+
+      let labData: Record<string, unknown> | undefined;
+
+      if (labId) {
+        const labSnap = await getDoc(doc(db, 'laboratorium', labId));
+        if (labSnap.exists()) {
+          labData = labSnap.data();
+        }
+      } else if (namaLokasi) {
+        const labQuery = query(
+          collection(db, 'laboratorium'),
+          where('nama', '==', namaLokasi),
+          limit(1),
+        );
+        const labSnap = await getDocs(labQuery);
+        if (!labSnap.empty) {
+          labData = labSnap.docs[0].data();
+        }
+      }
+
+      if (!labData || labData.aktif === false) {
+        return {
+          lab: null,
+          error:
+            'Data laboratorium untuk sesi ini tidak ditemukan atau sedang nonaktif.',
+        };
+      }
+
+      if (
+        typeof labData.latitude !== 'number' ||
+        !Number.isFinite(labData.latitude) ||
+        typeof labData.longitude !== 'number' ||
+        !Number.isFinite(labData.longitude) ||
+        typeof labData.radiusPresensi !== 'number' ||
+        !Number.isFinite(labData.radiusPresensi) ||
+        labData.radiusPresensi <= 0
+      ) {
+        return {
+          lab: null,
+          error: 'Konfigurasi koordinat atau radius laboratorium belum valid.',
+        };
+      }
+
+      return {
+        lab: {
+          namaLab:
+            typeof labData.nama === 'string'
+              ? labData.nama
+              : typeof labData.namaLab === 'string'
+                ? labData.namaLab
+                : namaLokasi || 'Laboratorium',
+          latitude: labData.latitude,
+          longitude: labData.longitude,
+          radiusPresensi: labData.radiusPresensi,
+        },
+        error: null,
+      };
+    } catch {
+      return {
+        lab: null,
+        error:
+          'Gagal memuat data lokasi laboratorium. Periksa koneksi lalu coba lagi.',
+      };
+    }
+  }, [idSesi]);
+
+  useEffect(() => {
     if (!isFirebaseAvailable || !idSesi) return;
     let aktif = true;
 
-    (async () => {
-      try {
-        const { db } = getFirebaseServices();
-        const sesiSnap = await getDoc(doc(db, 'sesi', idSesi));
-        if (!aktif || !sesiSnap.exists()) return;
-
-        const sesiData = sesiSnap.data();
-        const labId =
-          typeof sesiData?.labId === 'string' ? sesiData.labId.trim() : '';
-        const namaLokasi =
-          typeof sesiData?.lokasi === 'string' ? sesiData.lokasi.trim() : '';
-
-        let labData: Record<string, unknown> | undefined;
-
-        if (labId) {
-          const labSnap = await getDoc(doc(db, 'laboratorium', labId));
-          if (labSnap.exists()) {
-            labData = labSnap.data();
-          }
-        } else if (namaLokasi) {
-          const labQuery = query(
-            collection(db, 'laboratorium'),
-            where('nama', '==', namaLokasi),
-            limit(1),
-          );
-          const labSnap = await getDocs(labQuery);
-          if (!labSnap.empty) {
-            labData = labSnap.docs[0].data();
-          }
-        }
-
-        if (
-          aktif &&
-          labData &&
-          typeof labData.latitude === 'number' &&
-          typeof labData.longitude === 'number'
-        ) {
-          setTargetLab({
-            namaLab:
-              typeof labData.nama === 'string'
-                ? labData.nama
-                : typeof labData.namaLab === 'string'
-                  ? labData.namaLab
-                  : namaLokasi || 'Laboratorium',
-            latitude: labData.latitude,
-            longitude: labData.longitude,
-            radiusPresensi:
-              typeof labData.radiusPresensi === 'number'
-                ? labData.radiusPresensi
-                : 50,
-          });
-        }
-      } catch {
-        // Validasi tetap dijalankan di presensi-service
-      }
-    })();
+    void muatTargetLab().then((hasil) => {
+      if (!aktif) return;
+      setTargetLab(hasil.lab);
+      setErrorMuatLab(hasil.error);
+      setSedangMuatLab(false);
+    });
 
     return () => {
       aktif = false;
     };
-  }, [idSesi]);
+  }, [idSesi, muatTargetLab]);
 
   async function tanganiRefreshLokasi() {
     if (sedangRefreshLokasi) return;
     setSedangRefreshLokasi(true);
     try {
-      await lokasi.refresh();
+      if (targetLab === null || errorMuatLab !== null) {
+        const [, hasilLab] = await Promise.all([
+          lokasi.refresh(),
+          muatTargetLab(),
+        ]);
+        setTargetLab(hasilLab.lab);
+        setErrorMuatLab(hasilLab.error);
+        setSedangMuatLab(false);
+      } else {
+        await lokasi.refresh();
+      }
+      setWaktuSekarangMs(Date.now());
     } finally {
       setSedangRefreshLokasi(false);
     }
@@ -237,29 +304,49 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
     jarakLokalMeter !== null &&
     jarakLokalMeter > targetLab.radiusPresensi;
 
+  const lokasiStale =
+    lokasi.isStale ||
+    (lokasi.position !== null &&
+      Math.max(waktuSekarangMs, lokasi.position.timestamp) -
+        lokasi.position.timestamp >
+        BATAS_USIA_LOKASI_MS);
+
   const lokasiSiapScan =
     !lokasi.loading &&
+    !sedangMuatLab &&
     !lokasi.servicesDisabled &&
     !lokasi.permissionDenied &&
     !lokasi.error &&
+    !errorMuatLab &&
+    targetLab !== null &&
     lokasi.position !== null &&
     !lokasi.isLowAccuracy &&
+    !lokasiStale &&
     !diLuarRadiusLokal;
 
   async function prosesScan(payloadQr: string) {
     if (sedangMemproses || sudahDipindai) return;
 
-    if (!lokasiSiapScan || !lokasi.position) {
+    const staleSaatScan =
+      lokasi.isStale ||
+      (lokasi.position !== null &&
+        Date.now() - lokasi.position.timestamp > BATAS_USIA_LOKASI_MS);
+
+    if (!lokasiSiapScan || !lokasi.position || staleSaatScan) {
       setSudahDipindai(true);
       setHasilTampilan({
         berhasil: false,
         judul: diLuarRadiusLokal
           ? 'Di luar radius laboratorium'
-          : 'Lokasi belum siap',
+          : staleSaatScan
+            ? 'Lokasi GPS kedaluwarsa'
+            : 'Lokasi belum siap',
         pesan: diLuarRadiusLokal
           ? `Jarakmu sekitar ${jarakLokalMeter} m dari ${targetLab?.namaLab ?? 'laboratorium'} (batas ${targetLab?.radiusPresensi} m).`
-          : lokasi.error ??
-            'Pastikan GPS aktif, akurasi stabil, dan izin lokasi diberikan sebelum memindai QR.',
+          : staleSaatScan
+            ? 'Perbarui lokasi GPS terlebih dahulu sebelum memindai QR.'
+            : (lokasi.error ?? errorMuatLab) ??
+              'Pastikan GPS aktif, akurasi stabil, dan izin lokasi diberikan sebelum memindai QR.',
       });
       setSheetTerbuka(true);
       return;
@@ -346,15 +433,19 @@ export function ScannerQr({ idSesi, onBerhasil, onBatal }: ScannerQrProps) {
       </View>
 
       <PresensiLocationStatus
-        loading={lokasi.loading || sedangRefreshLokasi}
+        loading={lokasi.loading || sedangRefreshLokasi || sedangMuatLab}
         permissionDenied={lokasi.permissionDenied}
         servicesDisabled={lokasi.servicesDisabled}
         position={lokasi.position}
         isLowAccuracy={lokasi.isLowAccuracy}
-        error={lokasi.error}
+        isStale={lokasiStale}
+        error={lokasi.error ?? errorMuatLab}
         targetLab={targetLab}
         onRefresh={() => {
           void tanganiRefreshLokasi();
+        }}
+        onOpenSettings={() => {
+          void Linking.openSettings();
         }}
       />
 

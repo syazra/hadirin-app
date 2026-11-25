@@ -101,15 +101,6 @@ service cloud.firestore {
         );
     }
 
-    function praktikanBolehBacaQrSesiAktif(sesiId) {
-      return isPraktikan()
-        && exists(pathSesi(sesiId))
-        && get(pathSesi(sesiId)).data.statusSesi == 'DIBUKA'
-        && get(pathSesi(sesiId)).data.diarsipkan == false
-        && kelasAktif(get(pathSesi(sesiId)).data.kelasId)
-        && anggotaAktif(get(pathSesi(sesiId)).data.kelasId, request.auth.uid);
-    }
-
     function izinKosongDapatDibacaPraktikan(izinId) {
       let uid = request.auth.uid;
       let panjangSesiId = izinId.size() - uid.size() - 1;
@@ -388,36 +379,6 @@ service cloud.firestore {
         && !existsAfter(pathPresensi(sesiId, uid));
     }
 
-    function presensiBaruValid(presensiId) {
-      let data = request.resource.data;
-      let sesiId = data.sesiId;
-      let kelasId = data.kelasId;
-      let uid = request.auth.uid;
-
-      return isPraktikan()
-        && data.keys().hasAll(['idPresensi', 'sesiId', 'kelasId', 'uid', 'waktuHadir'])
-        && data.keys().hasOnly([
-          'idPresensi', 'sesiId', 'kelasId', 'uid', 'waktuHadir', 'jarakMeter'
-        ])
-        && sesiId is string
-        && kelasId is string
-        && data.uid == uid
-        && data.idPresensi == sesiId + '_' + uid
-        && presensiId == sesiId + '_' + uid
-        && data.waktuHadir == request.time
-        && (!('jarakMeter' in data) || (data.jarakMeter is number && data.jarakMeter >= 0))
-        && exists(pathSesi(sesiId))
-        && get(pathSesi(sesiId)).data.kelasId == kelasId
-        && get(pathSesi(sesiId)).data.statusSesi == 'DIBUKA'
-        && get(pathSesi(sesiId)).data.diarsipkan == false
-        && exists(pathKelas(kelasId))
-        && kelasAktif(kelasId)
-        && exists(pathAnggota(kelasId, uid))
-        && anggotaAktif(kelasId, uid)
-        && !exists(pathPresensi(sesiId, uid))
-        && !exists(pathIzin(sesiId, uid));
-    }
-
     function presensiMilikPraktikan(data, presensiId) {
       return data.keys().hasAll(['uid', 'sesiId'])
         && isPraktikan()
@@ -578,10 +539,7 @@ service cloud.firestore {
 
       match /rahasia/{rahasiaId} {
         allow get: if rahasiaId == 'qr'
-          && (
-            sesiDimilikiAsisten(sesiId)
-            || praktikanBolehBacaQrSesiAktif(sesiId)
-          );
+          && sesiDimilikiAsisten(sesiId);
         allow list: if false;
         allow create: if rahasiaId == 'qr'
           && isAsisten()
@@ -614,8 +572,7 @@ service cloud.firestore {
           isAsisten()
           && kelasDimilikiAsistenDiData(resource.data)
         );
-      allow create: if presensiBaruValid(presensiId);
-      allow update, delete: if false;
+      allow create, update, delete: if false;
     }
 
     match /izin/{izinId} {

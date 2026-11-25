@@ -41,9 +41,11 @@ export interface PresensiLocationStatusProps {
   servicesDisabled: boolean;
   position: KoordinatPengguna | null;
   isLowAccuracy: boolean;
+  isStale?: boolean;
   error: string | null;
   targetLab: TargetLabPresensi | null;
   onRefresh: () => void;
+  onOpenSettings?: () => void;
 }
 
 function formatJamSingkat(timestamp: number): string {
@@ -61,9 +63,11 @@ export function PresensiLocationStatus({
   servicesDisabled,
   position,
   isLowAccuracy,
+  isStale = false,
   error,
   targetLab,
   onRefresh,
+  onOpenSettings,
 }: PresensiLocationStatusProps) {
   if (loading && !position) {
     return (
@@ -80,6 +84,10 @@ export function PresensiLocationStatus({
   }
 
   if (servicesDisabled || permissionDenied || error || !position) {
+    const tampilkanTombolPengaturan = Boolean(permissionDenied && onOpenSettings);
+    const aksiTombol = tampilkanTombolPengaturan ? onOpenSettings! : onRefresh;
+    const tombolNonaktif = tampilkanTombolPengaturan ? false : loading;
+
     return (
       <View style={[styles.card, styles.cardError]}>
         <View style={styles.textWrap}>
@@ -91,22 +99,27 @@ export function PresensiLocationStatus({
                 : 'Lokasi tidak tersedia'}
           </Text>
           <Text style={styles.subtitle}>
-            {error ?? 'Aktifkan GPS dan izinkan akses lokasi untuk presensi.'}
+            {error ??
+              (permissionDenied
+                ? 'Izin akses lokasi ditolak. Buka Pengaturan untuk mengizinkan akses lokasi.'
+                : 'Aktifkan GPS dan izinkan akses lokasi untuk presensi.')}
           </Text>
         </View>
         <Pressable
-          onPress={onRefresh}
-          disabled={loading}
+          onPress={aksiTombol}
+          disabled={tombolNonaktif}
           hitSlop={10}
           style={({ pressed }) => [
             styles.retryBtn,
-            (pressed || loading) && styles.retryBtnDisabled,
+            (pressed || tombolNonaktif) && styles.retryBtnDisabled,
           ]}
         >
-          {loading ? (
+          {!tampilkanTombolPengaturan && loading ? (
             <ActivityIndicator size="small" color={Colors.light.primary} />
           ) : (
-            <Text style={styles.retryText}>Coba Lagi</Text>
+            <Text style={styles.retryText}>
+              {tampilkanTombolPengaturan ? 'Pengaturan' : 'Coba Lagi'}
+            </Text>
           )}
         </Pressable>
       </View>
@@ -131,19 +144,25 @@ export function PresensiLocationStatus({
 
   const waktuUpdate = formatJamSingkat(position.timestamp);
 
-  if (isLowAccuracy || diLuarRadius) {
+  if (isLowAccuracy || isStale || diLuarRadius) {
+    const judulPeringatan = diLuarRadius
+      ? `Di luar radius lab (${jarakMeter} m / maks ${targetLab?.radiusPresensi} m)`
+      : isLowAccuracy
+        ? `Akurasi GPS rendah (±${Math.round(position.accuracy ?? 0)} m)`
+        : 'Lokasi GPS kedaluwarsa';
+
+    const pesanPeringatan = diLuarRadius
+      ? `Mendekatlah ke ${targetLab?.namaLab || 'area laboratorium'} sebelum memindai QR.`
+      : isLowAccuracy
+        ? 'Sinyal GPS belum stabil (butuh akurasi ≤ 50 m). Perbarui lokasi.'
+        : 'Titik lokasi terakhir sudah terlalu lama (> 30 detik). Tekan Perbarui sebelum memindai QR.';
+
     return (
       <View style={[styles.card, styles.cardWarning]}>
         <View style={styles.textWrap}>
-          <Text style={styles.titleWarning}>
-            {diLuarRadius
-              ? `Di luar radius lab (${jarakMeter} m / maks ${targetLab?.radiusPresensi} m)`
-              : `Akurasi GPS rendah (±${Math.round(position.accuracy ?? 0)} m)`}
-          </Text>
+          <Text style={styles.titleWarning}>{judulPeringatan}</Text>
           <Text style={styles.subtitle}>
-            {diLuarRadius
-              ? `Mendekatlah ke ${targetLab?.namaLab || 'area laboratorium'} sebelum memindai QR.`
-              : 'Sinyal GPS belum stabil (butuh akurasi ≤ 50 m). Perbarui lokasi.'}
+            {pesanPeringatan}
             {waktuUpdate ? ` • Diperbarui ${waktuUpdate}` : ''}
           </Text>
         </View>

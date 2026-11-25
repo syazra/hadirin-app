@@ -94,6 +94,71 @@ describe('evaluasiKelayakanPresensi', () => {
     assert.ok(hasil.jarakMeter <= 50);
   });
 
+  it('mendukung format payload QR hadirin:<idSesi>:<kodeQr> dan menolak jika idSesi berbeda', () => {
+    const hasil = evaluasiKelayakanPresensi({
+      sesi: SESI_AKTIF,
+      lab: LAB_RPL,
+      keanggotaan: ANGGOTA_AKTIF,
+      izin: null,
+      sudahPresensi: false,
+      payload: buatPayloadValid({
+        buktiQr: 'hadirin:seed-sesi-ppb-03:SEED-QR-PPB03',
+      }),
+      waktuServerMs: WAKTU_SERVER,
+    });
+
+    assert.ok(hasil.jarakMeter <= 50);
+
+    assert.throws(
+      () =>
+        evaluasiKelayakanPresensi({
+          sesi: SESI_AKTIF,
+          lab: LAB_RPL,
+          keanggotaan: ANGGOTA_AKTIF,
+          izin: null,
+          sudahPresensi: false,
+          payload: buatPayloadValid({
+            buktiQr: 'hadirin:sesi-lain:SEED-QR-PPB03',
+          }),
+          waktuServerMs: WAKTU_SERVER,
+        }),
+      (err: unknown) =>
+        err instanceof HttpsError && err.code === 'invalid-argument',
+    );
+  });
+
+  it('menolak konfigurasi koordinat atau radiusPresensi laboratorium yang tidak valid', () => {
+    assert.throws(
+      () =>
+        evaluasiKelayakanPresensi({
+          sesi: SESI_AKTIF,
+          lab: { ...LAB_RPL, radiusPresensi: 0 },
+          keanggotaan: ANGGOTA_AKTIF,
+          izin: null,
+          sudahPresensi: false,
+          payload: buatPayloadValid(),
+          waktuServerMs: WAKTU_SERVER,
+        }),
+      (err: unknown) =>
+        err instanceof HttpsError && err.code === 'failed-precondition',
+    );
+
+    assert.throws(
+      () =>
+        evaluasiKelayakanPresensi({
+          sesi: SESI_AKTIF,
+          lab: { ...LAB_RPL, latitude: Number.NaN },
+          keanggotaan: ANGGOTA_AKTIF,
+          izin: null,
+          sudahPresensi: false,
+          payload: buatPayloadValid(),
+          waktuServerMs: WAKTU_SERVER,
+        }),
+      (err: unknown) =>
+        err instanceof HttpsError && err.code === 'failed-precondition',
+    );
+  });
+
   it('menolak presensi jika posisi praktikan di luar radiusPresensi laboratorium', () => {
     assert.throws(
       () =>
@@ -349,5 +414,102 @@ describe('prosesRecordAttendance (transaction & concurrent duplicate)', () => {
       savedDoc.idPresensi,
       'seed-sesi-ppb-03_seed-praktikan-01',
     );
+  });
+
+  it('mencari laboratorium melalui field nama ketika labId kosong pada sesi', async () => {
+    const queriedFields: Array<{ field: string; value: unknown }> = [];
+    const store = new Map<string, Record<string, unknown>>([
+      [
+        'sesi/seed-sesi-ppb-03',
+        {
+          idSesi: 'seed-sesi-ppb-03',
+          kelasId: 'seed-kelas-ppb-a',
+          lokasi: 'Lab RPL',
+          statusSesi: 'DIBUKA',
+          diarsipkan: false,
+          tokenQrAktif: 'SEED-QR-PPB03',
+        },
+      ],
+      [
+        'keanggotaan/seed-kelas-ppb-a_seed-praktikan-01',
+        { status: 'AKTIF' },
+      ],
+    ]);
+
+    const makeDocRef = (path: string) => ({
+      path,
+      collection(subName: string) {
+        return {
+          doc(subId: string) {
+            return makeDocRef(`${path}/${subName}/${subId}`);
+          },
+        };
+      },
+    });
+
+    const mockDb = {
+      collection(name: string) {
+        return {
+          doc(id: string) {
+            return makeDocRef(`${name}/${id}`);
+          },
+          where(field: string, _op: string, value: unknown) {
+            if (name === 'laboratorium') {
+              queriedFields.push({ field, value });
+            }
+            return {
+              where() {
+                return {
+                  limit() {
+                    return { __isQuery: true, collectionName: name };
+                  },
+                };
+              },
+              limit() {
+                return { __isQuery: true, collectionName: name };
+              },
+            };
+          },
+        };
+      },
+      async runTransaction<T>(
+        fn: (tx: {
+          get: (target: unknown) => Promise<unknown>;
+          set: (ref: { path: string }, data: Record<string, unknown>) => void;
+        }) => Promise<T>,
+      ): Promise<T> {
+        const tx = {
+          async get(target: unknown) {
+            if (target && typeof target === 'object' && '__isQuery' in target) {
+              const q = target as { collectionName?: string };
+              if (q.collectionName === 'laboratorium') {
+                return {
+                  empty: false,
+                  docs: [{ data: () => ({ ...LAB_RPL, nama: 'Lab RPL' }) }],
+                };
+              }
+              return { empty: true, docs: [] };
+            }
+            const ref = target as { path: string };
+            const data = store.get(ref.path);
+            return { exists: data !== undefined, data: () => data };
+          },
+          set(ref: { path: string }, data: Record<string, unknown>) {
+            store.set(ref.path, data);
+          },
+        };
+        return fn(tx);
+      },
+    } as unknown as admin.firestore.Firestore;
+
+    const hasil = await prosesRecordAttendance(
+      mockDb,
+      'seed-praktikan-01',
+      buatPayloadValid({ buktiQr: 'hadirin:seed-sesi-ppb-03:SEED-QR-PPB03' }),
+      WAKTU_SERVER,
+    );
+
+    assert.equal(hasil.ok, true);
+    assert.deepEqual(queriedFields, [{ field: 'nama', value: 'Lab RPL' }]);
   });
 });
