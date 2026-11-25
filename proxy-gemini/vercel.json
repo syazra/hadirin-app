@@ -3,6 +3,9 @@
   "functions": {
     "api/klasifikasi-izin.ts": {
       "maxDuration": 30
+    },
+    "api/presensi.ts": {
+      "maxDuration": 15
     }
   }
 }

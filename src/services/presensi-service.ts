@@ -1,13 +1,10 @@
+import { getIdToken } from '@react-native-firebase/auth';
 import {
   collection,
   doc,
   getDoc,
-  getDocs,
-  limit,
   onSnapshot,
   query,
-  runTransaction,
-  serverTimestamp,
   where,
 } from '@react-native-firebase/firestore';
 
@@ -23,6 +20,38 @@ import type {
 import type { KoordinatPengguna } from '@/types/location';
 import { bacaPayloadQr } from '@/utils/qr-payload';
 
+const BATAS_AKURASI_MAKSIMAL_METER = 50;
+const BATAS_USIA_LOKASI_MS = 30_000;
+const TIMEOUT_PRESENSI_MS = 15_000;
+
+const ALASAN_GAGAL_VALID: readonly AlasanGagal[] = [
+  'BELUM_DIBUKA',
+  'SUDAH_DITUTUP',
+  'SUDAH_PRESENSI',
+  'QR_TIDAK_VALID',
+  'BUKAN_ANGGOTA',
+  'ADA_IZIN',
+  'SUDAH_HADIR',
+  'SUDAH_ADA_IZIN',
+  'SUDAH_DIPUTUSKAN',
+  'DATA_TIDAK_DITEMUKAN',
+  'TIDAK_BERWENANG',
+  'INPUT_TIDAK_VALID',
+  'PESERTA_SUDAH_AKTIF',
+  'DATA_DIARSIPKAN',
+  'PROFIL_BELUM_LENGKAP',
+  'AUTENTIKASI_GAGAL',
+  'JARINGAN',
+  'TIMEOUT',
+  'KUOTA_HABIS',
+  'RESPONS_TIDAK_VALID',
+  'TIDAK_DIKENAL',
+];
+
+function adalahObjek(nilai: unknown): nilai is Record<string, unknown> {
+  return typeof nilai === 'object' && nilai !== null && !Array.isArray(nilai);
+}
+
 function gagal(
   alasan: AlasanGagal,
   pesan: string,
@@ -30,7 +59,7 @@ function gagal(
   return { ok: false, alasan, pesan };
 }
 
-function petakanErrorFirestore(error: unknown): Hasil<never> {
+function petakanErrorFirebase(error: unknown): Hasil<never> {
   if (
     typeof error === 'object' &&
     error !== null &&
@@ -41,7 +70,7 @@ function petakanErrorFirestore(error: unknown): Hasil<never> {
       message?: unknown;
     };
 
-    const kode = String(errObj.code).replace(/^firestore\//, '');
+    const kode = String(errObj.code).replace(/^(firestore|auth)\//, '');
     const pesanServer =
       typeof errObj.message === 'string' && errObj.message.trim().length > 0
         ? errObj.message
@@ -107,26 +136,6 @@ function konversiTanggal(nilai: unknown): Date | null {
   return null;
 }
 
-function hitungJarakMeter(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-): number {
-  const R = 6_371_000;
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-
-  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-}
-
 type SnapshotMinimal = {
   id: string;
   data: () => Record<string, unknown> | undefined;
@@ -151,8 +160,8 @@ function petakanPresensi(
 }
 
 /**
- * Mencatat presensi praktikan melalui transaksi Firestore klien
- * dengan validasi QR, geofence radius lab, dan aturan Firestore Rules (Spark Plan).
+ * Mencatat presensi praktikan melalui backend HTTPS tepercaya
+ * yang memverifikasi ID token, sesi, QR, keanggotaan, izin, dan geofence laboratorium.
  */
 export async function catatPresensiDariQr(
   payloadQr: string,
@@ -181,7 +190,50 @@ export async function catatPresensiDariQr(
     );
   }
 
-  const { auth, db } = getFirebaseServices();
+  if (
+    !Number.isFinite(posisi.latitude) ||
+    !Number.isFinite(posisi.longitude)
+  ) {
+    return gagal(
+      'INPUT_TIDAK_VALID',
+      'Koordinat lokasi GPS tidak valid. Perbarui lokasi lalu coba lagi.',
+    );
+  }
+
+  if (
+    posisi.accuracy === null ||
+    !Number.isFinite(posisi.accuracy) ||
+    posisi.accuracy <= 0 ||
+    posisi.accuracy > BATAS_AKURASI_MAKSIMAL_METER
+  ) {
+    return gagal(
+      'INPUT_TIDAK_VALID',
+      'Akurasi GPS terlalu rendah (maksimal 50 m). Pastikan berada di area terbuka lalu perbarui lokasi.',
+    );
+  }
+
+  if (
+    !Number.isFinite(posisi.timestamp) ||
+    Date.now() - posisi.timestamp > BATAS_USIA_LOKASI_MS
+  ) {
+    return gagal(
+      'INPUT_TIDAK_VALID',
+      'Lokasi GPS sudah kedaluwarsa. Perbarui lokasi GPS terlebih dahulu.',
+    );
+  }
+
+  const attendanceUrl = process.env.EXPO_PUBLIC_ATTENDANCE_API_URL?.trim();
+  const proxyUrl = process.env.EXPO_PUBLIC_GEMINI_PROXY_URL?.trim();
+  const baseUrl = (attendanceUrl || proxyUrl || '').replace(/\/$/, '');
+
+  if (!baseUrl) {
+    return gagal(
+      'TIDAK_DIKENAL',
+      'Alamat layanan presensi belum dikonfigurasi.',
+    );
+  }
+
+  const { auth } = getFirebaseServices();
   const user = auth.currentUser;
 
   if (!user) {
@@ -191,147 +243,119 @@ export async function catatPresensiDariQr(
     );
   }
 
-  const sesiId = hasilBaca.idSesi;
-  const idPresensi = `${sesiId}_${user.uid}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_PRESENSI_MS);
 
   try {
-    const hasilTx = await runTransaction(db, async (tx) => {
-      const sesiRef = doc(db, 'sesi', sesiId);
-      const sesiSnap = await tx.get(sesiRef);
-
-      if (!sesiSnap.exists()) {
-        throw new Error('DATA_TIDAK_DITEMUKAN|Sesi praktikum tidak ditemukan.');
-      }
-
-      const sesiData = sesiSnap.data()!;
-      const kelasId = String(sesiData.kelasId ?? '');
-      const labId = typeof sesiData.labId === 'string' ? sesiData.labId.trim() : '';
-      const lokasiNama = typeof sesiData.lokasi === 'string' ? sesiData.lokasi.trim() : '';
-
-      if (sesiData.diarsipkan) {
-        throw new Error('DATA_DIARSIPKAN|Sesi praktikum ini sudah diarsipkan.');
-      }
-
-      if (sesiData.statusSesi === 'BELUM_DIBUKA') {
-        throw new Error('BELUM_DIBUKA|Sesi presensi belum dibuka oleh asisten.');
-      }
-
-      if (sesiData.statusSesi !== 'DIBUKA') {
-        throw new Error('SUDAH_DITUTUP|Sesi presensi sudah ditutup.');
-      }
-
-      // Validasi kode QR rahasia
-      const qrSnap = await tx.get(doc(db, 'sesi', sesiId, 'rahasia', 'qr'));
-      const kodeQrServer = qrSnap.exists() ? String(qrSnap.data()?.kodeQr ?? '') : '';
-      if (!kodeQrServer || kodeQrServer.trim() !== hasilBaca.kodeQr.trim()) {
-        throw new Error('QR_TIDAK_VALID|Kode QR tidak valid atau sudah kedaluwarsa.');
-      }
-
-      // Validasi geofence laboratorium (mendukung labId maupun fallback nama lokasi)
-      let labData: Record<string, unknown> | null = null;
-
-      if (labId) {
-        const labSnap = await tx.get(doc(db, 'laboratorium', labId));
-        if (labSnap.exists()) {
-          labData = labSnap.data() ?? null;
-        }
-      }
-
-      if (!labData && lokasiNama) {
-        const labQuerySnap = await getDocs(
-          query(
-            collection(db, 'laboratorium'),
-            where('nama', '==', lokasiNama),
-            limit(1),
-          ),
-        );
-        if (!labQuerySnap.empty) {
-          labData = labQuerySnap.docs[0].data() ?? null;
-        }
-      }
-
-      if (!labData) {
-        throw new Error(
-          'DATA_TIDAK_DITEMUKAN|Data laboratorium untuk sesi ini tidak ditemukan.',
-        );
-      }
-
-      if (labData.aktif === false) {
-        throw new Error(
-          'DATA_TIDAK_DITEMUKAN|Lokasi laboratorium untuk sesi ini sedang nonaktif.',
-        );
-      }
-
-      const radiusPresensi = Number(labData.radiusPresensi ?? 50);
-      const jarakMeter = hitungJarakMeter(
-        posisi.latitude,
-        posisi.longitude,
-        Number(labData.latitude),
-        Number(labData.longitude),
-      );
-
-      if (jarakMeter > radiusPresensi) {
-        throw new Error(
-          `INPUT_TIDAK_VALID|Anda berada di luar area laboratorium (${Math.round(jarakMeter)} m dari titik pusat, batas ${radiusPresensi} m).`,
-        );
-      }
-
-      // Validasi keanggotaan aktif
-      const anggotaSnap = await tx.get(
-        doc(db, 'keanggotaan', `${kelasId}_${user.uid}`),
-      );
-      if (!anggotaSnap.exists() || anggotaSnap.data()?.status !== 'AKTIF') {
-        throw new Error('BUKAN_ANGGOTA|Anda bukan anggota aktif pada kelas praktikum ini.');
-      }
-
-      // Validasi belum pernah presensi
-      const presensiRef = doc(db, 'presensi', idPresensi);
-      const presensiSnap = await tx.get(presensiRef);
-      if (presensiSnap.exists()) {
-        throw new Error('SUDAH_PRESENSI|Anda sudah tercatat hadir pada sesi ini.');
-      }
-
-      // Validasi tidak ada pengajuan izin
-      const izinSnap = await tx.get(doc(db, 'izin', `${sesiId}_${user.uid}`));
-      if (izinSnap.exists()) {
-        const statusIzin = izinSnap.data()?.statusIzin;
-        if (statusIzin === 'MENUNGGU' || statusIzin === 'DISETUJUI') {
-          throw new Error(
-            'ADA_IZIN|Presensi tidak dapat dilakukan karena pengajuan izin masih menunggu atau sudah disetujui.',
-          );
-        }
-      }
-
-      const jarakDibulatkan = Math.round(jarakMeter * 10) / 10;
-
-      tx.set(presensiRef, {
-        idPresensi,
-        sesiId,
-        kelasId,
-        uid: user.uid,
-        waktuHadir: serverTimestamp(),
-        jarakMeter: jarakDibulatkan,
-      });
-
-      return { kelasId };
+    const token = await getIdToken(user);
+    const response = await fetch(`${baseUrl}/api/presensi`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sesiId: hasilBaca.idSesi,
+        buktiQr: payloadQr.trim(),
+        koordinat: {
+          latitude: posisi.latitude,
+          longitude: posisi.longitude,
+        },
+        akurasi: posisi.accuracy,
+        timestamp: posisi.timestamp,
+      }),
+      signal: controller.signal,
     });
 
-    return {
-      ok: true,
-      data: {
-        idPresensi,
-        sesiId,
-        kelasId: hasilTx.kelasId,
-        uid: user.uid,
-        waktuHadir: new Date(),
-      },
-    };
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('|')) {
-      const [kode, pesan] = error.message.split('|');
-      return gagal(kode as AlasanGagal, pesan);
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      return gagal(
+        'RESPONS_TIDAK_VALID',
+        'Respons layanan presensi tidak dapat dibaca.',
+      );
     }
-    return petakanErrorFirestore(error);
+
+    if (
+      response.ok &&
+      adalahObjek(body) &&
+      body.ok === true &&
+      adalahObjek(body.data)
+    ) {
+      const data = body.data;
+      const waktuParsed =
+        typeof data.waktuHadirIso === 'string'
+          ? new Date(data.waktuHadirIso)
+          : null;
+      const waktuHadir =
+        waktuParsed && !Number.isNaN(waktuParsed.getTime())
+          ? waktuParsed
+          : new Date();
+
+      return {
+        ok: true,
+        data: {
+          idPresensi:
+            typeof data.idPresensi === 'string' && data.idPresensi.trim()
+              ? data.idPresensi
+              : `${hasilBaca.idSesi}_${user.uid}`,
+          sesiId:
+            typeof data.sesiId === 'string' && data.sesiId.trim()
+              ? data.sesiId
+              : hasilBaca.idSesi,
+          kelasId: typeof data.kelasId === 'string' ? data.kelasId : '',
+          uid:
+            typeof data.uid === 'string' && data.uid.trim()
+              ? data.uid
+              : user.uid,
+          waktuHadir,
+        },
+      };
+    }
+
+    if (
+      adalahObjek(body) &&
+      typeof body.alasan === 'string' &&
+      ALASAN_GAGAL_VALID.includes(body.alasan as AlasanGagal)
+    ) {
+      return gagal(
+        body.alasan as AlasanGagal,
+        typeof body.pesan === 'string' && body.pesan.trim().length > 0
+          ? body.pesan
+          : 'Gagal mencatat presensi.',
+      );
+    }
+
+    return gagal(
+      'TIDAK_DIKENAL',
+      'Layanan presensi gagal memproses permintaan.',
+    );
+  } catch (error) {
+    const namaError =
+      error instanceof Error
+        ? error.name
+        : adalahObjek(error) && typeof error.name === 'string'
+          ? error.name
+          : '';
+
+    if (namaError === 'AbortError') {
+      return gagal(
+        'TIMEOUT',
+        'Permintaan presensi melewati batas waktu. Periksa koneksi lalu coba lagi.',
+      );
+    }
+
+    if (error instanceof TypeError || namaError === 'TypeError') {
+      return gagal(
+        'JARINGAN',
+        'Layanan presensi tidak dapat dijangkau. Periksa koneksi internet lalu coba lagi.',
+      );
+    }
+
+    return petakanErrorFirebase(error);
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
