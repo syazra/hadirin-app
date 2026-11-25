@@ -2,8 +2,8 @@ import { FieldValue, Timestamp, type Firestore, type Transaction } from 'firebas
 import {
   EVENT_COLLECTION, INTENT_COLLECTION, MAX_ATTEMPTS, NOTIFICATION_TYPES, RETRY_MS,
   identifier, type NotificationType,
-} from './notification-contract';
-import { notificationJob } from './send-notification';
+} from './notification-contract.js';
+import { notificationJob } from './send-notification.js';
 
 const RECIPIENTS_PER_JOB = 30;
 const messages = {

@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import type { BatchResponse, MulticastMessage, SendResponse } from 'firebase-admin/messaging';
-import { EVENT_COLLECTION, hash, LEASE_MS, MAX_ATTEMPTS, normalizeNotification, notificationData, RETRY_MS } from './notification-contract';
-import { deliveryId, getUserDevices, invalidToken, transientFailure, type NotificationDevice } from './token-service';
+import { EVENT_COLLECTION, hash, LEASE_MS, MAX_ATTEMPTS, normalizeNotification, notificationData, RETRY_MS } from './notification-contract.js';
+import { deliveryId, getUserDevices, invalidToken, transientFailure, type NotificationDevice } from './token-service.js';
 
 export interface NotificationSender {
   sendEachForMulticast(message: MulticastMessage): Promise<BatchResponse>;
