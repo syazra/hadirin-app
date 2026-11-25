@@ -1,12 +1,16 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { RiwayatItem } from '@/components/praktikan/riwayat-item';
-import { EmptyState } from '@/components/ui/empty-state';
 import { LayarPersiapan } from '@/components/shared/layar-persiapan';
-import { Colors, Spacing } from '@/constants/theme';
+import { BrandGradient } from '@/components/ui/brand-gradient';
+import { EmptyState } from '@/components/ui/empty-state';
+import { IconCheckCircle } from '@/components/ui/icons';
+import { LoadingState } from '@/components/ui/loading-state';
+import { EnterView, PopBadge } from '@/components/ui/motion';
+import { getStaggerDelay } from '@/constants/motion';
+import { Colors, Fonts, Radii, Shadows } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useRiwayatKehadiran } from '@/hooks/use-riwayat-kehadiran';
-
 
 export default function RiwayatScreen() {
   const { pengguna } = useAuth();
@@ -23,68 +27,113 @@ export default function RiwayatScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Riwayat Kehadiran</Text>
-        <Text style={styles.subtitle}>
-          Halo, {pengguna.nama}. Berikut catatan kehadiranmu.
-        </Text>
-      </View>
-
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
+    >
       {riwayat.length > 0 && (
-        <View style={styles.ringkasan}>
-          <Text style={styles.keterangan}>Total hadir: {jumlahHadir} sesi</Text>
-        </View>
+        <EnterView scaleFrom={0.97}>
+          <BrandGradient
+            variant="emerald"
+            style={[styles.ringkasan, Shadows.emeraldGlow]}
+          >
+            <View style={styles.ringkasanLeft}>
+              <PopBadge triggerKey={jumlahHadir}>
+                <Text style={styles.ringkasanCount}>{jumlahHadir}</Text>
+              </PopBadge>
+              <Text style={styles.ringkasanLabel}>Sesi Hadir</Text>
+            </View>
+            <View style={styles.ringkasanMedallion}>
+              <IconCheckCircle size={28} color="#FFFFFF" strokeWidth={2.1} />
+            </View>
+          </BrandGradient>
+        </EnterView>
       )}
 
-
-      <Text style={styles.label}>Riwayat Presensi</Text>
-
       {loading ? (
-        <Text>Memuat riwayat presensi...</Text>
+        <LoadingState pesan="Memuat riwayat presensi..." layarPenuh={false} />
       ) : riwayat.length > 0 ? (
         <>
-          {error && (
-            <Text style={styles.error}>
-              {error}
-            </Text>
-          )}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <View style={styles.daftar}>
-            {riwayat.map((item) => (
-              <RiwayatItem
+            {riwayat.map((item, index) => (
+              <EnterView
                 key={item.presensi.idPresensi}
-                {...item}
-              />
+                delay={getStaggerDelay(index, 70)}
+              >
+                <RiwayatItem {...item} />
+              </EnterView>
             ))}
           </View>
         </>
       ) : error ? (
         <Text style={styles.error}>{error}</Text>
       ) : (
-        <EmptyState
-          judul="Belum ada catatan kehadiran"
-          pesan="Presensi yang kamu lakukan akan muncul di sini."
-        />
+        <View style={styles.emptyWrap}>
+          <EmptyState
+            judul="Belum ada catatan kehadiran"
+            pesan="Presensi yang kamu lakukan akan muncul di sini."
+          />
+        </View>
       )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: Spacing.four, gap: Spacing.three, paddingBottom: 32 },
-  header: { gap: Spacing.two },
-  title: { fontSize: 24, fontWeight: '700', color: Colors.light.text },
-  subtitle: { fontSize: 14, lineHeight: 21, color: Colors.light.textSecondary },
-  ringkasan: {
-    padding: 20,
-    borderRadius: 16,
-    backgroundColor: Colors.light.primary,
-    alignItems: 'center',
-    gap: 5,
+  screen: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
   },
-  keterangan: { fontSize: 14, color: Colors.light.backgroundElement },
-  label: { fontSize: 16, fontWeight: '700', color: Colors.light.text },
-  daftar: { gap: 12 },
-  error: { color: Colors.light.danger, fontSize: 12, lineHeight: 18 },
+  container: {
+    padding: 20,
+    paddingTop: 14,
+    gap: 16,
+    paddingBottom: 36,
+    flexGrow: 1,
+  },
+  ringkasan: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderRadius: Radii.xl,
+  },
+  ringkasanLeft: {
+    gap: 2,
+  },
+  ringkasanCount: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 34,
+    lineHeight: 40,
+    color: '#FFFFFF',
+  },
+  ringkasanLabel: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 13.5,
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  ringkasanMedallion: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  daftar: {
+    gap: 12,
+  },
+  emptyWrap: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  error: {
+    fontFamily: Fonts.sansMedium,
+    color: Colors.light.danger,
+    fontSize: 12.5,
+    lineHeight: 18,
+  },
 });

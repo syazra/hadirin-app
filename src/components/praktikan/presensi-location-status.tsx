@@ -6,7 +6,12 @@ import {
   View,
 } from 'react-native';
 
-import { Colors, Spacing } from '@/constants/theme';
+import {
+  IconAlertCircle,
+  IconCheckCircle,
+  IconCrosshair,
+} from '@/components/ui/icons';
+import { Colors, Fonts, Radii, Shadows, Spacing } from '@/constants/theme';
 import type { KoordinatPengguna } from '@/types/location';
 
 export function hitungJarakMeterLokal(
@@ -72,11 +77,13 @@ export function PresensiLocationStatus({
   if (loading && !position) {
     return (
       <View style={[styles.card, styles.cardInfo]}>
-        <ActivityIndicator size="small" color={Colors.light.primary} />
+        <View style={styles.iconCircle}>
+          <ActivityIndicator size="small" color={Colors.light.primary} />
+        </View>
         <View style={styles.textWrap}>
           <Text style={styles.titleInfo}>Mendeteksi lokasi GPS...</Text>
           <Text style={styles.subtitle}>
-            Pastikan berada di area laboratorium agar sinyal akurat.
+            Pastikan berada di area laboratorium.
           </Text>
         </View>
       </View>
@@ -84,12 +91,17 @@ export function PresensiLocationStatus({
   }
 
   if (servicesDisabled || permissionDenied || error || !position) {
-    const tampilkanTombolPengaturan = Boolean(permissionDenied && onOpenSettings);
+    const tampilkanTombolPengaturan = Boolean(
+      permissionDenied && onOpenSettings,
+    );
     const aksiTombol = tampilkanTombolPengaturan ? onOpenSettings! : onRefresh;
     const tombolNonaktif = tampilkanTombolPengaturan ? false : loading;
 
     return (
       <View style={[styles.card, styles.cardError]}>
+        <View style={styles.iconCircle}>
+          <IconAlertCircle size={18} color={Colors.light.danger} />
+        </View>
         <View style={styles.textWrap}>
           <Text style={styles.titleError}>
             {servicesDisabled
@@ -102,7 +114,7 @@ export function PresensiLocationStatus({
             {error ??
               (permissionDenied
                 ? 'Izin akses lokasi ditolak. Buka Pengaturan untuk mengizinkan akses lokasi.'
-                : 'Aktifkan GPS dan izinkan akses lokasi untuk presensi.')}
+                : 'Aktifkan GPS dan izinkan akses lokasi.')}
           </Text>
         </View>
         <Pressable
@@ -146,24 +158,27 @@ export function PresensiLocationStatus({
 
   if (isLowAccuracy || isStale || diLuarRadius) {
     const judulPeringatan = diLuarRadius
-      ? `Di luar radius lab (${jarakMeter} m / maks ${targetLab?.radiusPresensi} m)`
+      ? `Di luar radius (${jarakMeter}m / ${targetLab?.radiusPresensi}m)`
       : isLowAccuracy
-        ? `Akurasi GPS rendah (±${Math.round(position.accuracy ?? 0)} m)`
+        ? `Akurasi GPS rendah (±${Math.round(position.accuracy ?? 0)}m)`
         : 'Lokasi GPS kedaluwarsa';
 
     const pesanPeringatan = diLuarRadius
-      ? `Mendekatlah ke ${targetLab?.namaLab || 'area laboratorium'} sebelum memindai QR.`
+      ? `Mendekatlah ke ${targetLab?.namaLab || 'area lab'}.`
       : isLowAccuracy
-        ? 'Sinyal GPS belum stabil (butuh akurasi ≤ 50 m). Perbarui lokasi.'
-        : 'Titik lokasi terakhir sudah terlalu lama (> 30 detik). Tekan Perbarui sebelum memindai QR.';
+        ? 'Butuh akurasi ≤ 50 m · perbarui lokasi.'
+        : 'Titik lokasi sudah > 30 detik · perbarui sebelum scan QR.';
 
     return (
       <View style={[styles.card, styles.cardWarning]}>
+        <View style={styles.iconCircle}>
+          <IconCrosshair size={18} color={Colors.light.warning} />
+        </View>
         <View style={styles.textWrap}>
           <Text style={styles.titleWarning}>{judulPeringatan}</Text>
           <Text style={styles.subtitle}>
             {pesanPeringatan}
-            {waktuUpdate ? ` • Diperbarui ${waktuUpdate}` : ''}
+            {waktuUpdate ? ` · ${waktuUpdate}` : ''}
           </Text>
         </View>
         <Pressable
@@ -187,13 +202,16 @@ export function PresensiLocationStatus({
 
   return (
     <View style={[styles.card, styles.cardSuccess]}>
+      <View style={styles.iconCircle}>
+        <IconCheckCircle size={18} color={Colors.light.success} />
+      </View>
       <View style={styles.textWrap}>
         <Text style={styles.titleSuccess}>
           Lokasi terverifikasi
-          {jarakMeter !== null ? ` • ${jarakMeter} m dari lab` : ''}
+          {jarakMeter !== null ? ` · ${jarakMeter} m` : ''}
         </Text>
         <Text style={styles.subtitle}>
-          Akurasi GPS ±{Math.round(position.accuracy ?? 0)} m • Siap memindai QR
+          Akurasi ±{Math.round(position.accuracy ?? 0)} m · siap scan QR
         </Text>
       </View>
     </View>
@@ -205,35 +223,84 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: Spacing.three,
-    borderRadius: 14,
+    padding: 12,
+    borderRadius: Radii.md + 2,
     borderWidth: 1,
-    gap: Spacing.two,
+    gap: Spacing.two + 2,
+    ...Shadows.subtle,
   },
-  cardInfo: { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' },
-  cardSuccess: { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' },
-  cardWarning: { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' },
-  cardError: { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
-  textWrap: { flex: 1, gap: 2 },
-  titleInfo: { fontSize: 13, fontWeight: '700', color: '#1E40AF' },
-  titleSuccess: { fontSize: 13, fontWeight: '700', color: '#065F46' },
-  titleWarning: { fontSize: 13, fontWeight: '700', color: '#92400E' },
-  titleError: { fontSize: 13, fontWeight: '700', color: '#991B1B' },
-  subtitle: { fontSize: 12, lineHeight: 17, color: '#374151' },
-  retryBtn: {
-    minWidth: 74,
-    minHeight: 32,
+  cardInfo: {
+    backgroundColor: Colors.light.primarySoft,
+    borderColor: '#D6DFFF',
+  },
+  cardSuccess: {
+    backgroundColor: Colors.light.successSoft,
+    borderColor: '#CDEEE0',
+  },
+  cardWarning: {
+    backgroundColor: Colors.light.warningSoft,
+    borderColor: '#F6DFB0',
+  },
+  cardError: {
+    backgroundColor: Colors.light.dangerSoft,
+    borderColor: '#FAD0DC',
+  },
+  iconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: Colors.light.card,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
+  },
+  textWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  titleInfo: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 13,
+    color: Colors.light.primary,
+  },
+  titleSuccess: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 13,
+    color: Colors.light.success,
+  },
+  titleWarning: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 13,
+    color: Colors.light.warning,
+  },
+  titleError: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 13,
+    color: Colors.light.danger,
+  },
+  subtitle: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    lineHeight: 17,
+    color: Colors.light.textSecondary,
+  },
+  retryBtn: {
+    minWidth: 72,
+    minHeight: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 11,
     paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    borderRadius: Radii.sm,
+    backgroundColor: Colors.light.card,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: Colors.light.border,
   },
   retryBtnDisabled: {
     opacity: 0.65,
   },
-  retryText: { fontSize: 12, fontWeight: '600', color: '#111827' },
+  retryText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12,
+    color: Colors.light.text,
+  },
 });

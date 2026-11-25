@@ -1,8 +1,20 @@
 import { useState } from 'react';
-import { Alert, ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { KategoriAiBadge } from '@/components/praktikan/kategori-ai-badge';
-import { Colors } from '@/constants/theme';
+import {
+  IconCheckCircle,
+  IconSparkles,
+  IconXCircle,
+} from '@/components/ui/icons';
+import { Colors, Fonts, Radii, Shadows } from '@/constants/theme';
 import { klasifikasikanIzin } from '@/services/izin-ai-service';
 import { putuskanIzin } from '@/services/izin-service';
 import type { Izin } from '@/types';
@@ -25,7 +37,10 @@ export function DetailIzinAsisten({ izin }: Props) {
         Alert.alert('Berhasil', `Kategori AI: ${hasil.data.kategori}`);
       }
     } catch {
-      Alert.alert('Klasifikasi gagal', 'Terjadi kesalahan saat menghubungi layanan AI.');
+      Alert.alert(
+        'Klasifikasi gagal',
+        'Terjadi kesalahan saat menghubungi layanan AI.',
+      );
     } finally {
       setLoadingAi(false);
     }
@@ -52,7 +67,10 @@ export function DetailIzinAsisten({ izin }: Props) {
             if (!hasil.ok) {
               Alert.alert('Keputusan gagal', hasil.pesan);
             } else {
-              Alert.alert('Berhasil', `Pengajuan berhasil ${status === 'DISETUJUI' ? 'disetujui' : 'ditolak'}.`);
+              Alert.alert(
+                'Berhasil',
+                `Pengajuan berhasil ${status === 'DISETUJUI' ? 'disetujui' : 'ditolak'}.`,
+              );
             }
           },
         },
@@ -61,60 +79,224 @@ export function DetailIzinAsisten({ izin }: Props) {
   }
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>Pemeriksaan Asisten</Text>
-      <Text style={styles.label}>ID Praktikan</Text>
-      <Text style={styles.value}>{izin.uid}</Text>
-      <Text style={styles.label}>Alasan izin</Text>
-      <Text style={styles.value}>{izin.alasan}</Text>
+    <View style={styles.stack}>
+      {/* Alasan Card */}
+      <View style={styles.card}>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>Alasan Izin</Text>
+          <View style={styles.uidPill}>
+            <Text style={styles.uidText} numberOfLines={1}>
+              {izin.uid}
+            </Text>
+          </View>
+        </View>
 
-      <Text style={styles.label}>Hasil klasifikasi AI</Text>
-      <KategoriAiBadge kategori={izin.kategoriAi} statusAi={izin.statusAi} versiKategoriAi={izin.versiKategoriAi} />
-      <Text style={styles.note}>IZIN khusus lomba sebagai delegasi UNDIP/Departemen. Alasan di luar sakit dan delegasi lomba termasuk ALPHA.</Text>
-      {izin.kategoriAi === 'ALPHA' && (
-        <Text style={styles.note}>ALPHA dari AI tidak otomatis menolak pengajuan. Jika Asisten menyetujui, rekap tetap IZIN.</Text>
-      )}
+        <View style={styles.reasonQuote}>
+          <Text style={styles.reasonText}>{izin.alasan}</Text>
+        </View>
+      </View>
 
-      {izin.statusIzin === 'MENUNGGU' && (
-        <>
-          <Pressable style={styles.aiButton} onPress={jalankanKlasifikasi} disabled={loadingAi}>
-            {loadingAi ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buttonText}>{izin.statusAi === 'GAGAL' ? 'Coba Klasifikasi Lagi' : 'Klasifikasikan dengan AI'}</Text>}
+      {/* AI Recommendation Card */}
+      <View style={styles.card}>
+        <View style={styles.aiTitleRow}>
+          <IconSparkles size={16} color={Colors.light.brandMid} />
+          <Text style={styles.title}>Rekomendasi AI</Text>
+        </View>
+
+        <KategoriAiBadge
+          kategori={izin.kategoriAi}
+          statusAi={izin.statusAi}
+          versiKategoriAi={izin.versiKategoriAi}
+        />
+
+        <Text style={styles.note}>
+          Rekomendasi AI · keputusan akhir di asisten
+        </Text>
+
+        {izin.statusIzin === 'MENUNGGU' && (
+          <Pressable
+            style={({ pressed }) => [
+              styles.aiButton,
+              pressed && styles.pressed,
+            ]}
+            onPress={jalankanKlasifikasi}
+            disabled={loadingAi}
+          >
+            {loadingAi ? (
+              <ActivityIndicator size="small" color={Colors.light.brandMid} />
+            ) : (
+              <>
+                <IconSparkles size={16} color={Colors.light.brandMid} />
+                <Text style={styles.aiButtonText}>
+                  {izin.statusAi === 'GAGAL'
+                    ? 'Coba Klasifikasi Lagi'
+                    : 'Klasifikasikan dengan AI'}
+                </Text>
+              </>
+            )}
+          </Pressable>
+        )}
+      </View>
+
+      {/* Decision Action Buttons */}
+      {izin.statusIzin === 'MENUNGGU' ? (
+        <View style={styles.actions}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              styles.reject,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => konfirmasi('DITOLAK')}
+            disabled={loadingKeputusan}
+          >
+            <IconXCircle size={18} color={Colors.light.danger} />
+            <Text style={styles.rejectText}>Tolak</Text>
           </Pressable>
 
-          <Text style={styles.note}>Hasil AI hanya rekomendasi. Asisten tetap menentukan keputusan secara manual.</Text>
-          <View style={styles.actions}>
-            <Pressable
-              style={[styles.button, styles.reject]} onPress={() => konfirmasi('DITOLAK')} disabled={loadingKeputusan}
-            >
-              <Text style={styles.buttonText}>Tolak</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.button, styles.approve]} onPress={() => konfirmasi('DISETUJUI')} disabled={loadingKeputusan}
-            >
-              <Text style={styles.buttonText}>Setujui</Text>
-            </Pressable>
-          </View>
-          {loadingKeputusan && <ActivityIndicator color={Colors.light.primary} />}
-        </>
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              styles.approve,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => konfirmasi('DISETUJUI')}
+            disabled={loadingKeputusan}
+          >
+            <IconCheckCircle size={18} color="#FFFFFF" />
+            <Text style={styles.approveText}>Setujui</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Text style={styles.finalNote}>
+          Keputusan telah dicatat dan bersifat final.
+        </Text>
       )}
 
-      {izin.statusIzin !== 'MENUNGGU' && (
-        <Text style={styles.note}>Pengajuan ini sudah diputuskan. Keputusan bersifat final.</Text>
-      )}
+      {loadingKeputusan && <ActivityIndicator color={Colors.light.primary} />}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { padding: 16, borderRadius: 14, borderWidth: 1, borderColor: Colors.light.border, backgroundColor: Colors.light.card, gap: 10 },
-  title: { fontSize: 16, fontWeight: '700', color: Colors.light.text },
-  label: { fontSize: 12, color: Colors.light.textSecondary, marginTop: 4 },
-  value: { fontSize: 13, color: Colors.light.text, lineHeight: 20 },
-  aiButton: { backgroundColor: Colors.light.primary, borderRadius: 10, padding: 12, alignItems: 'center' },
-  actions: { flexDirection: 'row', gap: 10 },
-  button: { flex: 1, padding: 13, borderRadius: 10, alignItems: 'center' },
-  approve: { backgroundColor: '#21865B' },
-  reject: { backgroundColor: '#C74747' },
-  buttonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
-  note: { fontSize: 11, color: Colors.light.textSecondary, lineHeight: 17 },
+  stack: {
+    gap: 14,
+  },
+  card: {
+    padding: 18,
+    borderRadius: Radii.xl,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.card,
+    gap: 12,
+    ...Shadows.card,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  title: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 15,
+    color: Colors.light.text,
+  },
+  uidPill: {
+    backgroundColor: Colors.light.backgroundElement,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: Radii.pill,
+    maxWidth: 140,
+  },
+  uidText: {
+    fontFamily: Fonts.mono,
+    fontSize: 11,
+    color: Colors.light.textSecondary,
+  },
+  reasonQuote: {
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.light.primary,
+    backgroundColor: Colors.light.backgroundElement,
+    borderRadius: Radii.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  reasonText: {
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+    color: Colors.light.text,
+    lineHeight: 21,
+  },
+  aiTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  note: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    lineHeight: 17,
+  },
+  aiButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 46,
+    backgroundColor: Colors.light.brandMidSoft,
+    borderWidth: 1,
+    borderColor: '#DFD5FF',
+    borderRadius: Radii.md,
+    paddingHorizontal: 14,
+  },
+  aiButtonText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 13.5,
+    color: Colors.light.brandMid,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  button: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: Radii.md + 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+  },
+  reject: {
+    backgroundColor: Colors.light.dangerSoft,
+    borderWidth: 1,
+    borderColor: '#FAD0DC',
+  },
+  rejectText: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 14.5,
+    color: Colors.light.danger,
+  },
+  approve: {
+    backgroundColor: Colors.light.success,
+    ...Shadows.emeraldGlow,
+  },
+  approveText: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 14.5,
+    color: '#FFFFFF',
+  },
+  finalNote: {
+    fontFamily: Fonts.sans,
+    fontSize: 12.5,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+    paddingVertical: 4,
+  },
+  pressed: {
+    opacity: 0.85,
+  },
 });

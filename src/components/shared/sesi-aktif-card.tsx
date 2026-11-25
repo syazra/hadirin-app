@@ -1,7 +1,14 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { Colors, Fonts } from '@/constants/theme';
+import { BrandGradient } from '@/components/ui/brand-gradient';
+import {
+  IconCalendar,
+  IconChevronRight,
+  IconClock,
+  IconMapPin,
+} from '@/components/ui/icons';
+import { LivePulseDot, PopBadge, PressableScale, ShimmerBox } from '@/components/ui/motion';
+import { Colors, Fonts, Radii, Shadows } from '@/constants/theme';
 
 export interface SesiAktifCardProps {
   namaPraktikum: string;
@@ -23,13 +30,18 @@ export function SesiAktifCard({
   onPressTombol,
 }: SesiAktifCardProps) {
   return (
-    <View style={styles.activeSessionCard}>
+    <BrandGradient variant="brand" style={[styles.activeSessionCard, Shadows.primaryGlow]}>
       <View style={styles.activeSessionTop}>
         <View style={styles.aktifPill}>
+          <LivePulseDot color="#FFFFFF" size={7} />
           <Text style={styles.aktifPillText}>Sesi aktif</Text>
         </View>
         {infoKananAtas ? (
-          <Text style={styles.hadirCounterText}>{infoKananAtas}</Text>
+          <PopBadge triggerKey={infoKananAtas}>
+            <View style={styles.counterPill}>
+              <Text style={styles.hadirCounterText}>{infoKananAtas}</Text>
+            </View>
+          </PopBadge>
         ) : null}
       </View>
 
@@ -43,70 +55,66 @@ export function SesiAktifCard({
       <View style={styles.activeMetaRow}>
         {lokasi ? (
           <View style={styles.activeMetaItem}>
-            <Svg
-              width={14}
-              height={14}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke={Colors.light.primarySoft}
-              strokeWidth={2}
-            >
-              <Path d="M12 21s-6-5.33-6-10a6 6 0 1 1 12 0c0 4.67-6 10-6 10Z" />
-              <Circle cx={12} cy={11} r={2} />
-            </Svg>
+            <IconMapPin size={14} color="rgba(255,255,255,0.9)" />
             <Text style={styles.activeMetaText}>{lokasi}</Text>
           </View>
         ) : null}
 
         <View style={styles.activeMetaItem}>
-          <Svg
-            width={14}
-            height={14}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke={Colors.light.primarySoft}
-            strokeWidth={2}
-          >
-            <Circle cx={12} cy={12} r={9} />
-            <Path d="M12 7v5l3 2" />
-          </Svg>
+          <IconClock size={14} color="rgba(255,255,255,0.9)" />
           <Text style={styles.activeMetaText}>{rentangWaktu}</Text>
         </View>
       </View>
 
-      <Pressable
-        style={({ pressed }) => [
-          styles.actionButton,
-          pressed && styles.buttonPressed,
-        ]}
+      <PressableScale
+        style={styles.actionButton}
+        scaleTo={0.97}
         onPress={onPressTombol}
       >
         <Text style={styles.actionButtonText}>{labelTombol}</Text>
-      </Pressable>
-    </View>
+        <IconChevronRight size={17} color={Colors.light.primary} strokeWidth={2.2} />
+      </PressableScale>
+    </BrandGradient>
   );
 }
 
 export function SesiAktifKosongCard() {
   return (
     <View style={styles.emptySessionCard}>
-      <View style={styles.emptySessionTop}>
-        <Text style={styles.emptySessionTitle}>Sesi aktif</Text>
-        <View style={styles.nonaktifBadge}>
-          <Text style={styles.nonaktifBadgeText}>TIDAK ADA</Text>
-        </View>
+      <View style={styles.emptyIconCircle}>
+        <IconCalendar size={20} color={Colors.light.warm} />
       </View>
-      <Text style={styles.emptySessionSubtitle}>
-        Belum ada sesi praktikum yang sedang dibuka saat ini.
-      </Text>
+      <View style={styles.emptyTextWrap}>
+        <Text style={styles.emptySessionTitle}>Tidak ada sesi aktif</Text>
+        <Text style={styles.emptySessionSubtitle}>
+          Sesi yang dibuka akan muncul di sini
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+export function SesiAktifSkeleton() {
+  return (
+    <View style={styles.skeletonCard}>
+      <View style={styles.activeSessionTop}>
+        <ShimmerBox width={94} height={24} borderRadius={Radii.pill} />
+        <ShimmerBox width={78} height={24} borderRadius={Radii.pill} />
+      </View>
+      <ShimmerBox width="72%" height={22} borderRadius={8} />
+      <ShimmerBox width="52%" height={16} borderRadius={8} />
+      <View style={styles.skeletonMetaRow}>
+        <ShimmerBox width={96} height={14} borderRadius={7} />
+        <ShimmerBox width={116} height={14} borderRadius={7} />
+      </View>
+      <ShimmerBox width="100%" height={44} borderRadius={Radii.md} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   activeSessionCard: {
-    backgroundColor: Colors.light.primary,
-    borderRadius: 22,
+    borderRadius: Radii.xl,
     padding: 20,
   },
   activeSessionTop: {
@@ -114,44 +122,54 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 14,
+    gap: 8,
   },
   aktifPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
-    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 11,
     paddingVertical: 5,
-    borderRadius: 999,
+    borderRadius: Radii.pill,
   },
   aktifPillText: {
-    fontFamily: Fonts.sansMedium,
+    fontFamily: Fonts.sansSemiBold,
     fontSize: 12,
     lineHeight: 16,
-    color: Colors.light.card,
+    color: '#FFFFFF',
+  },
+  counterPill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: Radii.pill,
   },
   hadirCounterText: {
-    fontFamily: Fonts.sansMedium,
-    fontSize: 13,
-    lineHeight: 17,
-    color: Colors.light.primarySoft,
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#FFFFFF',
   },
   activeSessionTitle: {
     fontFamily: Fonts.sansBold,
-    fontSize: 18,
-    lineHeight: 24,
-    color: Colors.light.card,
-    marginBottom: 6,
+    fontSize: 19,
+    lineHeight: 25,
+    color: '#FFFFFF',
+    marginBottom: 4,
   },
   activeSessionSubtitle: {
-    fontFamily: Fonts.sans,
-    fontSize: 13,
+    fontFamily: Fonts.sansMedium,
+    fontSize: 13.5,
     lineHeight: 19,
-    color: Colors.light.primarySoft,
+    color: 'rgba(255, 255, 255, 0.88)',
     marginBottom: 14,
   },
   activeMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: 14,
     marginBottom: 18,
   },
   activeMetaItem: {
@@ -160,20 +178,21 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   activeMetaText: {
-    fontFamily: Fonts.sans,
-    fontSize: 12,
+    fontFamily: Fonts.sansMedium,
+    fontSize: 12.5,
     lineHeight: 16,
-    color: Colors.light.primarySoft,
+    color: 'rgba(255, 255, 255, 0.92)',
   },
   actionButton: {
     backgroundColor: Colors.light.card,
-    borderRadius: 14,
+    borderRadius: Radii.md,
     paddingVertical: 13,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  buttonPressed: {
-    opacity: 0.85,
+    gap: 6,
+    ...Shadows.subtle,
   },
   actionButtonText: {
     fontFamily: Fonts.sansBold,
@@ -182,17 +201,27 @@ const styles = StyleSheet.create({
     color: Colors.light.primary,
   },
   emptySessionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.light.card,
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: Radii.xl,
+    padding: 16,
+    gap: 14,
     borderWidth: 1,
     borderColor: Colors.light.border,
+    ...Shadows.card,
   },
-  emptySessionTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  emptyIconCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    backgroundColor: Colors.light.warmSoft,
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'center',
+  },
+  emptyTextWrap: {
+    flex: 1,
+    gap: 2,
   },
   emptySessionTitle: {
     fontFamily: Fonts.sansBold,
@@ -200,22 +229,24 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: Colors.light.text,
   },
-  nonaktifBadge: {
-    backgroundColor: Colors.light.backgroundElement,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  nonaktifBadgeText: {
-    fontFamily: Fonts.sansBold,
-    fontSize: 10,
-    lineHeight: 14,
-    color: Colors.light.textSecondary,
-  },
   emptySessionSubtitle: {
     fontFamily: Fonts.sans,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12.5,
+    lineHeight: 17,
     color: Colors.light.textSecondary,
+  },
+  skeletonCard: {
+    backgroundColor: Colors.light.card,
+    borderRadius: Radii.xl,
+    padding: 20,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    ...Shadows.card,
+  },
+  skeletonMetaRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginVertical: 2,
   },
 });

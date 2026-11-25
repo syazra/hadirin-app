@@ -1,7 +1,9 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { IconCheckCircle, IconClock } from '@/components/ui/icons';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { Colors } from '@/constants/theme';
+import { getWarmPastelTone } from '@/constants/pastel';
+import { Colors, Fonts, Radii, Shadows } from '@/constants/theme';
 import type { ItemRekapSesi } from '@/hooks/use-rekap-sesi';
 import { formatWaktu } from '@/utils/format-waktu';
 
@@ -31,14 +33,18 @@ export function RekapItem({
         : 'Memproses waktu...'
       : adalahIzinDisetujui
         ? izin?.waktuPeriksa
-          ? `Disetujui · ${formatWaktu(izin.waktuPeriksa.toISOString())}`
+          ? formatWaktu(izin.waktuPeriksa.toISOString())
           : 'Izin disetujui'
         : null;
 
+  const tone = getWarmPastelTone(nama);
+
   return (
     <View style={styles.card}>
-      <View style={styles.avatar}>
-        <Text style={styles.initial}>{nama.charAt(0).toUpperCase()}</Text>
+      <View style={[styles.avatar, { backgroundColor: tone.bg }]}>
+        <Text style={[styles.initial, { color: tone.fg }]}>
+          {nama.trim().charAt(0).toUpperCase() || '?'}
+        </Text>
       </View>
 
       <View style={styles.info}>
@@ -52,8 +58,28 @@ export function RekapItem({
             </View>
           )}
         </View>
+
         <Text style={styles.nim}>{nim}</Text>
-        {teksWaktu && <Text style={styles.waktu}>{teksWaktu}</Text>}
+
+        {teksWaktu ? (
+          <View style={styles.waktuRow}>
+            {statusRekap === 'HADIR' ? (
+              <IconCheckCircle size={12} color={Colors.light.success} />
+            ) : (
+              <IconClock size={12} color={Colors.light.primary} />
+            )}
+            <Text
+              style={[
+                styles.waktu,
+                statusRekap !== 'HADIR' && styles.waktuIzin,
+              ]}
+              numberOfLines={1}
+            >
+              {teksWaktu}
+            </Text>
+          </View>
+        ) : null}
+
         {aiBelumTersedia && (
           <Text style={styles.aiFallbackNote}>
             Klasifikasi AI belum tersedia
@@ -78,10 +104,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     padding: 14,
-    borderRadius: 14,
+    borderRadius: Radii.md + 2,
     backgroundColor: Colors.light.card,
     borderWidth: 1,
     borderColor: Colors.light.border,
+    ...Shadows.subtle,
   },
   avatar: {
     width: 42,
@@ -89,16 +116,14 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.light.primarySoft,
   },
   initial: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.light.primary,
+    fontFamily: Fonts.sansBold,
+    fontSize: 16,
   },
   info: {
     flex: 1,
-    gap: 3,
+    gap: 2,
   },
   namaRow: {
     flexDirection: 'row',
@@ -106,8 +131,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   nama: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 14.5,
     color: Colors.light.text,
     flexShrink: 1,
   },
@@ -115,31 +140,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
-    backgroundColor: Colors.light.backgroundSelected,
+    backgroundColor: Colors.light.backgroundElement,
   },
   nonaktifText: {
+    fontFamily: Fonts.sansSemiBold,
     fontSize: 10,
-    fontWeight: '600',
     color: Colors.light.textSecondary,
   },
   nim: {
+    fontFamily: Fonts.mono,
     fontSize: 12,
     color: Colors.light.textSecondary,
   },
-  waktu: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: Colors.light.success,
+  waktuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     marginTop: 2,
   },
+  waktu: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 11.5,
+    color: Colors.light.success,
+  },
+  waktuIzin: {
+    color: Colors.light.primary,
+  },
   aiFallbackNote: {
+    fontFamily: Fonts.sans,
     fontSize: 11,
-    fontStyle: 'italic',
-    color: '#B45309',
+    color: Colors.light.warning,
     marginTop: 1,
   },
   badges: {
     alignItems: 'flex-end',
-    gap: 6,
   },
 });

@@ -1,6 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { LivePulseDot } from '@/components/ui/motion';
 import { STATUS_SESI } from '@/constants/status-sesi';
+import { Colors, Fonts, Radii } from '@/constants/theme';
 import type { StatusIzin, StatusRekap, StatusSesi } from '@/types';
 
 export type StatusSesiBadge = StatusSesi;
@@ -20,50 +22,50 @@ type KonfigurasiBadge = {
 const KONFIGURASI_TAMBAHAN: Record<StatusIzin | StatusRekap, KonfigurasiBadge> = {
   MENUNGGU: {
     label: 'Menunggu',
-    warna: '#B45309',
-    warnaLatar: '#FEF3C7',
+    warna: Colors.light.warning,
+    warnaLatar: Colors.light.warningSoft,
     konteks: 'Status izin',
   },
   DISETUJUI: {
     label: 'Disetujui',
-    warna: '#15803D',
-    warnaLatar: '#DCFCE7',
+    warna: Colors.light.success,
+    warnaLatar: Colors.light.successSoft,
     konteks: 'Status izin',
   },
   DITOLAK: {
     label: 'Ditolak',
-    warna: '#B91C1C',
-    warnaLatar: '#FEE2E2',
+    warna: Colors.light.danger,
+    warnaLatar: Colors.light.dangerSoft,
     konteks: 'Status izin',
   },
   HADIR: {
     label: 'Hadir',
-    warna: '#15803D',
-    warnaLatar: '#DCFCE7',
+    warna: Colors.light.success,
+    warnaLatar: Colors.light.successSoft,
     konteks: 'Status rekap',
   },
   SAKIT: {
     label: 'Sakit',
-    warna: '#7E22CE',
-    warnaLatar: '#F3E8FF',
+    warna: Colors.light.brandMid,
+    warnaLatar: Colors.light.brandMidSoft,
     konteks: 'Status rekap',
   },
   IZIN: {
     label: 'Izin',
-    warna: '#1D4ED8',
-    warnaLatar: '#DBEAFE',
+    warna: Colors.light.primary,
+    warnaLatar: Colors.light.primarySoft,
     konteks: 'Status rekap',
   },
   ALPHA: {
     label: 'Alpha',
-    warna: '#B91C1C',
-    warnaLatar: '#FEE2E2',
+    warna: Colors.light.danger,
+    warnaLatar: Colors.light.dangerSoft,
     konteks: 'Status rekap',
   },
   BELUM_HADIR: {
     label: 'Belum Hadir',
-    warna: '#475569',
-    warnaLatar: '#F1F5F9',
+    warna: Colors.light.textSecondary,
+    warnaLatar: Colors.light.backgroundElement,
     konteks: 'Status rekap',
   },
 };
@@ -77,8 +79,8 @@ export function StatusBadge({ status }: StatusBadgeProps) {
     ? { ...STATUS_SESI[status], konteks: 'Status sesi' }
     : (KONFIGURASI_TAMBAHAN[status] ?? {
         label: String(status),
-        warna: '#475569',
-        warnaLatar: '#F1F5F9',
+        warna: Colors.light.textSecondary,
+        warnaLatar: Colors.light.backgroundElement,
         konteks: 'Status',
       });
 
@@ -88,6 +90,11 @@ export function StatusBadge({ status }: StatusBadgeProps) {
       accessibilityRole="text"
       accessibilityLabel={`${config.konteks}: ${config.label}`}
     >
+      {status === 'DIBUKA' ? (
+        <LivePulseDot color={config.warna} size={6} />
+      ) : (
+        <View style={[styles.dot, { backgroundColor: config.warna }]} />
+      )}
       <Text style={[styles.label, { color: config.warna }]}>{config.label}</Text>
     </View>
   );
@@ -96,12 +103,22 @@ export function StatusBadge({ status }: StatusBadgeProps) {
 const styles = StyleSheet.create({
   badge: {
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
+    paddingVertical: 5,
+    borderRadius: Radii.pill,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   label: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 11.5,
+    lineHeight: 15,
+    includeFontPadding: false,
   },
 });

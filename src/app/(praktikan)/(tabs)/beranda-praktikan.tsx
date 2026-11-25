@@ -9,14 +9,13 @@ import {
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 
+import { BerandaGreeting } from '@/components/shared/beranda-greeting';
 import {
   BerandaMenuGrid,
   type BerandaMenuItem,
@@ -28,7 +27,15 @@ import {
 import {
   SesiAktifCard,
   SesiAktifKosongCard,
+  SesiAktifSkeleton,
 } from '@/components/shared/sesi-aktif-card';
+import {
+  IconClipboardCheck,
+  IconFileCheck,
+  IconMap,
+  IconMonitor,
+} from '@/components/ui/icons';
+import { EnterView } from '@/components/ui/motion';
 import { Colors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useJadwalPraktikan } from '@/hooks/use-jadwal-praktikan';
@@ -80,7 +87,7 @@ export default function BerandaPraktikanScreen() {
   useEffect(() => {
     const uid = pengguna?.uid;
     const unikKelasIds = Array.from(
-      new Set(sesi.map((item) => item.kelasId).filter(Boolean))
+      new Set(sesi.map((item) => item.kelasId).filter(Boolean)),
     );
 
     if (!uid || unikKelasIds.length === 0) {
@@ -96,7 +103,7 @@ export default function BerandaPraktikanScreen() {
       try {
         const qKeanggotaan = query(
           collection(db, 'keanggotaan'),
-          where('uid', '==', userUid)
+          where('uid', '==', userUid),
         );
         const snapAnggota = await getDocs(qKeanggotaan);
         snapAnggota.docs.forEach((docSnap) => {
@@ -140,7 +147,7 @@ export default function BerandaPraktikanScreen() {
             } catch {
               // Abaikan jika satu dokumen gagal dibaca
             }
-          })
+          }),
         );
       }
 
@@ -164,7 +171,7 @@ export default function BerandaPraktikanScreen() {
   const sedangMemuat = authLoading || jadwalLoading;
 
   const sesiAktifList = sesi.filter(
-    (item) => !item.diarsipkan && item.statusSesi === 'DIBUKA'
+    (item) => !item.diarsipkan && item.statusSesi === 'DIBUKA',
   );
 
   const sekarang = new Date();
@@ -201,44 +208,28 @@ export default function BerandaPraktikanScreen() {
       label: 'Praktikum',
       bgTint: Colors.light.primarySoft,
       onPress: () => router.push('/(praktikan)/jadwal-praktikan'),
-      icon: (
-        <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={Colors.light.primary} strokeWidth={2.0}>
-          <Path d="M3 5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5Zm5 15h8m-4-4v4" />
-        </Svg>
-      ),
+      icon: <IconMonitor size={23} color={Colors.light.primary} strokeWidth={2} />,
     },
     {
       key: 'riwayat',
       label: 'Riwayat',
-      bgTint: Colors.light.primarySoft,
+      bgTint: Colors.light.successSoft,
       onPress: () => router.push('/(praktikan)/riwayat'),
-      icon: (
-        <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={Colors.light.primary} strokeWidth={1.8}>
-          <Path d="M9 5H5v16h14V5h-4M9 3h6v4H9V3Zm-2 9h10M7 16h10" />
-        </Svg>
-      ),
+      icon: <IconClipboardCheck size={23} color={Colors.light.success} strokeWidth={1.9} />,
     },
     {
       key: 'izin',
       label: 'Izin',
       bgTint: Colors.light.accentSoft,
       onPress: () => router.push('/(praktikan)/izin-praktikan'),
-      icon: (
-        <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={Colors.light.accent} strokeWidth={2}>
-          <Path d="m5 13 4 4L19 7" />
-        </Svg>
-      ),
+      icon: <IconFileCheck size={23} color={Colors.light.accent} strokeWidth={2} />,
     },
     {
       key: 'peta',
       label: 'Peta',
-      bgTint: Colors.light.primarySoft,
+      bgTint: Colors.light.tealSoft,
       onPress: () => router.push('/(praktikan)/maps'),
-      icon: (
-        <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={Colors.light.primary} strokeWidth={1.8}>
-          <Path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Zm6-3v15m6-12v15" />
-        </Svg>
-      ),
+      icon: <IconMap size={23} color={Colors.light.teal} strokeWidth={1.9} />,
     },
   ];
 
@@ -255,60 +246,68 @@ export default function BerandaPraktikanScreen() {
         />
       }
     >
-      {/* 1. Kartu Sesi Aktif */}
-      {sedangMemuat ? (
-        <View style={styles.loadingCard}>
-          <ActivityIndicator color={Colors.light.primary} />
-        </View>
-      ) : sesiAktifList.length > 0 ? (
-        <View style={styles.activeSessionList}>
-          {sesiAktifList.map((item) => {
-            const sesiData = item as unknown as {
-              waktuSelesai?: Date | string;
-              namaPraktikum?: string;
-            };
-            const namaPraktikum =
-              namaKelasById[item.kelasId] ?? sesiData.namaPraktikum ?? 'Praktikum';
+      <EnterView delay={0}>
+        <BerandaGreeting nama={pengguna?.nama} fallbackNama="Praktikan" />
+      </EnterView>
 
-            return (
-              <SesiAktifCard
-                key={item.idSesi}
-                namaPraktikum={namaPraktikum}
-                judul={item.judul}
-                lokasi={item.lokasi}
-                rentangWaktu={formatRentangWaktuSesi(
-                  new Date(item.waktuMulai),
-                  sesiData.waktuSelesai
-                )}
-                labelTombol="Detail Sesi"
-                onPressTombol={() =>
-                  router.push({
-                    pathname: '/sesi/[id]',
-                    params: { id: item.idSesi },
-                  })
-                }
-              />
-            );
-          })}
-        </View>
-      ) : (
-        <SesiAktifKosongCard />
-      )}
+      {/* 1. Kartu Sesi Aktif */}
+      <EnterView delay={60}>
+        {sedangMemuat ? (
+          <SesiAktifSkeleton />
+        ) : sesiAktifList.length > 0 ? (
+          <View style={styles.activeSessionList}>
+            {sesiAktifList.map((item) => {
+              const sesiData = item as unknown as {
+                waktuSelesai?: Date | string;
+                namaPraktikum?: string;
+              };
+              const namaPraktikum =
+                namaKelasById[item.kelasId] ?? sesiData.namaPraktikum ?? 'Praktikum';
+
+              return (
+                <SesiAktifCard
+                  key={item.idSesi}
+                  namaPraktikum={namaPraktikum}
+                  judul={item.judul}
+                  lokasi={item.lokasi}
+                  rentangWaktu={formatRentangWaktuSesi(
+                    new Date(item.waktuMulai),
+                    sesiData.waktuSelesai,
+                  )}
+                  labelTombol="Detail sesi"
+                  onPressTombol={() =>
+                    router.push({
+                      pathname: '/sesi/[id]',
+                      params: { id: item.idSesi },
+                    })
+                  }
+                />
+              );
+            })}
+          </View>
+        ) : (
+          <SesiAktifKosongCard />
+        )}
+      </EnterView>
 
       {/* 2. Section Menu (4 Fitur) */}
-      <BerandaMenuGrid items={menuItems} columns={4} />
+      <EnterView delay={140}>
+        <BerandaMenuGrid items={menuItems} columns={4} />
+      </EnterView>
 
       {/* 3. Section Praktikum Mendatang */}
-      <PraktikumMendatangCard
-        items={praktikumMendatangItems}
-        onPressItem={(idSesi) =>
-          router.push({
-            pathname: '/sesi/[id]',
-            params: { id: idSesi },
-          })
-        }
-        onPressLihatSemua={() => router.push('/(praktikan)/jadwal-praktikan')}
-      />
+      <EnterView delay={200}>
+        <PraktikumMendatangCard
+          items={praktikumMendatangItems}
+          onPressItem={(idSesi) =>
+            router.push({
+              pathname: '/sesi/[id]',
+              params: { id: idSesi },
+            })
+          }
+          onPressLihatSemua={() => router.push('/(praktikan)/jadwal-praktikan')}
+        />
+      </EnterView>
     </ScrollView>
   );
 }
@@ -320,19 +319,10 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
+    paddingTop: Spacing.three,
     paddingBottom: Spacing.five,
-    gap: Spacing.four,
+    gap: 20,
     flexGrow: 1,
-  },
-  loadingCard: {
-    backgroundColor: Colors.light.card,
-    borderRadius: 22,
-    padding: Spacing.four,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   activeSessionList: {
     gap: Spacing.three,

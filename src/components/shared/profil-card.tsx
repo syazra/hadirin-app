@@ -1,75 +1,22 @@
 import * as Clipboard from 'expo-clipboard';
 import { useState } from 'react';
 import {
-    ActivityIndicator,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import Svg, { Path, Polyline, Rect } from 'react-native-svg';
 
-import { Colors, Fonts, Spacing } from '@/constants/theme';
-import { keluar } from '@/services/auth-service';
 import { NotificationSettings } from '@/components/shared/notification-settings';
+import { BrandGradient } from '@/components/ui/brand-gradient';
+import { IconCheck, IconCopy, IconLogout } from '@/components/ui/icons';
+import { EnterView, PopBadge, PressableScale } from '@/components/ui/motion';
+import { Colors, Fonts, Radii, Shadows, Spacing } from '@/constants/theme';
+import { keluar } from '@/services/auth-service';
 import type { Pengguna } from '@/types';
 
 interface ProfilCardProps {
   pengguna: Pengguna;
-}
-
-function CopyIcon({ color }: { color: string }) {
-  return (
-    <Svg
-      width={16}
-      height={16}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <Rect x={9} y={9} width={13} height={13} rx={2} ry={2} />
-      <Path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </Svg>
-  );
-}
-
-function CheckIcon({ color }: { color: string }) {
-  return (
-    <Svg
-      width={16}
-      height={16}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={2.2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <Polyline points="20 6 9 17 4 12" />
-    </Svg>
-  );
-}
-
-function LogoutDoorIcon({ color }: { color: string }) {
-  return (
-    <Svg
-      width={20}
-      height={20}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <Path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-      <Polyline points="16 17 21 12 16 7" />
-      <Path d="M21 12H9" />
-    </Svg>
-  );
 }
 
 export function ProfilCard({ pengguna }: ProfilCardProps) {
@@ -89,7 +36,7 @@ export function ProfilCard({ pengguna }: ProfilCardProps) {
       const berhasil = await Clipboard.setStringAsync(pengguna.kodePeserta);
       if (berhasil) {
         setTersalin(true);
-        setPesan('Kode pengguna berhasil disalin.');
+        setPesan('Kode pengguna tersalin.');
         setTimeout(() => setTersalin(false), 2000);
       } else {
         setPesan('Kode pengguna tidak dapat disalin.');
@@ -111,240 +58,273 @@ export function ProfilCard({ pengguna }: ProfilCardProps) {
 
   return (
     <View style={styles.wrapper}>
-      {/* Card 1: Lingkaran inisial, Nama lengkap, Email (center semua) */}
-      <View style={styles.heroCard}>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>{inisial}</Text>
-        </View>
-
-        <Text accessibilityRole="header" style={styles.namaText}>
-          {namaLengkap}
-        </Text>
-        <Text style={styles.emailText}>{pengguna.email}</Text>
-      </View>
-
-      {/* Card 2: Role, NIM, dan Kode pengguna + Salin kode pengguna */}
-      <View style={styles.infoCard}>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Role</Text>
-          <View style={styles.roleBadge}>
-            <Text style={styles.roleBadgeText}>{labelRole}</Text>
+      {/* Hero Card with Brand Gradient + Avatar + Integrated Role Pill */}
+      <EnterView delay={0}>
+        <BrandGradient variant="brand" style={[styles.heroCard, Shadows.primaryGlow]}>
+          <View style={styles.avatarRing}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarText}>{inisial}</Text>
+            </View>
           </View>
-        </View>
 
-        <View style={styles.divider} />
-
-        <View style={styles.infoColumn}>
-          <Text style={styles.infoLabel}>NIM</Text>
-          <Text selectable style={styles.infoValue}>
-            {pengguna.nim}
+          <Text accessibilityRole="header" style={styles.namaText}>
+            {namaLengkap}
           </Text>
-        </View>
+          <Text style={styles.emailText}>{pengguna.email}</Text>
 
-        <View style={styles.divider} />
+          <View style={styles.rolePill}>
+            <Text style={styles.rolePillText}>{labelRole}</Text>
+          </View>
+        </BrandGradient>
+      </EnterView>
 
-        <View style={styles.infoRow}>
-          <View style={styles.kodeColumn}>
-            <Text style={styles.infoLabel}>Kode Pengguna</Text>
-            <Text selectable style={styles.kodeValue}>
-              {pengguna.kodePeserta}
+      {/* Info Card: NIM & Kode Pengguna */}
+      <EnterView delay={70}>
+        <View style={styles.infoCard}>
+          <View style={styles.infoColumn}>
+            <Text style={styles.infoLabel}>NIM</Text>
+            <Text selectable style={styles.monoValue}>
+              {pengguna.nim}
             </Text>
           </View>
 
-          <Pressable
-            accessibilityLabel="Salin kode pengguna"
-            accessibilityRole="button"
-            disabled={menyalin}
-            onPress={salinKode}
-            style={({ pressed }) => [
-              styles.copyButton,
-              menyalin && styles.disabled,
-              pressed && styles.pressed,
-            ]}
-          >
-            {tersalin ? (
-              <CheckIcon color={Colors.light.primary} />
-            ) : (
-              <CopyIcon color={Colors.light.primary} />
-            )}
-            <Text style={styles.copyButtonText}>
-              {tersalin ? 'Tersalin' : 'Salin kode'}
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <View style={styles.kodeColumn}>
+              <Text style={styles.infoLabel}>Kode Pengguna</Text>
+              <Text selectable style={styles.kodeValue}>
+                {pengguna.kodePeserta}
+              </Text>
+            </View>
+
+            <PressableScale
+              accessibilityLabel="Salin kode pengguna"
+              accessibilityRole="button"
+              disabled={menyalin}
+              onPress={salinKode}
+              scaleTo={0.94}
+              style={[
+                styles.copyButton,
+                tersalin && styles.copyButtonSuccess,
+                menyalin && styles.disabled,
+              ]}
+            >
+              <PopBadge
+                triggerKey={tersalin ? 'copied' : 'idle'}
+                style={styles.copyBadgeContent}
+              >
+                {tersalin ? (
+                  <IconCheck size={15} color={Colors.light.success} strokeWidth={2.3} />
+                ) : (
+                  <IconCopy size={15} color={Colors.light.primary} strokeWidth={2} />
+                )}
+                <Text
+                  style={[
+                    styles.copyButtonText,
+                    tersalin && styles.copyButtonTextSuccess,
+                  ]}
+                >
+                  {tersalin ? 'Tersalin' : 'Salin'}
+                </Text>
+              </PopBadge>
+            </PressableScale>
+          </View>
+
+          {!!pesan && (
+            <Text accessibilityRole="alert" style={styles.message}>
+              {pesan}
             </Text>
-          </Pressable>
+          )}
         </View>
+      </EnterView>
 
-        {!!pesan && (
-          <Text accessibilityRole="alert" style={styles.message}>
-            {pesan}
-          </Text>
-        )}
-      </View>
+      <EnterView delay={130}>
+        <NotificationSettings />
+      </EnterView>
 
-      <NotificationSettings />
-
-      {/* Tombol Keluar dengan simbol pintu keluar SVG */}
-      <Pressable
-        accessibilityLabel="Keluar"
-        accessibilityRole="button"
-        disabled={keluarMemuat}
-        onPress={handleKeluar}
-        style={({ pressed }) => [
-          styles.logoutButton,
-          keluarMemuat && styles.disabled,
-          pressed && styles.pressed,
-        ]}
-      >
-        {keluarMemuat ? (
-          <ActivityIndicator size="small" color={Colors.light.danger} />
-        ) : (
-          <>
-            <LogoutDoorIcon color={Colors.light.danger} />
-            <Text style={styles.logoutText}>Keluar</Text>
-          </>
-        )}
-      </Pressable>
+      {/* Tombol Keluar */}
+      <EnterView delay={180}>
+        <PressableScale
+          accessibilityLabel="Keluar"
+          accessibilityRole="button"
+          disabled={keluarMemuat}
+          onPress={handleKeluar}
+          scaleTo={0.97}
+          style={[
+            styles.logoutButton,
+            keluarMemuat && styles.disabled,
+          ]}
+        >
+          {keluarMemuat ? (
+            <ActivityIndicator size="small" color={Colors.light.danger} />
+          ) : (
+            <>
+              <IconLogout size={19} color={Colors.light.danger} strokeWidth={2} />
+              <Text style={styles.logoutText}>Keluar</Text>
+            </>
+          )}
+        </PressableScale>
+      </EnterView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-    wrapper: {
-        gap: Spacing.three,
-    },
-    heroCard: {
-        backgroundColor: Colors.light.primary,
-        borderRadius: 20,
-        paddingVertical: Spacing.four + 4,
-        paddingHorizontal: Spacing.four,
-        alignItems: 'center',
-        gap: 6,
-    },
-    avatarCircle: {
-        width: 84,
-        height: 84,
-        borderRadius: 42,
-        backgroundColor: Colors.light.card,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: Spacing.one,
-    },
-    avatarText: {
-        fontFamily: Fonts.sansBold,
-        fontSize: 34,
-        color: Colors.light.primary,
-        includeFontPadding: false,
-    },
-    namaText: {
-        fontFamily: Fonts.sansBold,
-        fontSize: 20,
-        color: Colors.light.card,
-        textAlign: 'center',
-        includeFontPadding: false,
-    },
-    emailText: {
-        fontFamily: Fonts.sans,
-        fontSize: 13,
-        color: Colors.light.primarySoft,
-        textAlign: 'center',
-        includeFontPadding: false,
-    },
-    infoCard: {
-        backgroundColor: Colors.light.card,
-        borderWidth: 1.5,
-        borderColor: Colors.light.border,
-        borderRadius: 20,
-        padding: Spacing.four,
-        gap: Spacing.three,
-    },
-    infoRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: Spacing.two,
-    },
-    infoColumn: {
-        gap: 4,
-    },
-    infoLabel: {
-        fontFamily: Fonts.sans,
-        fontSize: 12,
-        color: Colors.light.textSecondary,
-        includeFontPadding: false,
-    },
-    infoValue: {
-        fontFamily: Fonts.sansMedium,
-        fontSize: 15,
-        color: Colors.light.text,
-        includeFontPadding: false,
-    },
-    roleBadge: {
-        backgroundColor: Colors.light.accentSoft,
-        paddingHorizontal: 12,
-        paddingVertical: 5,
-        borderRadius: 999,
-    },
-    roleBadgeText: {
-        fontFamily: Fonts.sansMedium,
-        fontSize: 12,
-        color: Colors.light.accent,
-        includeFontPadding: false,
-    },
-    divider: {
-        height: 1,
-        backgroundColor: Colors.light.border,
-    },
-    kodeColumn: {
-        flex: 1,
-        gap: 4,
-    },
-    kodeValue: {
-        fontFamily: Fonts.sansMedium,
-        fontSize: 15,
-        color: Colors.light.text,
-        includeFontPadding: false,
-    },
-    copyButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        backgroundColor: Colors.light.primarySoft,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 12,
-    },
-    copyButtonText: {
-        fontFamily: Fonts.sansMedium,
-        fontSize: 13,
-        color: Colors.light.primary,
-        includeFontPadding: false,
-    },
-    message: {
-        fontFamily: Fonts.sans,
-        color: Colors.light.textSecondary,
-        fontSize: 13,
-        includeFontPadding: false,
-    },
-    logoutButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        minHeight: 50,
-        borderRadius: 14,
-        borderWidth: 1.5,
-        borderColor: Colors.light.accent,
-        backgroundColor: Colors.light.card,
-    },
-    logoutText: {
-        fontFamily: Fonts.sansMedium,
-        fontSize: 15,
-        color: Colors.light.danger,
-        includeFontPadding: false,
-    },
-    pressed: {
-        opacity: 0.8,
-    },
-    disabled: {
-        opacity: 0.5,
-    },
+  wrapper: {
+    gap: Spacing.three,
+  },
+  heroCard: {
+    borderRadius: Radii.xl,
+    paddingVertical: Spacing.four + 4,
+    paddingHorizontal: Spacing.four,
+    alignItems: 'center',
+    gap: 6,
+  },
+  avatarRing: {
+    padding: 4,
+    borderRadius: 48,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    marginBottom: 4,
+  },
+  avatarCircle: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    backgroundColor: Colors.light.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 32,
+    color: Colors.light.primary,
+    includeFontPadding: false,
+  },
+  namaText: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 20,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
+  emailText: {
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.86)',
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
+  rolePill: {
+    marginTop: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: Radii.pill,
+  },
+  rolePillText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12,
+    color: '#FFFFFF',
+    includeFontPadding: false,
+  },
+  infoCard: {
+    backgroundColor: Colors.light.card,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: Radii.xl,
+    padding: 18,
+    gap: 14,
+    ...Shadows.card,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  infoColumn: {
+    gap: 4,
+  },
+  infoLabel: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    includeFontPadding: false,
+  },
+  monoValue: {
+    fontFamily: Fonts.mono,
+    fontSize: 15,
+    color: Colors.light.text,
+    includeFontPadding: false,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.light.border,
+  },
+  kodeColumn: {
+    flex: 1,
+    gap: 4,
+  },
+  kodeValue: {
+    fontFamily: Fonts.mono,
+    fontSize: 16,
+    letterSpacing: 1,
+    color: Colors.light.text,
+    includeFontPadding: false,
+  },
+  copyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.light.primarySoft,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: Radii.md,
+  },
+  copyBadgeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  copyButtonSuccess: {
+    backgroundColor: Colors.light.successSoft,
+  },
+  copyButtonText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 13,
+    color: Colors.light.primary,
+    includeFontPadding: false,
+  },
+  copyButtonTextSuccess: {
+    color: Colors.light.success,
+  },
+  message: {
+    fontFamily: Fonts.sansMedium,
+    color: Colors.light.textSecondary,
+    fontSize: 12.5,
+    includeFontPadding: false,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 50,
+    borderRadius: Radii.md + 2,
+    borderWidth: 1,
+    borderColor: '#FAD0DC',
+    backgroundColor: Colors.light.dangerSoft,
+    ...Shadows.subtle,
+  },
+  logoutText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 15,
+    color: Colors.light.danger,
+    includeFontPadding: false,
+  },
+  disabled: {
+    opacity: 0.5,
+  },
 });

@@ -1,23 +1,26 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { KategoriAiBadge } from '@/components/praktikan/kategori-ai-badge';
-import { STATUS_IZIN } from '@/constants/status-izin';
-import { Colors, Spacing } from '@/constants/theme';
-import { useAuth } from '@/hooks/use-auth';
-import { useIzinPengguna } from '@/hooks/use-izin-pengguna';
 import { DetailIzinAsisten } from '@/components/asisten/detail-izin-asisten';
+import { KategoriAiBadge } from '@/components/praktikan/kategori-ai-badge';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/ui/error-state';
+import {
+  IconCheckCircle,
+  IconClock,
+  IconSparkles,
+  IconXCircle,
+} from '@/components/ui/icons';
+import { LoadingState } from '@/components/ui/loading-state';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { Colors, Fonts, Radii, Shadows, Spacing } from '@/constants/theme';
+import { useAuth } from '@/hooks/use-auth';
 import { useIzinAsisten } from '@/hooks/use-izin-asisten';
+import { useIzinPengguna } from '@/hooks/use-izin-pengguna';
 
 function formatTanggal(nilai: unknown): string {
-  if (!nilai) return 'Belum tersedia';
+  if (!nilai) return 'Belum diperiksa';
 
   let tanggal: Date;
 
@@ -37,8 +40,11 @@ function formatTanggal(nilai: unknown): string {
   if (Number.isNaN(tanggal.getTime())) return 'Belum tersedia';
 
   return tanggal.toLocaleString('id-ID', {
-    dateStyle: 'long',
-    timeStyle: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -47,66 +53,109 @@ export default function DetailIzinScreen() {
   const { pengguna } = useAuth();
 
   const uid = pengguna?.uid ?? null;
-  const { izin: izinPraktikan, loading: loadingPraktikan, error: errorPraktikan } = useIzinPengguna(
-    pengguna?.peran === 'PRAKTIKAN' ? uid : null,
-  );
-  const { izin: izinAsisten, loading: loadingAsisten, error: errorAsisten } = useIzinAsisten(
-    pengguna?.peran === 'ASISTEN' ? uid : null,
-  );
+  const {
+    izin: izinPraktikan,
+    loading: loadingPraktikan,
+    error: errorPraktikan,
+  } = useIzinPengguna(pengguna?.peran === 'PRAKTIKAN' ? uid : null);
+  const {
+    izin: izinAsisten,
+    loading: loadingAsisten,
+    error: errorAsisten,
+  } = useIzinAsisten(pengguna?.peran === 'ASISTEN' ? uid : null);
 
   const izin = pengguna?.peran === 'ASISTEN' ? izinAsisten : izinPraktikan;
-  const loading = pengguna?.peran === 'ASISTEN' ? loadingAsisten : loadingPraktikan;
+  const loading =
+    pengguna?.peran === 'ASISTEN' ? loadingAsisten : loadingPraktikan;
   const error = pengguna?.peran === 'ASISTEN' ? errorAsisten : errorPraktikan;
 
-  const dataIzin = useMemo(() => izin.find((item) => item.idIzin === id), [izin, id]);
+  const dataIzin = useMemo(
+    () => izin.find((item) => item.idIzin === id),
+    [izin, id],
+  );
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={Colors.light.primary} />
-        <Text style={styles.muted}>Memuat detail pengajuan...</Text>
-      </View>
-    );
+    return <LoadingState pesan="Memuat detail pengajuan..." />;
   }
 
   if (error) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.error}>Gagal memuat detail izin.</Text>
-        <Text style={styles.muted}>{error}</Text>
-      </View>
-    );
+    return <ErrorState judul="Gagal memuat detail izin" pesan={error} />;
   }
 
   if (!dataIzin) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.title}>Pengajuan tidak ditemukan</Text>
-        <Text style={styles.muted}>
-          Data tidak tersedia atau bukan milik akun yang sedang login.
-        </Text>
+      <View style={styles.emptyWrap}>
+        <EmptyState
+          judul="Pengajuan tidak ditemukan"
+          pesan="Data tidak tersedia untuk akun ini."
+        />
       </View>
     );
   }
 
-  const status = STATUS_IZIN[dataIzin.statusIzin];
+  const statusMeta =
+    dataIzin.statusIzin === 'DISETUJUI'
+      ? {
+          bg: Colors.light.successSoft,
+          border: '#CDEEE0',
+          icon: <IconCheckCircle size={20} color={Colors.light.success} />,
+          summary: 'Pengajuan izin disetujui.',
+        }
+      : dataIzin.statusIzin === 'DITOLAK'
+        ? {
+            bg: Colors.light.dangerSoft,
+            border: '#FAD0DC',
+            icon: <IconXCircle size={20} color={Colors.light.danger} />,
+            summary: 'Pengajuan izin ditolak.',
+          }
+        : {
+            bg: Colors.light.warningSoft,
+            border: '#F6DFB0',
+            icon: <IconClock size={20} color={Colors.light.warning} />,
+            summary: 'Menunggu pemeriksaan asisten.',
+          };
+
+  const statusCard = (
+    <View
+      style={[
+        styles.statusCard,
+        { backgroundColor: statusMeta.bg, borderColor: statusMeta.border },
+      ]}
+    >
+      <View style={styles.statusTopRow}>
+        <View style={styles.statusIconCircle}>{statusMeta.icon}</View>
+        <View style={styles.statusTopInfo}>
+          <StatusBadge status={dataIzin.statusIzin} />
+          <Text style={styles.statusSummary}>{statusMeta.summary}</Text>
+        </View>
+      </View>
+
+      <View style={styles.metaGrid}>
+        <View style={styles.metaCol}>
+          <Text style={styles.metaLabel}>Diajukan</Text>
+          <Text style={styles.metaValue} numberOfLines={1}>
+            {formatTanggal(dataIzin.dibuatPada)}
+          </Text>
+        </View>
+
+        <View style={styles.metaCol}>
+          <Text style={styles.metaLabel}>Diperiksa</Text>
+          <Text style={styles.metaValue} numberOfLines={1}>
+            {formatTanggal(dataIzin.waktuPeriksa)}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+
   if (pengguna?.peran === 'ASISTEN') {
     return (
-      <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Pemeriksaan Pengajuan Izin</Text>
-          <Text style={styles.subtitle}>Periksa alasan dan tentukan keputusan izin praktikan.</Text>
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Status Pengajuan</Text>
-          <View style={[styles.statusBadge, { backgroundColor: status.background }]}>
-            <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
-          </View>
-          <Text style={styles.label}>Waktu pengajuan</Text>
-          <Text style={styles.value}>{formatTanggal(dataIzin.dibuatPada)}</Text>
-          <Text style={styles.label}>Waktu pemeriksaan</Text>
-          <Text style={styles.value}>{formatTanggal(dataIzin.waktuPeriksa)}</Text>
-        </View>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        {statusCard}
         <DetailIzinAsisten izin={dataIzin} />
       </ScrollView>
     );
@@ -118,76 +167,35 @@ export default function DetailIzinScreen() {
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.header}>
-        <Text style={styles.title}>Detail Pengajuan Izin</Text>
-        <Text style={styles.subtitle}>
-          Informasi pengajuan izin praktikum kamu
-        </Text>
-      </View>
+      {statusCard}
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Status Pengajuan</Text>
-
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: status.background },
-          ]}
-        >
-          <Text style={[styles.statusText, { color: status.color }]}>
-            {status.label}
-          </Text>
+        <View style={styles.reasonHeaderRow}>
+          <Text style={styles.sectionTitle}>Alasan Izin</Text>
+          <View style={styles.sesiPill}>
+            <Text style={styles.sesiPillText}>{dataIzin.sesiId}</Text>
+          </View>
         </View>
 
-        <Text style={styles.description}>
-          {dataIzin.statusIzin === 'MENUNGGU'
-            ? 'Pengajuan kamu sedang menunggu pemeriksaan asisten.'
-            : dataIzin.statusIzin === 'DISETUJUI'
-              ? 'Pengajuan izin kamu telah disetujui.'
-              : 'Pengajuan izin kamu telah ditolak.'}
-        </Text>
-
-        {dataIzin.waktuPeriksa && (
-          <>
-            <Text style={styles.label}>Waktu Pemeriksaan</Text>
-            <Text style={styles.value}>
-              {formatTanggal(dataIzin.waktuPeriksa)}
-            </Text>
-          </>
-        )}
+        <View style={styles.reasonQuote}>
+          <Text style={styles.reasonText}>{dataIzin.alasan}</Text>
+        </View>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Informasi Praktikum</Text>
-
-        <Text style={styles.label}>ID Sesi</Text>
-        <Text style={styles.value}>{dataIzin.sesiId}</Text>
-
-        <Text style={styles.label}>Tanggal Pengajuan</Text>
-        <Text style={styles.value}>
-          {formatTanggal(dataIzin.dibuatPada)}
-        </Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Alasan Izin</Text>
-        <Text style={styles.value}>{dataIzin.alasan}</Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Hasil Klasifikasi AI</Text>
-        <Text style={styles.label}>
-          Status AI: {dataIzin.statusAi}
-        </Text>
+        <View style={styles.aiHeaderRow}>
+          <IconSparkles size={16} color={Colors.light.brandMid} />
+          <Text style={styles.sectionTitle}>Klasifikasi AI</Text>
+        </View>
 
         <KategoriAiBadge
           kategori={dataIzin.kategoriAi}
           statusAi={dataIzin.statusAi}
+          versiKategoriAi={dataIzin.versiKategoriAi}
         />
 
         <Text style={styles.note}>
-          Klasifikasi AI hanya informasi pendukung dan bukan keputusan
-          akhir pengajuan izin.
+          Rekomendasi AI · keputusan akhir di asisten
         </Text>
       </View>
     </ScrollView>
@@ -199,82 +207,123 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.light.background,
   },
-  container: {
-    padding: Spacing.three,
-    paddingBottom: Spacing.five,
-    gap: Spacing.three,
-  },
-  center: {
+  emptyWrap: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Spacing.three,
-    gap: 10,
     backgroundColor: Colors.light.background,
+    padding: 20,
+    justifyContent: 'center',
   },
-  header: {
-    gap: 6,
+  container: {
+    padding: 20,
+    paddingTop: 14,
+    paddingBottom: Spacing.five,
+    gap: 14,
   },
-  title: {
+  statusCard: {
+    padding: 16,
+    borderRadius: Radii.xl,
+    borderWidth: 1,
+    gap: 14,
+    ...Shadows.subtle,
+  },
+  statusTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  statusIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: Colors.light.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadows.subtle,
+  },
+  statusTopInfo: {
+    flex: 1,
+    gap: 5,
+  },
+  statusSummary: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 13,
     color: Colors.light.text,
-    fontSize: 23,
-    fontWeight: '700',
   },
-  subtitle: {
+  metaGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+    borderRadius: Radii.md,
+    padding: 12,
+  },
+  metaCol: {
+    flex: 1,
+    gap: 2,
+  },
+  metaLabel: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 11,
     color: Colors.light.textSecondary,
+  },
+  metaValue: {
+    fontFamily: Fonts.sansSemiBold,
     fontSize: 12,
+    color: Colors.light.text,
   },
   card: {
-    padding: Spacing.three,
-    borderRadius: 14,
+    padding: 18,
+    borderRadius: Radii.xl,
     borderWidth: 1,
     borderColor: Colors.light.border,
     backgroundColor: Colors.light.card,
-    gap: Spacing.two,
+    gap: 12,
+    ...Shadows.card,
+  },
+  reasonHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
   sectionTitle: {
+    fontFamily: Fonts.sansBold,
     color: Colors.light.text,
     fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 4,
   },
-  statusBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
+  sesiPill: {
+    backgroundColor: Colors.light.primarySoft,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radii.pill,
   },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '700',
+  sesiPillText: {
+    fontFamily: Fonts.mono,
+    fontSize: 11,
+    color: Colors.light.primary,
   },
-  description: {
-    color: Colors.light.textSecondary,
-    fontSize: 12,
-    lineHeight: 18,
+  reasonQuote: {
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.light.brandMid,
+    backgroundColor: Colors.light.backgroundElement,
+    borderRadius: Radii.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
-  label: {
-    color: Colors.light.textSecondary,
-    fontSize: 12,
-  },
-  value: {
+  reasonText: {
+    fontFamily: Fonts.sans,
     color: Colors.light.text,
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  aiHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
   },
   note: {
+    fontFamily: Fonts.sans,
     color: Colors.light.textSecondary,
     fontSize: 12,
-    lineHeight: 18,
-  },
-  muted: {
-    color: Colors.light.textSecondary,
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  error: {
-    color: Colors.light.danger,
-    fontSize: 15,
-    fontWeight: '700',
+    lineHeight: 17,
   },
 });

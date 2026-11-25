@@ -11,6 +11,7 @@ export default function ProfilPraktikanScreen() {
         <ScrollView
             style={styles.screen}
             contentContainerStyle={styles.container}
+            showsVerticalScrollIndicator={false}
         >
             {pengguna?.peran === 'PRAKTIKAN' ? <ProfilCard pengguna={pengguna} /> : null}
         </ScrollView>
@@ -26,5 +27,6 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         gap: Spacing.three,
         padding: Spacing.four,
+        paddingBottom: Spacing.five,
     },
 });

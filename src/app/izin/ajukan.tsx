@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Alert, ScrollView, StyleSheet } from 'react-native';
 
 import { FormIzin } from '@/components/praktikan/form-izin';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 import { ajukanIzin } from '@/services/izin-service';
 
 export default function AjukanIzinScreen() {
@@ -35,12 +35,8 @@ export default function AjukanIzinScreen() {
       style={styles.screen}
       contentContainerStyle={styles.container}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.title}>Ajukan Izin</Text>
-      <Text style={styles.subtitle}>
-        Sampaikan alasan izin dengan jelas. Maksimal 2.000 karakter.
-      </Text>
-
       <FormIzin
         namaSesi={sesiId ?? 'Sesi praktikum'}
         loading={loading}
@@ -51,8 +47,13 @@ export default function AjukanIzinScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.light.background },
-  container: { padding: Spacing.three, gap: Spacing.three },
-  title: { fontSize: 23, fontWeight: '700', color: Colors.light.text },
-  subtitle: { fontSize: 13, color: Colors.light.textSecondary, lineHeight: 20 },
+  screen: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
+  },
+  container: {
+    padding: 20,
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
 });

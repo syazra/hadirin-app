@@ -1,17 +1,18 @@
 import {
-    ActivityIndicator,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 
-import { Colors, Spacing } from '@/constants/theme';
+import { IconClock } from '@/components/ui/icons';
+import { Colors, Fonts, Radii, Spacing } from '@/constants/theme';
 import { useLaboratoryActivities } from '@/hooks/use-laboratory-activities';
 import {
-    formatJadwalJakarta,
-    formatRentangJamJakarta,
-    type AktivitasLaboratoriumItem,
+  formatJadwalJakarta,
+  formatRentangJamJakarta,
+  type AktivitasLaboratoriumItem,
 } from '@/services/laboratory-activity-service';
 
 export interface LaboratoryActivityListProps {
@@ -52,7 +53,7 @@ function KartuAktivitas({
           >
             {sedangBerlangsung
               ? item.statusSesi === 'DIBUKA'
-                ? 'Presensi Dibuka'
+                ? 'Dibuka'
                 : 'Berlangsung'
               : 'Terjadwal'}
           </Text>
@@ -63,11 +64,14 @@ function KartuAktivitas({
         {item.judulSesi}
       </Text>
 
-      <Text style={styles.waktuText}>
-        {sedangBerlangsung
-          ? formatRentangJamJakarta(item.waktuMulai, item.waktuSelesai)
-          : formatJadwalJakarta(item.waktuMulai, item.waktuSelesai)}
-      </Text>
+      <View style={styles.timeRow}>
+        <IconClock size={12.5} color={Colors.light.textSecondary} />
+        <Text style={styles.waktuText}>
+          {sedangBerlangsung
+            ? formatRentangJamJakarta(item.waktuMulai, item.waktuSelesai)
+            : formatJadwalJakarta(item.waktuMulai, item.waktuSelesai)}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -111,7 +115,7 @@ export function LaboratoryActivityList({
   return (
     <View style={styles.container}>
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Praktikum Saat Ini</Text>
+        <Text style={styles.sectionTitle}>Saat Ini</Text>
         {currentActivities.length > 0 ? (
           currentActivities.map((item) => (
             <KartuAktivitas
@@ -123,14 +127,14 @@ export function LaboratoryActivityList({
         ) : (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyText}>
-              Tidak ada praktikum yang sedang berlangsung saat ini.
+              Tidak ada praktikum saat ini.
             </Text>
           </View>
         )}
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Praktikum Berikutnya</Text>
+        <Text style={styles.sectionTitle}>Berikutnya</Text>
         {nextActivities.length > 0 ? (
           nextActivities.map((item) => (
             <KartuAktivitas
@@ -142,7 +146,7 @@ export function LaboratoryActivityList({
         ) : (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyText}>
-              Belum ada praktikum berikutnya
+              Belum ada jadwal berikutnya.
             </Text>
           </View>
         )}
@@ -159,19 +163,19 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontFamily: Fonts.sansBold,
+    fontSize: 13.5,
     color: Colors.light.text,
   },
   itemCard: {
-    padding: Spacing.three,
-    borderRadius: 12,
+    padding: 13,
+    borderRadius: Radii.md,
     borderWidth: 1,
-    gap: 4,
+    gap: 5,
   },
   itemCardActive: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
+    backgroundColor: Colors.light.successSoft,
+    borderColor: '#C4EBD8',
   },
   itemCardUpcoming: {
     backgroundColor: Colors.light.card,
@@ -185,50 +189,57 @@ const styles = StyleSheet.create({
   },
   kelasName: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: '700',
+    fontFamily: Fonts.sansBold,
+    fontSize: 13.5,
     color: Colors.light.text,
   },
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 999,
+    borderRadius: Radii.pill,
   },
   badgeActive: {
-    backgroundColor: '#D1FAE5',
-  },
-  badgeUpcoming: {
-    backgroundColor: '#EFF6FF',
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  badgeTextActive: {
-    color: '#065F46',
-  },
-  badgeTextUpcoming: {
-    color: '#1E40AF',
-  },
-  sesiTitle: {
-    fontSize: 13,
-    color: Colors.light.textSecondary,
-  },
-  waktuText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.light.text,
-    marginTop: 2,
-  },
-  emptyBox: {
-    padding: Spacing.three,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
     backgroundColor: Colors.light.card,
   },
+  badgeUpcoming: {
+    backgroundColor: Colors.light.primarySoft,
+  },
+  badgeText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 11,
+  },
+  badgeTextActive: {
+    color: Colors.light.success,
+  },
+  badgeTextUpcoming: {
+    color: Colors.light.primary,
+  },
+  sesiTitle: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 12.5,
+    color: Colors.light.textSecondary,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 1,
+  },
+  waktuText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12,
+    color: Colors.light.text,
+  },
+  emptyBox: {
+    padding: 13,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.backgroundElement,
+  },
   emptyText: {
-    fontSize: 13,
+    fontFamily: Fonts.sans,
+    fontSize: 12.5,
     color: Colors.light.textSecondary,
   },
   centerBox: {
@@ -238,19 +249,20 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   errorBox: {
-    padding: Spacing.three,
-    borderRadius: 12,
+    padding: 14,
+    borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#FECACA',
-    backgroundColor: '#FEF2F2',
+    borderColor: '#FAD0DC',
+    backgroundColor: Colors.light.dangerSoft,
     gap: 6,
   },
   errorTitle: {
+    fontFamily: Fonts.sansBold,
     fontSize: 13,
-    fontWeight: '700',
-    color: '#991B1B',
+    color: Colors.light.danger,
   },
   helperText: {
+    fontFamily: Fonts.sans,
     fontSize: 12,
     color: Colors.light.textSecondary,
   },
@@ -259,14 +271,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    borderRadius: Radii.sm,
+    backgroundColor: Colors.light.card,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: Colors.light.border,
   },
   retryText: {
+    fontFamily: Fonts.sansSemiBold,
     fontSize: 12,
-    fontWeight: '600',
-    color: '#111827',
+    color: Colors.light.text,
   },
 });

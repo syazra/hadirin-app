@@ -1,50 +1,131 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Colors } from '@/constants/theme';
-import type { Sesi, Presensi } from '@/types';
+import { IconCheckCircle, IconMapPin } from '@/components/ui/icons';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { Colors, Fonts, Radii, Shadows } from '@/constants/theme';
+import type { Presensi, Sesi } from '@/types';
 import { formatWaktu } from '@/utils/format-waktu';
 
 export type RiwayatItemProps = { sesi: Sesi; presensi: Presensi };
 
+const BULAN_SINGKAT = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'Mei',
+  'Jun',
+  'Jul',
+  'Agu',
+  'Sep',
+  'Okt',
+  'Nov',
+  'Des',
+];
 
 export function RiwayatItem({ sesi, presensi }: RiwayatItemProps) {
-  const waktu = presensi.waktuHadir ? formatWaktu(presensi.waktuHadir.toISOString()) : 'Menunggu konfirmasi server';
+  const waktuCheckin = presensi.waktuHadir
+    ? formatWaktu(presensi.waktuHadir.toISOString())
+    : 'Menunggu konfirmasi';
 
   return (
     <View style={styles.card}>
-      <View style={styles.header}>
-        <View style={styles.info}>
-          <Text style={styles.nama}>{sesi.judul}</Text>
-          <Text style={styles.lokasi}>{sesi.lokasi}</Text>
-          <Text style={styles.jadwal}>{formatWaktu(sesi.waktuMulai.toISOString())}</Text>
+      <View style={styles.dateTile}>
+        <Text style={styles.dateNum}>{sesi.waktuMulai.getDate()}</Text>
+        <Text style={styles.dateMonth}>
+          {BULAN_SINGKAT[sesi.waktuMulai.getMonth()]}
+        </Text>
+      </View>
+
+      <View style={styles.body}>
+        <View style={styles.topRow}>
+          <Text style={styles.nama} numberOfLines={2}>
+            {sesi.judul}
+          </Text>
+          <StatusBadge status="HADIR" />
         </View>
-        <View style={[styles.badge, styles.hadir]}>
-          <Text style={[styles.status, styles.teksHadir]}>Hadir</Text>
+
+        <View style={styles.metaRow}>
+          <View style={styles.metaItem}>
+            <IconMapPin size={12.5} color={Colors.light.teal} />
+            <Text style={styles.metaText} numberOfLines={1}>
+              {sesi.lokasi}
+            </Text>
+          </View>
+          <View style={styles.metaItem}>
+            <IconCheckCircle size={12.5} color={Colors.light.success} />
+            <Text style={styles.metaText} numberOfLines={1}>
+              {waktuCheckin}
+            </Text>
+          </View>
         </View>
       </View>
-      <Text style={styles.waktu}>Waktu presensi: {waktu}</Text>
     </View>
   );
 }
 
-
 const styles = StyleSheet.create({
   card: {
-    padding: 16,
-    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: Radii.lg,
     borderWidth: 1,
     borderColor: Colors.light.border,
     backgroundColor: Colors.light.card,
-    gap: 12,
+    ...Shadows.card,
   },
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  info: { flex: 1, gap: 5 },
-  nama: { fontSize: 15, fontWeight: '700', color: Colors.light.text },
-  lokasi: { fontSize: 13, color: Colors.light.textSecondary },
-  jadwal: { fontSize: 12, color: Colors.light.textSecondary },
-  badge: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 8 },
-  hadir: { backgroundColor: Colors.light.successSoft },
-  status: { fontSize: 11, fontWeight: '700' },
-  teksHadir: { color: Colors.light.success },
-  waktu: { fontSize: 12, color: Colors.light.textSecondary },
+  dateTile: {
+    width: 48,
+    height: 54,
+    borderRadius: 14,
+    backgroundColor: Colors.light.successSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateNum: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 18,
+    lineHeight: 22,
+    color: Colors.light.success,
+  },
+  dateMonth: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 10.5,
+    color: Colors.light.success,
+    textTransform: 'uppercase',
+  },
+  body: {
+    flex: 1,
+    gap: 6,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  nama: {
+    flex: 1,
+    fontFamily: Fonts.sansBold,
+    fontSize: 15,
+    lineHeight: 20,
+    color: Colors.light.text,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metaText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 11.5,
+    color: Colors.light.textSecondary,
+  },
 });

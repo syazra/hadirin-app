@@ -1,13 +1,17 @@
+import { useState } from 'react';
 import {
-  Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import type { Laboratorium } from '@/types';
+
 import { LaboratoryActivityList } from '@/components/maps/laboratory-activity-list';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
+import { IconClose, IconCrosshair, IconMapPin } from '@/components/ui/icons';
+import { PressableScale } from '@/components/ui/motion';
+import { Colors, Fonts, Radii } from '@/constants/theme';
+import type { Laboratorium } from '@/types';
 
 type Props = {
   laboratorium: Laboratorium | null;
@@ -15,100 +19,117 @@ type Props = {
 };
 
 export default function LaboratoryInfoSheet({ laboratorium, onClose }: Props) {
-  return (
-    <Modal
-      visible={!!laboratorium}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
-          <View style={styles.handle} />
+  const [cachedLab, setCachedLab] = useState<Laboratorium | null>(laboratorium);
 
-          <View style={styles.header}>
-            <View style={styles.headerText}>
-              <Text style={styles.title}>{laboratorium?.nama}</Text>
-              <Text style={styles.subtitle}>
-                {laboratorium?.kodeLab} • {laboratorium?.lokasiGedung}
+  if (laboratorium && laboratorium !== cachedLab) {
+    setCachedLab(laboratorium);
+  }
+
+  const displayLab = laboratorium ?? cachedLab;
+
+  return (
+    <BottomSheet
+      visible={Boolean(laboratorium)}
+      onTutup={onClose}
+      accessibilityLabelTutup="Tutup informasi laboratorium"
+    >
+      <View style={styles.header}>
+        <View style={styles.headerText}>
+          <Text style={styles.title}>{displayLab?.nama}</Text>
+          <Text style={styles.subtitle}>
+            {displayLab?.kodeLab} · {displayLab?.lokasiGedung}
+          </Text>
+        </View>
+        <PressableScale
+          onPress={onClose}
+          hitSlop={10}
+          scaleTo={0.9}
+          style={styles.closeBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Tutup"
+        >
+          <IconClose size={18} color={Colors.light.textSecondary} />
+        </PressableScale>
+      </View>
+
+      {displayLab ? (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.chipsRow}>
+            <View style={styles.infoChip}>
+              <IconMapPin size={14} color={Colors.light.teal} />
+              <Text style={styles.infoChipText}>{displayLab.lokasiGedung}</Text>
+            </View>
+
+            <View style={styles.infoChip}>
+              <IconCrosshair size={14} color={Colors.light.warm} />
+              <Text style={styles.infoChipText}>
+                Radius {displayLab.radiusPresensi} m
               </Text>
             </View>
-            <Pressable onPress={onClose} hitSlop={10}>
-              <Text style={styles.close}>✕</Text>
-            </Pressable>
           </View>
 
-          {laboratorium && (
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.info}>
-                <Text style={styles.infoLabel}>Lokasi</Text>
-                <Text style={styles.infoValue}>{laboratorium.lokasiGedung}</Text>
-                <Text style={styles.infoLabel}>Radius Presensi</Text>
-                <Text style={styles.infoValue}>
-                  {laboratorium.radiusPresensi} meter
-                </Text>
-              </View>
-
-              <Text style={styles.sectionTitle}>Aktivitas Laboratorium</Text>
-              <LaboratoryActivityList labId={laboratorium.idLab} />
-            </ScrollView>
-          )}
-        </Pressable>
-      </Pressable>
-    </Modal>
+          <Text style={styles.sectionTitle}>Aktivitas Laboratorium</Text>
+          <LaboratoryActivityList labId={displayLab.idLab} />
+        </ScrollView>
+      ) : null}
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.35)',
-  },
-  sheet: {
-    maxHeight: '75%',
-    minHeight: 260,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    padding: 20,
-  },
-  handle: {
-    width: 42,
-    height: 5,
-    borderRadius: 5,
-    backgroundColor: '#D0D5DD',
-    alignSelf: 'center',
-    marginBottom: 18,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    gap: 12,
+    marginBottom: 14,
   },
-  headerText: { flex: 1, gap: 4 },
-  title: { fontSize: 18, fontWeight: '700', color: '#172033' },
-  subtitle: { fontSize: 13, color: '#667085' },
-  close: { fontSize: 20, color: '#667085', paddingHorizontal: 6 },
-  info: {
-    backgroundColor: '#F2F4F7',
-    borderRadius: 12,
-    padding: 14,
-    gap: 5,
+  headerText: {
+    flex: 1,
+    gap: 3,
+  },
+  title: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 18,
+    color: Colors.light.text,
+  },
+  subtitle: {
+    fontFamily: Fonts.sans,
+    fontSize: 12.5,
+    color: Colors.light.textSecondary,
+  },
+  closeBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Colors.light.backgroundElement,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 18,
   },
-  infoLabel: { fontSize: 12, color: '#667085' },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#172033',
-    marginBottom: 8,
+  infoChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.light.backgroundElement,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Radii.md,
+  },
+  infoChipText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12.5,
+    color: Colors.light.text,
   },
   sectionTitle: {
+    fontFamily: Fonts.sansBold,
     fontSize: 15,
-    fontWeight: '700',
-    color: '#172033',
-    marginBottom: 12,
+    color: Colors.light.text,
+    marginBottom: 10,
   },
 });
