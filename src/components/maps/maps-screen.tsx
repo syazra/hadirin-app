@@ -199,33 +199,6 @@ export default function MapsScreen({ role: _role }: Props) {
             Google Maps API key belum tersedia untuk perangkat ini.
           </Text>
         </View>
-      ) : labDalamRadius ? (
-        <View style={styles.radiusNotice}>
-          <View style={styles.radiusMedallion}>
-            <IconCheckCircle size={26} color={Colors.light.success} />
-          </View>
-          <Text style={styles.radiusTitle}>
-            Di dalam radius {labDalamRadius.lab.nama}
-          </Text>
-          <Text style={styles.radiusSub}>
-            Lokasi Anda berada di dalam area presensi
-          </Text>
-
-          <View style={styles.radiusPills}>
-            <View style={styles.radiusMetricPill}>
-              <Text style={styles.radiusMetricLabel}>Jarak</Text>
-              <Text style={styles.radiusMetricValue}>
-                {Math.round(labDalamRadius.jarak)} m
-              </Text>
-            </View>
-            <View style={styles.radiusMetricPill}>
-              <Text style={styles.radiusMetricLabel}>Radius</Text>
-              <Text style={styles.radiusMetricValue}>
-                {labDalamRadius.lab.radiusPresensi} m
-              </Text>
-            </View>
-          </View>
-        </View>
       ) : (
         <View style={styles.mapContainer}>
           <LaboratoryMap
@@ -247,6 +220,21 @@ export default function MapsScreen({ role: _role }: Props) {
           >
             <IconCrosshair size={21} color={Colors.light.primary} />
           </Pressable>
+        </View>
+      )}
+
+      {labDalamRadius && (
+        <View style={styles.radiusNotice}>
+          <IconCheckCircle size={20} color={Colors.light.success} />
+          <View style={styles.radiusDetails}>
+            <Text style={styles.radiusTitle}>
+              Di dalam radius {labDalamRadius.lab.nama}
+            </Text>
+            <Text style={styles.radiusMetrics}>
+              Jarak {Math.round(labDalamRadius.jarak)} m ·{' '}
+              Radius {labDalamRadius.lab.radiusPresensi} m
+            </Text>
+          </View>
         </View>
       )}
 
@@ -372,7 +360,6 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     flex: 1,
-    minHeight: 260,
     position: 'relative',
     borderRadius: Radii.xl,
     overflow: 'hidden',
@@ -383,7 +370,6 @@ const styles = StyleSheet.create({
   },
   mapError: {
     flex: 1,
-    minHeight: 260,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -432,61 +418,29 @@ const styles = StyleSheet.create({
     ...Shadows.elevated,
   },
   radiusNotice: {
-    flex: 1,
-    minHeight: 260,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     gap: 10,
-    backgroundColor: Colors.light.card,
-    borderRadius: Radii.xl,
+    backgroundColor: Colors.light.successSoft,
+    borderRadius: Radii.md,
     borderWidth: 1,
     borderColor: '#CDEEE0',
-    ...Shadows.card,
   },
-  radiusMedallion: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: Colors.light.successSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 2,
-  },
-  radiusTitle: {
-    fontFamily: Fonts.sansBold,
-    fontSize: 17,
-    color: Colors.light.text,
-    textAlign: 'center',
-  },
-  radiusSub: {
-    fontFamily: Fonts.sans,
-    fontSize: 13,
-    color: Colors.light.textSecondary,
-    textAlign: 'center',
-  },
-  radiusPills: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 6,
-  },
-  radiusMetricPill: {
-    backgroundColor: Colors.light.successSoft,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: Radii.md,
-    alignItems: 'center',
+  radiusDetails: {
+    flex: 1,
     gap: 2,
   },
-  radiusMetricLabel: {
-    fontFamily: Fonts.sansMedium,
-    fontSize: 11,
-    color: Colors.light.textSecondary,
+  radiusTitle: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 13,
+    color: Colors.light.text,
   },
-  radiusMetricValue: {
-    fontFamily: Fonts.sansBold,
-    fontSize: 15,
-    color: Colors.light.success,
+  radiusMetrics: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    color: Colors.light.textSecondary,
   },
   emptyLabWarning: {
     fontFamily: Fonts.sansMedium,
