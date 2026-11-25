@@ -191,16 +191,16 @@ function SesiFormSheetIsi({
     loading || loadingLab || labAktif.length === 0 || !adaPerubahan;
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={styles.formBody}
+      showsVerticalScrollIndicator={false}
+    >
       <Text style={styles.title}>
         {mode === 'tambah' ? 'Tambah Sesi Baru' : 'Ubah Sesi'}
       </Text>
 
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.formBody}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.fields}>
         <View style={styles.field}>
           <Text style={styles.label}>Judul Sesi</Text>
           <TextInput
@@ -293,7 +293,7 @@ function SesiFormSheetIsi({
             <Text style={styles.errorText}>{pesanError}</Text>
           </View>
         ) : null}
-      </ScrollView>
+      </View>
 
       <View style={styles.actions}>
         <Pressable
@@ -330,7 +330,7 @@ function SesiFormSheetIsi({
           </Text>
         </Pressable>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -369,7 +369,7 @@ export function SesiFormSheet({
 }
 
 const styles = StyleSheet.create({
-  container: {
+  formBody: {
     gap: 14,
   },
   title: {
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     fontSize: 19,
     color: Colors.light.text,
   },
-  formBody: {
+  fields: {
     gap: 13,
     paddingBottom: 8,
   },
