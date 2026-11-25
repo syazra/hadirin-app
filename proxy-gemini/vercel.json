@@ -6,6 +6,9 @@
     },
     "api/presensi.ts": {
       "maxDuration": 15
+    },
+    "api/notifications/process.ts": {
+      "maxDuration": 60
     }
   }
 }
