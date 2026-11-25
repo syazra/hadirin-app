@@ -142,7 +142,7 @@ service cloud.firestore {
           'statusSesi', 'diarsipkan'
         ])
         && data.kelasId is string
-        && (!('labId' in data) || data.labId == null || data.labId is string)
+        && (!('labId' in data) || data.labId == null || teksValid(data.labId, 128))
         && teksValid(data.judul, 100)
         && teksValid(data.lokasi, 100)
         && data.waktuMulai is timestamp
@@ -218,6 +218,48 @@ service cloud.firestore {
         && (!('appVersion' in data) || data.appVersion is string)
         && (!('dibuatPada' in data) || data.dibuatPada is timestamp)
         && (!('diperbaruiPada' in data) || data.diperbaruiPada is timestamp);
+    }
+
+    function laboratoriumFieldsValid(data) {
+      return data.keys().hasAll([
+          'kodeLab', 'nama', 'lokasiGedung',
+          'latitude', 'longitude', 'radiusPresensi', 'aktif'
+        ])
+        && teksValid(data.kodeLab, 32)
+        && teksValid(data.nama, 100)
+        && teksValid(data.lokasiGedung, 200)
+        && data.latitude is number
+        && data.latitude >= -90
+        && data.latitude <= 90
+        && data.longitude is number
+        && data.longitude >= -180
+        && data.longitude <= 180
+        && data.radiusPresensi is number
+        && data.radiusPresensi > 0
+        && data.radiusPresensi <= 10000
+        && data.aktif is bool;
+    }
+
+    function laboratoriumBaruValid() {
+      return isAsisten()
+        && request.resource.data.keys().hasOnly([
+          'kodeLab', 'nama', 'lokasiGedung',
+          'latitude', 'longitude', 'radiusPresensi', 'aktif'
+        ])
+        && laboratoriumFieldsValid(request.resource.data);
+    }
+
+    function laboratoriumUpdateValid() {
+      return isAsisten()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'kodeLab', 'nama', 'lokasiGedung',
+          'latitude', 'longitude', 'radiusPresensi', 'aktif'
+        ])
+        && request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'kodeLab', 'nama', 'lokasiGedung',
+          'latitude', 'longitude', 'radiusPresensi', 'aktif'
+        ])
+        && laboratoriumFieldsValid(request.resource.data);
     }
 
     function kelasBaruValid() {
@@ -300,10 +342,10 @@ service cloud.firestore {
       return !kelasDiarsipkan(resource.data.kelasId)
         && request.resource.data.kelasId == resource.data.kelasId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'judul', 'lokasi', 'waktuMulai', 'waktuSelesai'
+          'judul', 'labId', 'lokasi', 'waktuMulai', 'waktuSelesai'
         ])
         && request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'judul', 'lokasi', 'waktuMulai', 'waktuSelesai'
+          'judul', 'labId', 'lokasi', 'waktuMulai', 'waktuSelesai'
         ])
         && sesiDataValid(request.resource.data);
     }
@@ -457,7 +499,9 @@ service cloud.firestore {
 
     match /laboratorium/{labId} {
       allow get, list: if signedIn();
-      allow write: if false;
+      allow create: if laboratoriumBaruValid();
+      allow update: if laboratoriumUpdateValid();
+      allow delete: if false;
     }
 
     match /kelas/{kelasId} {

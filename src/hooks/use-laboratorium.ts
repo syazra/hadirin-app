@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Laboratorium } from '@/types';
-import { ambilLaboratorium, tambahLaboratorium, ubahLaboratorium, hapusLaboratorium } from '@/services/laboratorium-service';
+import { ambilLaboratorium, tambahLaboratorium, ubahLaboratorium } from '@/services/laboratorium-service';
 
 type InputLaboratorium = Omit<Laboratorium, 'idLab'>;
 
@@ -38,12 +38,17 @@ export function useLaboratorium() {
     return hasil;
   };
 
-  const hapus = async (id: string) => {
-    const hasil = await hapusLaboratorium(id);
-    if (hasil.ok) await muatData();
-    else setError(hasil.pesan);
-    return hasil;
+  const ubahStatusAktif = async (lab: Laboratorium, aktif: boolean) => {
+    return ubah(lab.idLab, {
+      kodeLab: lab.kodeLab,
+      nama: lab.nama,
+      lokasiGedung: lab.lokasiGedung,
+      latitude: lab.latitude,
+      longitude: lab.longitude,
+      radiusPresensi: lab.radiusPresensi,
+      aktif,
+    });
   };
 
-  return { daftarLaboratorium, loading, error, muatData, tambah, ubah, hapus };
+  return { daftarLaboratorium, loading, error, muatData, tambah, ubah, ubahStatusAktif };
 }

@@ -15,10 +15,11 @@ const KOSONG = {
 };
 
 export default function LaboratoriumScreen() {
-  const { daftarLaboratorium, loading, error, tambah, ubah, hapus } = useLaboratorium();
+  const { daftarLaboratorium, loading, error, tambah, ubah, ubahStatusAktif } = useLaboratorium();
   const [form, setForm] = useState(KOSONG);
   const [editId, setEditId] = useState<string | null>(null);
   const [menyimpan, setMenyimpan] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
 
   const simpan = async () => {
@@ -74,11 +75,42 @@ export default function LaboratoriumScreen() {
     });
   };
 
-  const konfirmasiHapus = (lab: Laboratorium) =>
-    Alert.alert('Hapus laboratorium?', `Hapus ${lab.nama}?`, [
-      { text: 'Batal', style: 'cancel' },
-      { text: 'Hapus', style: 'destructive', onPress: () => { void hapus(lab.idLab); } },
-    ]);
+  const jalankanToggleStatus = async (lab: Laboratorium, aktifBaru: boolean) => {
+    if (togglingId) return;
+    setTogglingId(lab.idLab);
+    try {
+      const hasil = await ubahStatusAktif(lab, aktifBaru);
+      if (hasil.ok) {
+        if (editId === lab.idLab) {
+          setForm((old) => ({ ...old, aktif: aktifBaru }));
+        }
+      } else {
+        Alert.alert('Gagal', hasil.pesan);
+      }
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  const konfirmasiToggleStatus = (lab: Laboratorium) => {
+    if (lab.aktif) {
+      Alert.alert(
+        'Nonaktifkan laboratorium?',
+        `${lab.nama} tidak akan dapat dipilih untuk sesi baru, namun riwayat sesi lama tetap aman.`,
+        [
+          { text: 'Batal', style: 'cancel' },
+          {
+            text: 'Nonaktifkan',
+            style: 'destructive',
+            onPress: () => { void jalankanToggleStatus(lab, false); },
+          },
+        ],
+      );
+      return;
+    }
+
+    void jalankanToggleStatus(lab, true);
+  };
 
   const field = (
     label: string,
@@ -145,7 +177,14 @@ export default function LaboratoriumScreen() {
             <Text style={styles.subtitle}>Koordinat: {lab.latitude}, {lab.longitude} · Radius {lab.radiusPresensi} m</Text>
             <View style={styles.row}>
               <Pressable onPress={() => mulaiEdit(lab)}><Text style={styles.action}>Edit</Text></Pressable>
-              <Pressable onPress={() => konfirmasiHapus(lab)}><Text style={styles.delete}>Hapus</Text></Pressable>
+              <Pressable
+                disabled={togglingId === lab.idLab}
+                onPress={() => konfirmasiToggleStatus(lab)}
+              >
+                <Text style={lab.aktif ? styles.deactivate : styles.activate}>
+                  {togglingId === lab.idLab ? 'Memproses...' : lab.aktif ? 'Nonaktifkan' : 'Aktifkan'}
+                </Text>
+              </Pressable>
             </View>
           </View>
         ))}
@@ -189,6 +228,7 @@ const styles = StyleSheet.create({
   active: { color: '#15803D', fontWeight: '600' },
   inactive: { color: '#B45309', fontWeight: '600' },
   action: { color: '#2563EB', fontWeight: '700', paddingTop: 14 },
-  delete: { color: '#DC2626', fontWeight: '700', paddingTop: 14 },
+  deactivate: { color: '#B45309', fontWeight: '700', paddingTop: 14 },
+  activate: { color: '#15803D', fontWeight: '700', paddingTop: 14 },
   error: { color: '#DC2626', marginTop: 10 },
 });
