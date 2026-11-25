@@ -139,7 +139,7 @@ service cloud.firestore {
         ])
         && data.keys().hasOnly([
           'kelasId', 'judul', 'labId', 'lokasi', 'waktuMulai', 'waktuSelesai',
-          'statusSesi', 'diarsipkan'
+          'statusSesi', 'diarsipkan', 'notificationEventId'
         ])
         && data.kelasId is string
         && (!('labId' in data) || data.labId == null || teksValid(data.labId, 128))
@@ -330,6 +330,7 @@ service cloud.firestore {
     function sesiBaruValid(sesiId) {
       return isAsisten()
         && sesiDataValid(request.resource.data)
+        && !('notificationEventId' in request.resource.data)
         && request.resource.data.statusSesi == 'BELUM_DIBUKA'
         && request.resource.data.diarsipkan == false
         && isPemilikKelas(request.resource.data.kelasId)
@@ -342,7 +343,7 @@ service cloud.firestore {
       return !kelasDiarsipkan(resource.data.kelasId)
         && request.resource.data.kelasId == resource.data.kelasId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'judul', 'labId', 'lokasi', 'waktuMulai', 'waktuSelesai'
+          'judul', 'labId', 'lokasi', 'waktuMulai', 'waktuSelesai', 'notificationEventId'
         ])
         && request.resource.data.diff(resource.data).affectedKeys().hasAny([
           'judul', 'labId', 'lokasi', 'waktuMulai', 'waktuSelesai'
@@ -356,7 +357,7 @@ service cloud.firestore {
 
     function sesiStatusUpdateValid() {
       return request.resource.data.kelasId == resource.data.kelasId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statusSesi'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statusSesi', 'notificationEventId'])
         && request.resource.data.diff(resource.data).affectedKeys().hasAny(['statusSesi'])
         && (
           (
@@ -459,11 +460,79 @@ service cloud.firestore {
           'statusIzin', 'diperiksaOleh', 'waktuPeriksa'
         ])
         && data.diff(resource.data).affectedKeys().hasOnly([
-          'statusIzin', 'diperiksaOleh', 'waktuPeriksa'
+          'statusIzin', 'diperiksaOleh', 'waktuPeriksa', 'notificationEventId'
         ])
         && data.statusIzin in ['DISETUJUI', 'DITOLAK']
         && data.diperiksaOleh == request.auth.uid
         && data.waktuPeriksa == request.time;
+    }
+
+    function jenisNotifikasiSesi(before, after) {
+      return before.statusSesi == 'BELUM_DIBUKA' && after.statusSesi == 'DIBUKA'
+        ? 'SESI_DIBUKA'
+        : after.diff(before).affectedKeys().hasAny(['judul', 'labId', 'waktuMulai', 'waktuSelesai'])
+          ? 'JADWAL_BERUBAH'
+          : null;
+    }
+
+    function jenisNotifikasiIzin(before, after) {
+      return before.statusIzin != 'MENUNGGU' ? null
+        : after.statusIzin == 'DISETUJUI' ? 'IZIN_DISETUJUI'
+        : after.statusIzin == 'DITOLAK' ? 'IZIN_DITOLAK'
+        : null;
+    }
+
+    function idEventNotifikasiValid(eventId) {
+      return eventId is string && eventId.matches('^[A-Za-z0-9]{20}$');
+    }
+
+    function notifikasiDiwajibkan() {
+      let config = /databases/$(database)/documents/notificationConfig/runtime;
+      return exists(config) && get(config).data.get('requireIntent', false) == true;
+    }
+
+    function dataIntentNotifikasiValid(data, entityId, type) {
+      return data.keys().hasOnly(['entityId', 'type', 'createdAt', 'nextAttemptAt'])
+        && data.entityId == entityId && data.type == type
+        && data.createdAt == request.time && data.nextAttemptAt == request.time;
+    }
+
+    function intentNotifikasiBaruValid(eventId, entityId, type) {
+      let intent = /databases/$(database)/documents/notificationIntents/$(eventId);
+      return !exists(intent) && existsAfter(intent)
+        && dataIntentNotifikasiValid(getAfter(intent).data, entityId, type);
+    }
+
+    function updateNotifikasiValid(entityId, type) {
+      let eventId = request.resource.data.get('notificationEventId', null);
+      let changed = request.resource.data.diff(resource.data).affectedKeys().hasAny(['notificationEventId']);
+      return changed
+        ? type != null && idEventNotifikasiValid(eventId) && intentNotifikasiBaruValid(eventId, entityId, type)
+        : type == null || !notifikasiDiwajibkan();
+    }
+
+    function sumberIntentNotifikasiValid(eventId, source, isIzin) {
+      let before = get(source).data;
+      let after = getAfter(source).data;
+      return before.get('notificationEventId', null) != eventId
+        && after.get('notificationEventId', null) == eventId
+        && request.resource.data.type == (isIzin
+          ? jenisNotifikasiIzin(before, after)
+          : jenisNotifikasiSesi(before, after));
+    }
+
+    function intentNotifikasiValid(eventId) {
+      let data = request.resource.data;
+      let id = data.entityId;
+      return isAsisten() && idEventNotifikasiValid(eventId)
+        && id is string && id.size() <= 256 && id.matches('^[^/]+$') && !(id in ['.', '..'])
+        && dataIntentNotifikasiValid(data, id, data.type)
+        && (
+          (data.type in ['SESI_DIBUKA', 'JADWAL_BERUBAH']
+            && sumberIntentNotifikasiValid(eventId, pathSesi(id), false))
+          || (data.type in ['IZIN_DISETUJUI', 'IZIN_DITOLAK']
+            && sumberIntentNotifikasiValid(eventId, /databases/$(database)/documents/izin/$(id), true))
+        );
     }
 
     function kodeMilikSendiri(kode) {
@@ -578,7 +647,7 @@ service cloud.firestore {
           sesiJadwalUpdateValid()
           || sesiStatusUpdateValid()
           || sesiArsipUpdateValid()
-        );
+        ) && updateNotifikasiValid(sesiId, jenisNotifikasiSesi(resource.data, request.resource.data));
       allow delete: if false;
 
       match /rahasia/{rahasiaId} {
@@ -645,8 +714,13 @@ service cloud.firestore {
       );
 
       allow create: if izinBaruValid(izinId);
-      allow update: if izinKeputusanValid();
+      allow update: if izinKeputusanValid()
+        && updateNotifikasiValid(izinId, jenisNotifikasiIzin(resource.data, request.resource.data));
       allow delete: if false;
+    }
+
+    match /notificationIntents/{eventId} {
+      allow create: if intentNotifikasiValid(eventId);
     }
 
     match /{document=**} {

@@ -14,6 +14,7 @@ import {
 } from '@react-native-firebase/firestore';
 import { getFirebaseServices, isFirebaseAvailable } from '@/lib/firebase';
 import type { AlasanGagal, Hasil, Laboratorium, Peran, Sesi, StatusSesi } from '@/types';
+import { buatReferensiNotifikasi, catatNotifikasi } from './notification-intent';
 
 async function ambilLabAktif(
   db: ReturnType<typeof getFirebaseServices>['db'],
@@ -462,7 +463,7 @@ export async function ubahSesi(
         }
 
         const sesiRef = doc(db, 'sesi', idSesiRapi);
-
+        const notifikasiRef = buatReferensiNotifikasi(db);
         const hasilTransaksi = await runTransaction(db, async (tx) => {
             const sesiSnap = await tx.get(sesiRef);
             const sesiData = sesiSnap.data();
@@ -558,7 +559,10 @@ export async function ubahSesi(
                 return { ok: true, data: undefined } satisfies Hasil;
             }
 
-            tx.update(sesiRef, payloadUpdate);
+            tx.update(sesiRef, {
+                ...payloadUpdate,
+                ...catatNotifikasi(tx, notifikasiRef, idSesiRapi, 'JADWAL_BERUBAH'),
+            });
             return { ok: true, data: undefined } satisfies Hasil;
         });
 
@@ -655,7 +659,7 @@ export async function bukaSesi(
 
         const { uid, db } = cekAsisten;
         const sesiRef = doc(db, 'sesi', idSesiRapi);
-
+        const notifikasiRef = buatReferensiNotifikasi(db);
         const hasilTransaksi = await runTransaction(db, async (tx) => {
             const sesiSnap = await tx.get(sesiRef);
             const sesiData = sesiSnap.data();
@@ -700,7 +704,10 @@ export async function bukaSesi(
                 );
             }
 
-            tx.update(sesiRef, { statusSesi: 'DIBUKA' satisfies StatusSesi });
+            tx.update(sesiRef, {
+                statusSesi: 'DIBUKA' satisfies StatusSesi,
+                ...catatNotifikasi(tx, notifikasiRef, idSesiRapi, 'SESI_DIBUKA'),
+            });
             return { ok: true, data: undefined } satisfies Hasil;
         });
 

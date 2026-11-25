@@ -1,6 +1,6 @@
-import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore';
+import { firebaseAdminApp } from '../firebase-admin-app';
 
 export const BATAS_AKURASI_MAKSIMAL_METER = 50;
 export const BATAS_USIA_TIMESTAMP_MS = 60_000;
@@ -81,12 +81,6 @@ function respons(
     status,
     headers: { 'content-type': 'application/json; charset=utf-8', ...headers },
   });
-}
-
-function wajibEnv(nama: string): string {
-  const nilai = process.env[nama]?.trim();
-  if (!nilai) throw new Error(`Environment ${nama} belum dikonfigurasi.`);
-  return nilai;
 }
 
 /**
@@ -791,20 +785,7 @@ export function buatHandlerPresensi(
 }
 
 function buatHandlerProduksi(): (request: Request) => Promise<Response> {
-  const projectId = wajibEnv('FIREBASE_PROJECT_ID');
-  const clientEmail = wajibEnv('FIREBASE_CLIENT_EMAIL');
-  const privateKey = wajibEnv('FIREBASE_PRIVATE_KEY').replace(/\\n/g, '\n');
-
-  const namaApp = 'hadirin-presensi-proxy';
-  const app =
-    getApps().find((candidate) => candidate.name === namaApp) ??
-    initializeApp(
-      {
-        projectId,
-        credential: cert({ projectId, clientEmail, privateKey }),
-      },
-      namaApp,
-    );
+  const app = firebaseAdminApp('hadirin-presensi-proxy');
 
   const auth = getAuth(app);
   const db = getFirestore(app);

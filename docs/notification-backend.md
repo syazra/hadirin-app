@@ -1,131 +1,72 @@
-# FAR-S3-02 — Shared notification backend
+# Sprint 3 notification backend on Firebase Spark
 
-The original FAR-S3-02 change provides a server-only queue/sender and an exported
-delivery worker. The subsequent FAR-S3-01..05 implementation connects the domain
-producers and Android client; see [sprint-3-notifications.md](sprint-3-notifications.md).
-No live deployment or device validation has been performed here.
+The assistant app records a notification intent in the same Firestore
+transaction that opens a session, changes its schedule, or decides a leave
+request. The Vercel worker processes the intents and sends FCM messages.
+QStash wakes the worker every two minutes. FCM and the Firestore database stay
+on the Firebase project already used by the app.
 
-## Contract for domain handlers
+## Event capture and delivery
 
-Import `sendToUsers` from `functions/src/notifications/send-notification.ts`:
+- The client creates a linked `notificationIntents/{eventId}` with the source
+  ID, event type, and two server timestamps. The source document points to the
+  event through `notificationEventId`. Rules verify both documents in the same
+  commit. The client has no access to intent processing fields, the rollout
+  setting, or delivery records.
+- The worker resolves active class members for session alerts and the applicant
+  for leave decisions. A single Firestore transaction creates deterministic
+  `notificationEvents` jobs with the selected recipients and marks the intent
+  processed. Later retries reuse those recipients. Old Firestore changes are
+  outside the queue.
+- Each delivery job uses a two-minute transactional lease and a five-attempt
+  budget. The worker persists retry times and removes the due timestamp from
+  terminal records. Each recipient's devices remain in
+  `pengguna/{uid}/perangkat/{installationId}`. The ledger skips devices already
+  accepted by FCM and only prunes a definitively invalid token if it still
+  matches the registry.
+- The FCM data contract remains version 1 with `eventId`, `type`, `entityId`,
+  `routeKey`, and `recipientUid`. Android uses a stable tag for tray entries.
+  A crash after FCM accepts a send and before Firestore saves acceptance can
+  cause a repeat. A completed record reports processing and acceptance counts.
+  Device receipt must be verified separately.
 
-```ts
-await sendToUsers({
-  eventId: event.id, // stable source CloudEvent identity; reuse on retries
-  type: 'SESI_DIBUKA',
-  entityId: sesiId,
-  routeKey: 'SESI',
-  recipientUids: activeMemberUids,
-  title: 'Presensi dibuka',
-  body: 'Buka aplikasi untuk melihat sesi praktikum.',
-});
-```
+## Deploy and roll out
 
-Types: `SESI_DIBUKA`, `JADWAL_BERUBAH`, `IZIN_DISETUJUI`, `IZIN_DITOLAK`.
-Session/schedule events use routeKey `SESI`; izin events use `IZIN`. Recipients
-are deduplicated/sorted, with a maximum of 500 input UIDs per event. Larger
-audiences must be partitioned using stable source-event/subgroup keys.
+1. Verify the existing Vercel project uses `proxy-gemini` as its root, Firebase
+   credentials for `ppk-hadirin`, and an enabled FCM HTTP v1 API. The Firebase
+   service account needs Firestore read/write and FCM send access. Keep the
+   service credentials and QStash signing keys in the Vercel environment.
+2. Set `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, and
+   `QSTASH_NOTIFICATION_URL` to the exact stable HTTPS destination ending in
+   `/api/notifications/process`. Deploy the Vercel backend. Check that an
+   unsigned POST to the endpoint returns 401.
+3. Deploy the compatible Rules with
+   `npx firebase-tools deploy --project ppk-hadirin --only firestore:rules`.
+   Keep `notificationConfig/runtime.requireIntent` false or absent at first.
+4. Configure one QStash POST schedule to the same URL with cron
+   `*/2 * * * *`, body `{}`, and delivery retries set to zero. The next tick
+   recovers work from Firestore. Confirm the signed tick returns 204.
+   One schedule uses 720 QStash deliveries per day
+   under the current 1,000-delivery Free quota.
+5. Follow the Android acceptance matrix in [Sprint 3 Android notifications](sprint-3-notifications.md).
+   Once the assistants are on the updated build, set the Firestore boolean
+   at `notificationConfig/runtime.requireIntent` to true in the Firebase
+   console. Confirm a legacy assistant cannot perform the three push-producing
+   operations and the updated build can. Session reads, creation, closing,
+   and archiving continue to work.
 
-Domain handlers must resolve authorized recipients from active membership/class
-ownership or the izin applicant and pass stable snapshot-derived content. Never
-accept recipient lists, arbitrary routes, reasons for izin, credentials, or private
-lock-screen content from a client. This helper is not an HTTP/callable endpoint.
+## Operate and roll back
 
-The result is `{ status, eventKey }`: `QUEUED`, `ALREADY_QUEUED`, or
-`NO_RECIPIENTS`. It does not claim delivery. Conflicting content under the same
-event ID fails instead of silently dropping a different event. Schedule changes
-must use each source update's identity, not just the session ID. Repeated source
-delivery must preserve event identity/content.
-
-FCM data is strings only: `{ version: '1', eventId, type, entityId, routeKey,
-recipientUid }`. The worker assigns `recipientUid` per recipient's device batch;
-domain producers do not accept it from clients. No arbitrary URL or raw route is
-emitted. The Android client validates the contract, account and entity access.
-Message size is checked in UTF-8 with headroom for recipient metadata.
-
-## Storage and retry behavior
-
-- Existing registry: `pengguna/{uid}/perangkat/{installationId}`. Preserve its
-  current `fcmToken`, optional platform/deviceName/appVersion and timestamp schema.
-  Multiple installations are supported. Raw tokens remain only in that registry
-  and the in-memory FCM request, not operational logs or the delivery ledger.
-- Outbox: `notificationEvents/{sha256(eventId)}`. Created atomically once with a
-  canonical payload fingerprint; duplicate events do not create another job.
-- Recipient progress under `recipients` skips completed recipients on retries.
-  Empty registries are recorded without an FCM call. Completed recipients do not
-  pick up newly registered devices for an old event on later retries.
-- Device ledger under `deliveries` uses UID + installation identity. It records
-  token hash, attempts, safe error code and `ACCEPTED`/`RETRY`/`FAILED`; an accepted
-  installation is skipped on retries, including token refresh.
-- The worker claims a two-minute transactional lease; concurrent invocations wait
-  for retry rather than send concurrently. Its timeout is 60 seconds, with a
-  45-second soft yield before another batch/recipient. Messages use batches of at
-  most 100 (below FCM's 500 limit). Ledger writes are grouped with bounded parallelism.
-- Eventarc handles retry backoff. At most five claimed processing passes are
-  allowed; persistent transient failures become `EXHAUSTED`. A database outage
-  before a claim cannot persist an attempt counter and is bounded by the platform
-  event retry window instead. Busy leases do not spend the send-attempt budget.
-- Root `COMPLETE` means processing finished, not every device received a message.
-  Inspect accepted/failed/noTokenUsers counts. `INVALID` means a malformed stored
-  event; `EXHAUSTED` stops automatic delivery attempts. Device `RETRY` at an
-  exhausted root describes its last outcome, not a scheduled future send.
-
-Only definitive invalid/unregistered token responses prune registry records.
-Cleanup checks the current token transactionally and leaves refreshed tokens
-intact. Generic invalid payloads or batch errors never delete individual tokens.
-Transient/unknown errors retry; known credential/payload failures stop for that
-token version. Unknown exception text/codes are not persisted or logged.
-
-Firestore and FCM do not share a transaction. A process can crash after FCM
-acceptance but before the ledger commit; a retry can then repeat an alert. Stable
-Android notification tags reduce duplicate tray entries. Later client event-ID
-deduplication is still needed; this implementation does not promise exactly-once
-delivery, ordering, or that a notification was displayed/read. Duplicate registry
-entries containing the same token can also produce repeated delivery attempts;
-the client registry lifecycle must keep installation records consistent.
-
-## Rules ownership and validation
-
-The current owner-only token Rules already exist. All outbox/progress/ledger client
-access is denied by the existing catch-all Rule, including Asisten clients. No
-Rules changes are made. The new emulator suite covers registration/update/delete,
-multi-device access, malformed fields, wrong UID/unauthenticated access, and
-server-only outbox paths; Azka remains the Rules integrator.
-
-```sh
-npm --prefix functions run test:notifications
-npm --prefix functions run lint
-npm --prefix functions run build
-npm --prefix tests/rules run typecheck
-# With Firestore Emulator running on 127.0.0.1:8080:
-npm --prefix tests/rules run test:notification-tokens
-```
-
-Backend tests use a transactional in-memory Firestore adapter and mocked FCM.
-They cover concurrent enqueue, leases, duplicate suppression, partial retries,
-invalid-token refresh races, error redaction, batching and bounded failures.
-They do not prove real FCM delivery or distributed Firestore/emulator behavior.
-The Rules emulator suite has not been run here: no emulator is running and the
-available Java runtime is 17. Rules typecheck and app lint/typecheck are run.
-
-## Deployment handoff
-
-When authorized/configured, deploy `functions:dispatchNotification` in
-`asia-southeast2` with Firebase CLI, keeping the existing Functions workspace and
-`recordAttendance` export. Enable FCM HTTP v1 and grant its runtime service account
-the appropriate messaging/Firestore permissions. No server key belongs in Expo.
-The worker's outbox is server-only and idle until domain handlers enqueue events.
-
-In a development Firebase project, register real device tokens using the later
-client PR, enqueue an authorized synthetic event from a backend test/script, then
-inspect the counts/ledger and verify receipt on two devices. Verify no-token,
-unregistered-token, partial failure and duplicate-event behavior. Retain terminal
-records while source events can still retry; deleting ledger records too early
-removes deduplication. Investigate `EXHAUSTED`/`FAILED` before deliberate replay.
-Disable the worker/producer deployments to stop new dispatch; never clear the
-outbox simply to force retries.
-
-References: [Admin FCM sending](https://firebase.google.com/docs/cloud-messaging/send/admin-sdk),
-[token cleanup](https://firebase.google.com/docs/cloud-messaging/manage-tokens),
-[Firestore trigger semantics](https://firebase.google.com/docs/functions/firestore-events),
-[retry behavior](https://firebase.google.com/docs/functions/retries).
+- Review QStash delivery status and Vercel logs for the next scan. The worker
+  logs aggregate intent and delivery states, oldest processed queue age,
+  acceptance, failures, and missing-token counts. Check terminal failures and
+  sustained queue growth in Firestore. Keep raw tokens and izin reasons out
+  of incident logs.
+- Pause the QStash schedule and set `requireIntent` to false for compatibility
+  rollback. Keep intent and delivery records so a restart can resume queued
+  work without discarding deduplication. Check queued work and its age before
+  resuming.
+- Deployment and billing references include [QStash schedules](https://upstash.com/docs/qstash/features/schedules),
+  [signature verification](https://upstash.com/docs/qstash/howto/signature),
+  [QStash pricing](https://upstash.com/pricing/qstash), and
+  [Firebase Admin FCM sending](https://firebase.google.com/docs/cloud-messaging/send/admin-sdk).

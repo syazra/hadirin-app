@@ -12,6 +12,7 @@ import {
 import { getFirebaseServices } from '@/lib/firebase';
 import type { AlasanGagal, Hasil, Izin, StatusIzin } from '@/types';
 import { normalisasiKategoriIzinTersimpan } from '@/utils/kategori-izin';
+import { buatReferensiNotifikasi, catatNotifikasi } from './notification-intent';
 
 function gagal(alasan: AlasanGagal, pesan: string): Hasil<Izin> {
   return { ok: false, alasan, pesan };
@@ -231,7 +232,7 @@ export async function putuskanIzin(
     if (!user) return { ok: false, alasan: 'AUTENTIKASI_GAGAL', pesan: 'Silakan login kembali.' };
 
     const izinRef = doc(db, 'izin', idIzin);
-
+    const notifikasiRef = buatReferensiNotifikasi(db);
     await runTransaction(db, async (transaction) => {
       const izinSnap = await transaction.get(izinRef);
       if (!izinSnap.exists()) throw new Error('DATA_TIDAK_DITEMUKAN');
@@ -256,6 +257,8 @@ export async function putuskanIzin(
         statusIzin: status,
         diperiksaOleh: user.uid,
         waktuPeriksa: serverTimestamp(),
+        ...catatNotifikasi(transaction, notifikasiRef, idIzin,
+          status === 'DISETUJUI' ? 'IZIN_DISETUJUI' : 'IZIN_DITOLAK'),
       });
     });
 

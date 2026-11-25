@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
-export type NotificationType = 'SESI_DIBUKA' | 'JADWAL_BERUBAH' | 'IZIN_DISETUJUI' | 'IZIN_DITOLAK';
+export const NOTIFICATION_TYPES = ['SESI_DIBUKA', 'JADWAL_BERUBAH', 'IZIN_DISETUJUI', 'IZIN_DITOLAK'] as const;
+export type NotificationType = typeof NOTIFICATION_TYPES[number];
 export interface NotificationInput {
   eventId: string;
   type: NotificationType;
@@ -11,19 +12,20 @@ export interface NotificationInput {
   body: string;
 }
 export const EVENT_COLLECTION = 'notificationEvents';
+export const INTENT_COLLECTION = 'notificationIntents';
 export const MAX_ATTEMPTS = 5;
 export const LEASE_MS = 120_000;
+export const RETRY_MS = 90_000;
 export const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 
 function text(value: unknown, max: number): value is string {
   return typeof value === 'string' && value.trim().length > 0 && value.length <= max;
 }
-function identifier(value: unknown, max: number): value is string {
+export function identifier(value: unknown, max: number): value is string {
   return text(value, max) && value.trim() === value && !value.includes('/') && value !== '.' && value !== '..';
 }
 export function normalizeNotification(value: NotificationInput): NotificationInput {
-  const types = ['SESI_DIBUKA', 'JADWAL_BERUBAH', 'IZIN_DISETUJUI', 'IZIN_DITOLAK'];
-  if (!value || !text(value.eventId, 512) || !types.includes(value.type)
+  if (!value || !text(value.eventId, 512) || !NOTIFICATION_TYPES.includes(value.type)
     || !identifier(value.entityId, 256)
     || value.routeKey !== (value.type.startsWith('IZIN_') ? 'IZIN' : 'SESI')
     || !text(value.title, 120) || !text(value.body, 500)

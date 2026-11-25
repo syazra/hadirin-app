@@ -192,11 +192,11 @@ Panduan kebijakan klasifikasi tersedia di [`docs/far-s2-01-ai-categories.md`](do
 
 Aplikasi menggunakan Firebase Authentication dan Cloud Firestore untuk autentikasi serta data aplikasi. Firestore Security Rules dan indexes berada di root repository pada `firestore.rules` dan `firestore.indexes.json`.
 
-Source Firebase Cloud Functions tersedia di direktori `functions/`, termasuk handler untuk presensi, Demo Login berbasis Custom Token, dan notifikasi. **Keberadaan source code di repository tidak berarti Function sudah ter-deploy pada Firebase project.** Aktivasi handler tersebut bergantung pada konfigurasi dan dukungan billing Firebase project yang digunakan.
+Source Firebase Cloud Functions untuk presensi dan Demo Login berbasis Custom Token tersedia di direktori `functions/`. Notifikasi Sprint 3 diproses melalui Vercel dan FCM dengan jadwal QStash. Ikuti [panduan deployment notifikasi](docs/notification-backend.md) untuk mengaktifkannya pada Firebase Spark.
 
 Demo Login pada versi aplikasi yang dijelaskan di README ini menggunakan Firebase Authentication secara langsung dengan akun dummy yang dikonfigurasi secara lokal. Alur tersebut tidak memerlukan deployment Cloud Functions. Kredensial demo hanya ditujukan untuk pengujian dan tidak boleh menggunakan akun pribadi atau akun produksi.
 
-Fitur notifikasi otomatis yang bergantung pada event handler Cloud Functions memerlukan backend Functions yang sudah ter-deploy. Integrasi FCM pada sisi aplikasi saja tidak otomatis mengaktifkan seluruh pemicu notifikasi server-side.
+Pengiriman otomatis berjalan setelah Firestore Rules, worker Vercel, dan jadwal QStash aktif pada lingkungan Firebase yang sama.
 
 Firebase App Check dikonfigurasi melalui `src/lib/firebase-app-check.ts`. Development menggunakan debug provider, sedangkan build release menggunakan Play Integrity. Debug token harus dikelola melalui Firebase Console dan tidak boleh dimasukkan ke repository.
 
@@ -219,7 +219,7 @@ npm --prefix functions run test:demo-auth
 Pengujian backend notifikasi pada source Cloud Functions:
 
 ```bash
-npm --prefix functions run test:notifications
+npm --prefix proxy-gemini test
 ```
 
 Pengujian proxy Gemini dijalankan dari `proxy-gemini/` menggunakan perintah pada bagian [Gemini Proxy](#7-gemini-proxy-untuk-klasifikasi-izin).
