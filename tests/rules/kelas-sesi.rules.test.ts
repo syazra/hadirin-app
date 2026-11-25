@@ -383,9 +383,17 @@ test('B03-05: edit jadwal sesi dipisah dari perubahan status dan menolak waktuSe
   await assertSucceeds(
     updateDoc(sesiRef, {
       judul: 'Pertemuan 1 (Revisi)',
+      labId: 'lab-c',
       lokasi: 'Lab C',
       waktuMulai: mulai,
       waktuSelesai: selesaiValid,
+    }),
+  );
+
+  await assertFails(
+    updateDoc(sesiRef, {
+      labId: '   ',
+      lokasi: 'Lab C',
     }),
   );
 
