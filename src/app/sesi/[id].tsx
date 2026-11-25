@@ -1,7 +1,6 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -19,8 +18,10 @@ import { AppButton } from '@/components/ui/app-button';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
+import { IconArchive, IconInfo } from '@/components/ui/icons';
 import { LoadingState } from '@/components/ui/loading-state';
-import { Colors } from '@/constants/theme';
+import { EnterView } from '@/components/ui/motion';
+import { Colors, Fonts, Radii } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useIzinPengguna } from '@/hooks/use-izin-pengguna';
 import { useRekapSesi } from '@/hooks/use-rekap-sesi';
@@ -68,12 +69,7 @@ export default function DetailSesiScreen() {
   );
 
   if (authLoading) {
-    return (
-      <View style={styles.centerBox}>
-        <ActivityIndicator size="large" color={Colors.light.primary} />
-        <Text style={styles.description}>Memuat sesi akun...</Text>
-      </View>
-    );
+    return <LoadingState pesan="Memuat sesi akun..." />;
   }
 
   if (!pengguna) {
@@ -81,41 +77,27 @@ export default function DetailSesiScreen() {
   }
 
   if (sesiLoading) {
-    return (
-      <View style={styles.centerBox}>
-        <ActivityIndicator size="large" color={Colors.light.primary} />
-        <Text style={styles.description}>Memuat detail sesi...</Text>
-      </View>
-    );
+    return <LoadingState pesan="Memuat detail sesi..." />;
   }
 
   if (error) {
     return (
-      <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backText}>‹ Kembali</Text>
-        </Pressable>
-
-        <Text style={styles.title}>Gagal memuat detail sesi</Text>
-        <Text style={styles.description}>{error}</Text>
-
-        <AppButton title="Coba Lagi" fullWidth onPress={muatUlang} />
-      </ScrollView>
+      <ErrorState
+        judul="Gagal memuat detail sesi"
+        pesan={error}
+        onCobaLagi={muatUlang}
+      />
     );
   }
 
   if (!sesi) {
     return (
-      <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Sesi tidak ditemukan</Text>
-        <Text style={styles.description}>
-          Data sesi yang kamu cari tidak tersedia atau tidak dapat diakses.
-        </Text>
-
-        <Pressable onPress={() => router.back()}>
-          <Text style={styles.backText}>‹ Kembali</Text>
-        </Pressable>
-      </ScrollView>
+      <View style={styles.emptyWrap}>
+        <EmptyState
+          judul="Sesi tidak ditemukan"
+          pesan="Data sesi yang kamu cari tidak tersedia."
+        />
+      </View>
     );
   }
 
@@ -129,6 +111,7 @@ export default function DetailSesiScreen() {
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
           refreshing={false}
@@ -137,101 +120,112 @@ export default function DetailSesiScreen() {
         />
       }
     >
-      <Pressable onPress={() => router.back()} style={styles.backButton}>
-        <Text style={styles.backText}>‹ Kembali ke jadwal</Text>
-      </Pressable>
-
       {dataDiarsipkan ? (
         <View style={styles.arsipBanner}>
-          <Text style={styles.arsipTitle}>Data Diarsipkan</Text>
+          <IconArchive size={16} color={Colors.light.warning} />
           <Text style={styles.arsipText}>
             {kelas?.diarsipkan
-              ? 'Kelas induk telah diarsipkan. Perubahan jadwal, pembukaan sesi, presensi baru, dan pengajuan baru dinonaktifkan.'
-              : 'Sesi ini telah diarsipkan dan hanya tersedia sebagai riwayat.'}
+              ? 'Kelas diarsipkan · hanya tersedia sebagai riwayat.'
+              : 'Sesi diarsipkan · hanya tersedia sebagai riwayat.'}
           </Text>
         </View>
       ) : null}
 
-      <DetailSesi sesi={sesi} namaPraktikum={kelas?.namaPraktikum} />
+      <EnterView delay={0}>
+        <DetailSesi sesi={sesi} namaPraktikum={kelas?.namaPraktikum} />
+      </EnterView>
 
       {peran === 'ASISTEN' && (
         <>
-          <PanelAksiAsisten
-            sesi={sesi}
-            kelasDiarsipkan={Boolean(kelas?.diarsipkan)}
-          />
+          <EnterView delay={70}>
+            <PanelAksiAsisten
+              sesi={sesi}
+              kelasDiarsipkan={Boolean(kelas?.diarsipkan)}
+            />
+          </EnterView>
 
-          <View style={styles.rekapSection}>
-            <Text style={styles.sectionTitle}>Rekap Kehadiran Sesi</Text>
+          <EnterView delay={130}>
+            <View style={styles.rekapSection}>
+              <Text style={styles.sectionTitle}>Rekap Kehadiran</Text>
 
-            {rekap.loading ? (
-              <LoadingState pesan="Memuat rekap kehadiran..." />
-            ) : rekap.error ? (
-              <ErrorState pesan={rekap.error} />
-            ) : (
-              <>
-                <RingkasanHadir
-                  jumlahHadir={rekap.jumlahHadir}
-                  jumlahSakit={rekap.jumlahSakit}
-                  jumlahIzin={rekap.jumlahIzin}
-                  jumlahAlpha={rekap.jumlahAlpha}
-                  jumlahBelumHadir={rekap.jumlahBelumHadir}
-                  jumlahIzinMenunggu={rekap.jumlahIzinMenunggu}
-                />
-
-                {rekap.daftarRekap.length > 0 ? (
-                  <View style={styles.rekapList}>
-                    {rekap.daftarRekap.map((item) => (
-                      <RekapItem key={item.uid} {...item} />
-                    ))}
-                  </View>
-                ) : (
-                  <EmptyState
-                    judul="Belum ada catatan"
-                    pesan="Belum ada peserta atau catatan kehadiran pada sesi ini."
+              {rekap.loading ? (
+                <LoadingState pesan="Memuat rekap kehadiran..." layarPenuh={false} />
+              ) : rekap.error ? (
+                <ErrorState pesan={rekap.error} layarPenuh={false} />
+              ) : (
+                <>
+                  <RingkasanHadir
+                    jumlahHadir={rekap.jumlahHadir}
+                    jumlahSakit={rekap.jumlahSakit}
+                    jumlahIzin={rekap.jumlahIzin}
+                    jumlahAlpha={rekap.jumlahAlpha}
+                    jumlahBelumHadir={rekap.jumlahBelumHadir}
+                    jumlahIzinMenunggu={rekap.jumlahIzinMenunggu}
                   />
-                )}
-              </>
-            )}
-          </View>
+
+                  {rekap.daftarRekap.length > 0 ? (
+                    <View style={styles.rekapList}>
+                      {rekap.daftarRekap.map((item) => (
+                        <RekapItem key={item.uid} {...item} />
+                      ))}
+                    </View>
+                  ) : (
+                    <EmptyState
+                      judul="Belum ada catatan"
+                      pesan="Belum ada peserta pada sesi ini."
+                    />
+                  )}
+                </>
+              )}
+            </View>
+          </EnterView>
         </>
       )}
 
       {peran === 'PRAKTIKAN' && !dataDiarsipkan && (
         <>
-          <PanelAksiPraktikan
-            statusSesi={sesi.statusSesi}
-            statusIzin={
-              izin.find((item) => item.sesiId === sesi.idSesi)?.statusIzin ??
-              null
-            }
-            izinLoading={izinLoading}
-            sudahPresensi={Boolean(presensiSesiIni)}
-            waktuPresensi={
-              presensiSesiIni?.waktuHadir
-                ? formatWaktu(presensiSesiIni.waktuHadir)
-                : undefined
-            }
-            onPressPresensi={() =>
-              router.push({
-                pathname: '/scan-qr',
-                params: { idSesi: sesi.idSesi },
-              })
-            }
-            onPressAjukanIzin={() =>
-              router.push({
-                pathname: '/izin/ajukan',
-                params: { sesiId: sesi.idSesi },
-              })
-            }
-          />
+          <EnterView delay={70}>
+            <PanelAksiPraktikan
+              statusSesi={sesi.statusSesi}
+              statusIzin={
+                izin.find((item) => item.sesiId === sesi.idSesi)?.statusIzin ??
+                null
+              }
+              izinLoading={izinLoading}
+              sudahPresensi={Boolean(presensiSesiIni)}
+              waktuPresensi={
+                presensiSesiIni?.waktuHadir
+                  ? formatWaktu(presensiSesiIni.waktuHadir)
+                  : undefined
+              }
+              onPressPresensi={() =>
+                router.push({
+                  pathname: '/scan-qr',
+                  params: { idSesi: sesi.idSesi },
+                })
+              }
+              onPressAjukanIzin={() =>
+                router.push({
+                  pathname: '/izin/ajukan',
+                  params: { sesiId: sesi.idSesi },
+                })
+              }
+            />
+          </EnterView>
 
-          <AppButton
-            title="Cara memindai QR"
-            variant="outline"
-            fullWidth
-            onPress={() => setCaraMemindaiTerbuka(true)}
-          />
+          <EnterView delay={130}>
+            <Pressable
+              onPress={() => setCaraMemindaiTerbuka(true)}
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.panduanLink,
+                pressed && styles.pressed,
+              ]}
+            >
+              <IconInfo size={16} color={Colors.light.primary} />
+              <Text style={styles.panduanLinkText}>Panduan scan QR</Text>
+            </Pressable>
+          </EnterView>
 
           <BottomSheet
             visible={caraMemindaiTerbuka}
@@ -239,12 +233,33 @@ export default function DetailSesiScreen() {
             accessibilityLabelTutup="Tutup panduan memindai QR"
           >
             <View style={styles.panduanSheet}>
-              <Text style={styles.panduanTitle}>Cara memindai QR</Text>
-              <Text style={styles.panduanText}>
-                {'1. Pastikan sesi berstatus Dibuka.\n' +
-                  '2. Tekan Scan QR pada halaman detail.\n' +
-                  '3. Arahkan kamera ke kode QR yang ditampilkan asisten.'}
-              </Text>
+              <Text style={styles.panduanTitle}>Panduan Scan QR</Text>
+              <View style={styles.stepList}>
+                <View style={styles.stepRow}>
+                  <View style={styles.stepBadge}>
+                    <Text style={styles.stepNum}>1</Text>
+                  </View>
+                  <Text style={styles.panduanText}>
+                    Pastikan status sesi sudah Dibuka.
+                  </Text>
+                </View>
+                <View style={styles.stepRow}>
+                  <View style={styles.stepBadge}>
+                    <Text style={styles.stepNum}>2</Text>
+                  </View>
+                  <Text style={styles.panduanText}>
+                    Tekan Scan QR dan izinkan kamera serta GPS.
+                  </Text>
+                </View>
+                <View style={styles.stepRow}>
+                  <View style={styles.stepBadge}>
+                    <Text style={styles.stepNum}>3</Text>
+                  </View>
+                  <Text style={styles.panduanText}>
+                    Arahkan kamera ke kode QR dari asisten.
+                  </Text>
+                </View>
+              </View>
               <AppButton
                 title="Mengerti"
                 variant="primary"
@@ -265,59 +280,40 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.light.background,
   },
-  container: {
-    padding: 20,
-    paddingTop: 24,
-    paddingBottom: 32,
-    gap: 20,
-  },
-  centerBox: {
+  emptyWrap: {
     flex: 1,
     backgroundColor: Colors.light.background,
-    alignItems: 'center',
-    justifyContent: 'center',
     padding: 20,
-    gap: 12,
+    justifyContent: 'center',
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.light.text,
+  container: {
+    padding: 20,
+    paddingTop: 16,
+    paddingBottom: 36,
+    gap: 18,
   },
   sectionTitle: {
+    fontFamily: Fonts.sansBold,
     fontSize: 16,
-    fontWeight: '700',
     color: Colors.light.text,
-  },
-  description: {
-    fontSize: 14,
-    color: Colors.light.textSecondary,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-  },
-  backText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.light.primary,
   },
   arsipBanner: {
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: Colors.light.backgroundSelected,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: Radii.md,
+    backgroundColor: Colors.light.warningSoft,
     borderWidth: 1,
-    borderColor: Colors.light.border,
-    gap: 4,
-  },
-  arsipTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.light.text,
+    borderColor: '#F6DFB0',
   },
   arsipText: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: Colors.light.textSecondary,
+    flex: 1,
+    fontFamily: Fonts.sansMedium,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: Colors.light.warning,
   },
   rekapSection: {
     gap: 12,
@@ -325,17 +321,56 @@ const styles = StyleSheet.create({
   rekapList: {
     gap: 10,
   },
+  panduanLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingVertical: 10,
+    alignSelf: 'center',
+  },
+  panduanLinkText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 13.5,
+    color: Colors.light.primary,
+  },
+  pressed: {
+    opacity: 0.72,
+  },
   panduanSheet: {
-    gap: 14,
+    gap: 16,
   },
   panduanTitle: {
+    fontFamily: Fonts.sansBold,
     fontSize: 19,
-    fontWeight: '700',
     color: Colors.light.text,
   },
+  stepList: {
+    gap: 12,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  stepBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Colors.light.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepNum: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 12,
+    color: Colors.light.primary,
+  },
   panduanText: {
+    flex: 1,
+    fontFamily: Fonts.sans,
     fontSize: 14,
-    lineHeight: 22,
+    lineHeight: 20,
     color: Colors.light.textSecondary,
   },
 });

@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { Colors, Fonts } from '@/constants/theme';
+import { EnterView, PopBadge, PressableScale } from '@/components/ui/motion';
+import { getStaggerDelay } from '@/constants/motion';
+import { Colors, Fonts, Shadows } from '@/constants/theme';
 
 export interface BerandaMenuItem {
   key: string;
@@ -34,34 +36,40 @@ export function BerandaMenuGrid({
           isFourCols ? styles.menuGridFour : styles.menuGridThree,
         ]}
       >
-        {items.map((item) => (
-          <Pressable
+        {items.map((item, index) => (
+          <EnterView
             key={item.key}
-            style={({ pressed }) => [
-              isFourCols ? styles.menuItemFour : styles.menuItemThree,
-              pressed && styles.itemPressed,
-            ]}
-            onPress={item.onPress}
+            delay={getStaggerDelay(index, 110)}
+            distance={12}
+            scaleFrom={0.95}
+            style={isFourCols ? styles.menuItemFour : styles.menuItemThree}
           >
-            <View
-              style={[
-                isFourCols ? styles.menuIconBoxFour : styles.menuIconBoxThree,
-                { backgroundColor: item.bgTint },
-              ]}
+            <PressableScale
+              style={styles.menuPressable}
+              scaleTo={0.92}
+              onPress={item.onPress}
             >
-              {item.icon}
-              {item.badge && item.badge > 0 ? (
-                <View style={styles.menuBadge}>
-                  <Text style={styles.menuBadgeText}>{item.badge}</Text>
-                </View>
-              ) : null}
-            </View>
-            <Text
-              style={isFourCols ? styles.menuLabelFour : styles.menuLabelThree}
-            >
-              {item.label}
-            </Text>
-          </Pressable>
+              <View
+                style={[
+                  isFourCols ? styles.menuIconBoxFour : styles.menuIconBoxThree,
+                  { backgroundColor: item.bgTint },
+                ]}
+              >
+                {item.icon}
+                {item.badge && item.badge > 0 ? (
+                  <PopBadge triggerKey={item.badge} style={styles.menuBadge}>
+                    <Text style={styles.menuBadgeText}>{item.badge}</Text>
+                  </PopBadge>
+                ) : null}
+              </View>
+              <Text
+                style={isFourCols ? styles.menuLabelFour : styles.menuLabelThree}
+                numberOfLines={1}
+              >
+                {item.label}
+              </Text>
+            </PressableScale>
+          </EnterView>
         ))}
       </View>
     </View>
@@ -70,7 +78,7 @@ export function BerandaMenuGrid({
 
 const styles = StyleSheet.create({
   menuSection: {
-    gap: 16,
+    gap: 14,
   },
   sectionHeading: {
     fontFamily: Fonts.sansBold,
@@ -83,7 +91,7 @@ const styles = StyleSheet.create({
   },
   menuGridThree: {
     flexWrap: 'wrap',
-    rowGap: 20,
+    rowGap: 18,
   },
   menuGridFour: {
     justifyContent: 'space-between',
@@ -96,32 +104,44 @@ const styles = StyleSheet.create({
     width: '23%',
     alignItems: 'center',
   },
+  menuPressable: {
+    alignItems: 'center',
+    width: '100%',
+  },
   menuIconBoxThree: {
-    width: 62,
-    height: 62,
-    borderRadius: 18,
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(28, 25, 41, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
     position: 'relative',
+    ...Shadows.subtle,
   },
   menuIconBoxFour: {
     width: 60,
     height: 60,
-    borderRadius: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(28, 25, 41, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
     position: 'relative',
+    ...Shadows.subtle,
   },
   menuBadge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
+    top: -5,
+    right: -5,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: Colors.light.accent,
+    borderWidth: 2,
+    borderColor: Colors.light.card,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 5,
@@ -133,20 +153,17 @@ const styles = StyleSheet.create({
     color: Colors.light.card,
   },
   menuLabelThree: {
-    fontFamily: Fonts.sansMedium,
-    fontSize: 13,
-    lineHeight: 17,
-    color: Colors.light.text,
-    textAlign: 'center',
-  },
-  menuLabelFour: {
-    fontFamily: Fonts.sansMedium,
-    fontSize: 12,
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12.5,
     lineHeight: 16,
     color: Colors.light.text,
     textAlign: 'center',
   },
-  itemPressed: {
-    opacity: 0.7,
+  menuLabelFour: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12,
+    lineHeight: 16,
+    color: Colors.light.text,
+    textAlign: 'center',
   },
 });

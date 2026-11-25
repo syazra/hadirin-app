@@ -1,51 +1,62 @@
 import { useRouter } from 'expo-router';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { STATUS_IZIN } from '@/constants/status-izin';
-import { Colors, Spacing } from '@/constants/theme';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/ui/error-state';
+import {
+  IconCalendar,
+  IconChevronRight,
+  IconSparkles,
+} from '@/components/ui/icons';
+import { LoadingState } from '@/components/ui/loading-state';
+import { EnterView, PressableScale } from '@/components/ui/motion';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { getStaggerDelay } from '@/constants/motion';
+import { Colors, Fonts, Radii, Shadows } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useIzinPengguna } from '@/hooks/use-izin-pengguna';
+
+function formatTanggalSingkat(tanggal: Date | null | undefined): string {
+  if (!tanggal) return 'Baru saja';
+  return tanggal.toLocaleString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 export default function IzinPraktikanScreen() {
   const router = useRouter();
   const { pengguna } = useAuth();
   const { izin, loading, error } = useIzinPengguna(pengguna?.uid);
 
+  if (loading) {
+    return <LoadingState pesan="Memuat daftar pengajuan izin..." />;
+  }
+
+  if (error) {
+    return <ErrorState judul="Gagal memuat izin" pesan={error} />;
+  }
+
   return (
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.title}>Riwayat Pengajuan Izin</Text>
-      <Text style={styles.subtitle}>
-        Pantau status pengajuan izin praktikum kamu.
-      </Text>
-
-      {loading ? (
-        <ActivityIndicator color={Colors.light.primary} />
-      ) : error ? (
-        <Text style={styles.error}>{error}</Text>
-      ) : izin.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>Belum ada pengajuan izin</Text>
-          <Text style={styles.subtitle}>
-            Pengajuan izin yang kamu kirim akan muncul di sini.
-          </Text>
+      {izin.length === 0 ? (
+        <View style={styles.emptyWrap}>
+          <EmptyState
+            judul="Belum ada pengajuan izin"
+            pesan="Pengajuan izin yang kamu kirim akan muncul di sini."
+          />
         </View>
       ) : (
-        izin.map((item) => {
-          const status = STATUS_IZIN[item.statusIzin];
-
-          return (
-            <Pressable
-              key={item.idIzin}
+        izin.map((item, index) => (
+          <EnterView key={item.idIzin} delay={getStaggerDelay(index)}>
+            <PressableScale
+              scaleTo={0.98}
               style={styles.card}
               onPress={() =>
                 router.push({
@@ -54,50 +65,137 @@ export default function IzinPraktikanScreen() {
                 })
               }
             >
-              <Text style={styles.cardTitle}>Pengajuan Izin</Text>
-              <Text style={styles.info}>Sesi: {item.sesiId}</Text>
-              <Text style={styles.info} numberOfLines={2}>
-                Alasan: {item.alasan}
-              </Text>
+              <View style={styles.topRow}>
+                <View style={styles.datePill}>
+                  <IconCalendar size={12.5} color={Colors.light.warm} />
+                  <Text style={styles.dateText}>
+                    {formatTanggalSingkat(item.dibuatPada)}
+                  </Text>
+                </View>
+                <StatusBadge status={item.statusIzin} />
+              </View>
 
-              <View
-                style={[
-                  styles.badge,
-                  { backgroundColor: status.background },
-                ]}
-              >
-                <Text style={{ color: status.color, fontWeight: '700' }}>
-                  {status.label}
+              <View style={styles.reasonBox}>
+                <Text style={styles.reason} numberOfLines={2}>
+                  {item.alasan}
                 </Text>
               </View>
 
-              <Text style={styles.detail}>Lihat detail →</Text>
-            </Pressable>
-          );
-        })
+              <View style={styles.bottomRow}>
+                <View style={styles.chipsLeft}>
+                  <View style={styles.sesiChip}>
+                    <Text style={styles.sesiChipText} numberOfLines={1}>
+                      {item.sesiId}
+                    </Text>
+                  </View>
+
+                  {item.kategoriAi ? (
+                    <View style={styles.aiChip}>
+                      <IconSparkles size={11.5} color={Colors.light.brandMid} />
+                      <Text style={styles.aiChipText}>{item.kategoriAi}</Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                <IconChevronRight size={17} color={Colors.light.textSecondary} />
+              </View>
+            </PressableScale>
+          </EnterView>
+        ))
       )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.light.background },
-  container: { padding: Spacing.three, gap: Spacing.three },
-  title: { fontSize: 22, fontWeight: '700', color: Colors.light.text },
-  subtitle: { fontSize: 13, color: Colors.light.textSecondary },
+  screen: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
+  },
+  container: {
+    padding: 20,
+    paddingTop: 14,
+    paddingBottom: 32,
+    gap: 12,
+    flexGrow: 1,
+  },
+  emptyWrap: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   card: {
-    padding: Spacing.three,
-    borderRadius: 14,
+    padding: 15,
+    borderRadius: Radii.lg,
     borderWidth: 1,
     borderColor: Colors.light.border,
     backgroundColor: Colors.light.card,
-    gap: 9,
+    gap: 10,
+    ...Shadows.card,
   },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: Colors.light.text },
-  info: { fontSize: 13, color: Colors.light.textSecondary },
-  badge: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20 },
-  detail: { color: Colors.light.primary, fontSize: 12, fontWeight: '600' },
-  empty: { padding: 20, alignItems: 'center', gap: 8 },
-  emptyTitle: { fontSize: 15, fontWeight: '700', color: Colors.light.text },
-  error: { color: Colors.light.danger },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  datePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dateText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+  },
+  reasonBox: {
+    backgroundColor: Colors.light.backgroundElement,
+    borderRadius: Radii.sm + 2,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  reason: {
+    fontFamily: Fonts.sans,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: Colors.light.text,
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  chipsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    flex: 1,
+  },
+  sesiChip: {
+    backgroundColor: Colors.light.primarySoft,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: Radii.pill,
+  },
+  sesiChipText: {
+    fontFamily: Fonts.mono,
+    fontSize: 11,
+    color: Colors.light.primary,
+  },
+  aiChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.light.brandMidSoft,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: Radii.pill,
+  },
+  aiChipText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 11,
+    color: Colors.light.brandMid,
+  },
 });

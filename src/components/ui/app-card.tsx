@@ -1,60 +1,77 @@
 import type { PropsWithChildren } from 'react';
 import {
-    Pressable,
-    StyleSheet,
-    View,
-    type StyleProp,
-    type ViewStyle,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 
-import { Colors } from '@/constants/theme';
+import { PressableScale } from '@/components/ui/motion';
+import { Colors, Radii, Shadows } from '@/constants/theme';
+
+type AppCardVariant = 'default' | 'soft' | 'flat';
 
 type AppCardProps = PropsWithChildren<{
-    style?: StyleProp<ViewStyle>;
-    onPress?: () => void;
-    disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
+  onPress?: () => void;
+  disabled?: boolean;
+  variant?: AppCardVariant;
 }>;
 
 export function AppCard({
-    children,
-    style,
-    onPress,
-    disabled = false,
+  children,
+  style,
+  onPress,
+  disabled = false,
+  variant = 'default',
 }: AppCardProps) {
-    const content = <View style={[styles.card, style]}>{children}</View>;
+  const variantStyle =
+    variant === 'soft'
+      ? styles.soft
+      : variant === 'flat'
+        ? styles.flat
+        : styles.elevated;
 
-    if (onPress) {
-        return (
-            <Pressable
-                onPress={onPress}
-                disabled={disabled}
-                accessibilityRole="button"
-                style={({ pressed }) => [
-                    pressed && !disabled && styles.pressed,
-                    disabled && styles.disabled,
-                ]}
-            >
-                {content}
-            </Pressable>
-        );
-    }
+  const content = (
+    <View style={[styles.card, variantStyle, style]}>{children}</View>
+  );
 
-    return content;
+  if (onPress) {
+    return (
+      <PressableScale
+        onPress={onPress}
+        disabled={disabled}
+        scaleTo={0.98}
+        accessibilityRole="button"
+        style={disabled && styles.disabled}
+      >
+        {content}
+      </PressableScale>
+    );
+  }
+
+  return content;
 }
 
 const styles = StyleSheet.create({
-    card: {
-        backgroundColor: Colors.light.card,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        padding: 16,
-        gap: 12,
-    },
-    pressed: {
-        opacity: 0.75,
-    },
-    disabled: {
-        opacity: 0.5,
-    },
+  card: {
+    borderRadius: Radii.xl - 2,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    padding: 16,
+    gap: 12,
+  },
+  elevated: {
+    backgroundColor: Colors.light.card,
+    ...Shadows.card,
+  },
+  soft: {
+    backgroundColor: Colors.light.backgroundElement,
+  },
+  flat: {
+    backgroundColor: Colors.light.card,
+  },
+  disabled: {
+    opacity: 0.5,
+  },
 });

@@ -1,1460 +1,1445 @@
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { KelasFormSheet } from '@/components/asisten/kelas-form-sheet';
-import { SesiFormSheet, type NilaiFormSesi } from '@/components/asisten/sesi-form-sheet';
+import {
+  SesiFormSheet,
+  type NilaiFormSesi,
+} from '@/components/asisten/sesi-form-sheet';
 import { TambahPesertaSheet } from '@/components/asisten/tambah-peserta-sheet';
+import { BrandGradient } from '@/components/ui/brand-gradient';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
+import {
+  IconArchive,
+  IconChevronRight,
+  IconClock,
+  IconEdit,
+  IconMapPin,
+  IconPlus,
+} from '@/components/ui/icons';
 import { LoadingState } from '@/components/ui/loading-state';
+import { EnterView, PressableScale } from '@/components/ui/motion';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { Colors } from '@/constants/theme';
+import { getStaggerDelay, MotionSprings } from '@/constants/motion';
+import { getWarmPastelTone } from '@/constants/pastel';
+import { Colors, Fonts, Radii, Shadows } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useKelasAsisten } from '@/hooks/use-kelas-asisten';
 import { usePesertaKelas } from '@/hooks/use-peserta-kelas';
 import { arsipkanKelas, ubahKelas } from '@/services/kelas-service';
-import { nonaktifkanPeserta, tambahPesertaByKode } from '@/services/peserta-service';
-import { arsipkanSesi, buatSesi, listenSesiKelas, ubahSesi } from '@/services/sesi-service';
-import type { Keanggotaan, Sesi } from '@/types';
-import { formatWaktu } from '@/utils/format-waktu';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+  nonaktifkanPeserta,
+  tambahPesertaByKode,
+} from '@/services/peserta-service';
+import {
+  arsipkanSesi,
+  buatSesi,
+  listenSesiKelas,
+  ubahSesi,
+} from '@/services/sesi-service';
+import type { Keanggotaan, Sesi } from '@/types';
 
 type FilterKelas = 'sesi' | 'praktikan';
 
 type FilterKelasBarProps = {
-    aktif: FilterKelas;
-    jumlahSesi: number;
-    jumlahPraktikan: number;
-    onGanti: (filter: FilterKelas) => void;
-    /** Dipanggil saat tombol + ditekan. Tombol disembunyikan jika tidak diberikan (mis. kelas diarsipkan). */
-    onTambah?: () => void;
+  aktif: FilterKelas;
+  jumlahSesi: number;
+  jumlahPraktikan: number;
+  onGanti: (filter: FilterKelas) => void;
+  /** Dipanggil saat tombol + ditekan. Tombol disembunyikan jika tidak diberikan (mis. kelas diarsipkan). */
+  onTambah?: () => void;
 };
 
 const OPSI: { kunci: FilterKelas; label: string }[] = [
-    { kunci: 'sesi', label: 'Sesi' },
-    { kunci: 'praktikan', label: 'Praktikan' },
+  { kunci: 'sesi', label: 'Sesi' },
+  { kunci: 'praktikan', label: 'Praktikan' },
 ];
 
 function FilterKelasBar({
-    aktif,
-    jumlahSesi,
-    jumlahPraktikan,
-    onGanti,
-    onTambah,
+  aktif,
+  jumlahSesi,
+  jumlahPraktikan,
+  onGanti,
+  onTambah,
 }: FilterKelasBarProps) {
-    const jumlah: Record<FilterKelas, number> = {
-        sesi: jumlahSesi,
-        praktikan: jumlahPraktikan,
-    };
+  const reducedMotion = useReducedMotion();
+  const [segmentWidth, setSegmentWidth] = useState(0);
+  const indicatorX = useSharedValue(0);
 
-    return (
-        <View style={stylesFilter.baris}>
-            <View style={stylesFilter.segmen} accessibilityRole="tablist">
-                {OPSI.map((opsi) => {
-                    const dipilih = aktif === opsi.kunci;
-                    return (
-                        <Pressable
-                            key={opsi.kunci}
-                            onPress={() => onGanti(opsi.kunci)}
-                            accessibilityRole="tab"
-                            accessibilityState={{ selected: dipilih }}
-                            accessibilityLabel={`${opsi.label}, ${jumlah[opsi.kunci]} item`}
-                            style={({ pressed }) => [
-                                stylesFilter.opsi,
-                                dipilih && stylesFilter.opsiAktif,
-                                pressed && !dipilih && stylesFilter.ditekan,
-                            ]}
-                        >
-                            <Text
-                                style={[
-                                    stylesFilter.opsiTeks,
-                                    dipilih && stylesFilter.opsiTeksAktif,
-                                ]}
-                            >
-                                {opsi.label}
-                            </Text>
-                            <View
-                                style={[
-                                    stylesFilter.hitung,
-                                    dipilih && stylesFilter.hitungAktif,
-                                ]}
-                            >
-                                <Text
-                                    style={[
-                                        stylesFilter.hitungTeks,
-                                        dipilih && stylesFilter.hitungTeksAktif,
-                                    ]}
-                                >
-                                    {jumlah[opsi.kunci]}
-                                </Text>
-                            </View>
-                        </Pressable>
-                    );
-                })}
-            </View>
+  const jumlah: Record<FilterKelas, number> = {
+    sesi: jumlahSesi,
+    praktikan: jumlahPraktikan,
+  };
 
-            {onTambah ? (
-                <Pressable
-                    onPress={onTambah}
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                        aktif === 'sesi' ? 'Tambah sesi' : 'Tambah praktikan'
-                    }
-                    hitSlop={6}
-                    style={({ pressed }) => [
-                        stylesFilter.tombolTambah,
-                        pressed && stylesFilter.ditekan,
-                    ]}
+  const activeIndex = OPSI.findIndex((opsi) => opsi.kunci === aktif);
+
+  useEffect(() => {
+    const targetX =
+      segmentWidth > 0 && activeIndex >= 0 ? activeIndex * (segmentWidth + 4) : 0;
+    if (reducedMotion || segmentWidth === 0) {
+      indicatorX.set(targetX);
+    } else {
+      indicatorX.set(withSpring(targetX, MotionSprings.gentle));
+    }
+  }, [activeIndex, indicatorX, reducedMotion, segmentWidth]);
+
+  const indicatorStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: indicatorX.get() }],
+  }));
+
+  return (
+    <View style={stylesFilter.baris}>
+      <View
+        style={stylesFilter.segmen}
+        accessibilityRole="tablist"
+        onLayout={(event) => {
+          const innerWidth = event.nativeEvent.layout.width - 8 - 4;
+          const eachWidth = Math.max(0, innerWidth / OPSI.length);
+          if (eachWidth !== segmentWidth) {
+            setSegmentWidth(eachWidth);
+          }
+        }}
+      >
+        {segmentWidth > 0 ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              stylesFilter.indicator,
+              { width: segmentWidth },
+              indicatorStyle,
+            ]}
+          />
+        ) : null}
+
+        {OPSI.map((opsi) => {
+          const dipilih = aktif === opsi.kunci;
+          return (
+            <Pressable
+              key={opsi.kunci}
+              onPress={() => onGanti(opsi.kunci)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: dipilih }}
+              accessibilityLabel={`${opsi.label}, ${jumlah[opsi.kunci]} item`}
+              style={({ pressed }) => [
+                stylesFilter.opsi,
+                dipilih && segmentWidth === 0 && stylesFilter.opsiAktif,
+                pressed && !dipilih && stylesFilter.ditekan,
+              ]}
+            >
+              <Text
+                style={[
+                  stylesFilter.opsiTeks,
+                  dipilih && stylesFilter.opsiTeksAktif,
+                ]}
+              >
+                {opsi.label}
+              </Text>
+              <View
+                style={[
+                  stylesFilter.hitung,
+                  dipilih && stylesFilter.hitungAktif,
+                ]}
+              >
+                <Text
+                  style={[
+                    stylesFilter.hitungTeks,
+                    dipilih && stylesFilter.hitungTeksAktif,
+                  ]}
                 >
-                    <Text style={stylesFilter.tombolTambahTeks}>+</Text>
-                </Pressable>
-            ) : null}
-        </View>
-    );
+                  {jumlah[opsi.kunci]}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {onTambah ? (
+        <PressableScale
+          onPress={onTambah}
+          scaleTo={0.9}
+          accessibilityRole="button"
+          accessibilityLabel={
+            aktif === 'sesi' ? 'Tambah sesi' : 'Tambah praktikan'
+          }
+          hitSlop={6}
+          style={stylesFilter.tombolTambah}
+        >
+          <IconPlus size={22} color="#FFFFFF" strokeWidth={2.4} />
+        </PressableScale>
+      ) : null}
+    </View>
+  );
 }
 
 const stylesFilter = StyleSheet.create({
-    baris: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    segmen: {
-        flex: 1,
-        flexDirection: 'row',
-        padding: 4,
-        gap: 4,
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.backgroundElement,
-    },
-    opsi: {
-        flex: 1,
-        minHeight: 40,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        borderRadius: 9,
-    },
-    opsiAktif: {
-        backgroundColor: Colors.light.primary,
-    },
-    opsiTeks: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: Colors.light.textSecondary,
-    },
-    opsiTeksAktif: {
-        color: '#FFFFFF',
-        fontWeight: '700',
-    },
-    hitung: {
-        minWidth: 22,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 999,
-        alignItems: 'center',
-        backgroundColor: Colors.light.border,
-    },
-    hitungAktif: {
-        backgroundColor: 'rgba(255,255,255,0.22)',
-    },
-    hitungTeks: {
-        fontSize: 11,
-        fontWeight: '700',
-        color: Colors.light.textSecondary,
-    },
-    hitungTeksAktif: {
-        color: '#FFFFFF',
-    },
-    tombolTambah: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Colors.light.primary,
-        shadowColor: Colors.light.primary,
-        shadowOpacity: 0.35,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 3 },
-        elevation: 4,
-    },
-    tombolTambahTeks: {
-        fontSize: 28,
-        lineHeight: 30,
-        fontWeight: '400',
-        color: Colors.light.backgroundElement,
-    },
-    ditekan: {
-        opacity: 0.75,
-    },
+  baris: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  segmen: {
+    flex: 1,
+    flexDirection: 'row',
+    position: 'relative',
+    padding: 4,
+    gap: 4,
+    borderRadius: Radii.md + 2,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.card,
+    ...Shadows.subtle,
+  },
+  indicator: {
+    position: 'absolute',
+    left: 4,
+    top: 4,
+    bottom: 4,
+    borderRadius: Radii.sm + 2,
+    backgroundColor: Colors.light.primary,
+  },
+  opsi: {
+    flex: 1,
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    borderRadius: Radii.sm + 2,
+  },
+  opsiAktif: {
+    backgroundColor: Colors.light.primary,
+  },
+  opsiTeks: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 13.5,
+    color: Colors.light.textSecondary,
+  },
+  opsiTeksAktif: {
+    fontFamily: Fonts.sansBold,
+    color: '#FFFFFF',
+  },
+  hitung: {
+    minWidth: 22,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radii.pill,
+    alignItems: 'center',
+    backgroundColor: Colors.light.backgroundElement,
+  },
+  hitungAktif: {
+    backgroundColor: 'rgba(255,255,255,0.24)',
+  },
+  hitungTeks: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 11,
+    color: Colors.light.textSecondary,
+  },
+  hitungTeksAktif: {
+    color: '#FFFFFF',
+  },
+  tombolTambah: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.light.primary,
+    ...Shadows.primaryGlow,
+  },
+  ditekan: {
+    opacity: 0.82,
+  },
 });
 
 const BULAN_SINGKAT = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'Mei',
-    'Jun',
-    'Jul',
-    'Agu',
-    'Sep',
-    'Okt',
-    'Nov',
-    'Des',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'Mei',
+  'Jun',
+  'Jul',
+  'Agu',
+  'Sep',
+  'Okt',
+  'Nov',
+  'Des',
 ];
 
 const KATA_PENGHUBUNG = new Set(['dan', 'di', 'ke', 'dari', 'untuk', 'yang']);
 
 function buatInisial(nama: string): string {
-    const kata = nama
-        .trim()
-        .split(/\s+/)
-        .map((bagian) => bagian.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, ''))
-        .filter(
-            (bagian) =>
-                bagian.length > 0 && !KATA_PENGHUBUNG.has(bagian.toLowerCase()),
-        );
+  const kata = nama
+    .trim()
+    .split(/\s+/)
+    .map((bagian) => bagian.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, ''))
+    .filter(
+      (bagian) =>
+        bagian.length > 0 && !KATA_PENGHUBUNG.has(bagian.toLowerCase()),
+    );
 
-    if (kata.length === 0) return '?';
-    if (kata.length === 1) return kata[0].slice(0, 2).toUpperCase();
-    return kata
-        .slice(0, 2)
-        .map((bagian) => bagian[0])
-        .join('')
-        .toUpperCase();
+  if (kata.length === 0) return '?';
+  if (kata.length === 1) return kata[0].slice(0, 2).toUpperCase();
+  return kata
+    .slice(0, 2)
+    .map((bagian) => bagian[0])
+    .join('')
+    .toUpperCase();
+}
+
+function formatJam(tanggal: Date): string {
+  const jam = String(tanggal.getHours()).padStart(2, '0');
+  const menit = String(tanggal.getMinutes()).padStart(2, '0');
+  return `${jam}.${menit}`;
+}
+
+function formatRentangJam(mulai: Date, selesai: Date | null): string {
+  const awal = formatJam(mulai);
+  if (!selesai) return `${awal} WIB`;
+  return `${awal}–${formatJam(selesai)} WIB`;
+}
+
+function formatTanggalSingkat(tanggal: Date | null | undefined): string {
+  if (!tanggal) return 'Memproses…';
+  return tanggal.toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 export default function DetailKelasScreen() {
-    const router = useRouter();
-    const insets = useSafeAreaInsets();
-    const { id } = useLocalSearchParams<{ id?: string }>();
-    const kelasId = typeof id === 'string' ? id : '';
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const kelasId = typeof id === 'string' ? id : '';
 
-    const { pengguna } = useAuth();
-    const {
-        kelas,
-        loading: loadingKelas,
-        error: errorKelas,
-        cobaLagi: cobaLagiKelas,
-    } = useKelasAsisten(pengguna?.uid ?? null, {
-        sertakanArsip: true,
-        hitungPeserta: false,
-    });
+  const { pengguna } = useAuth();
+  const {
+    kelas,
+    loading: loadingKelas,
+    error: errorKelas,
+    cobaLagi: cobaLagiKelas,
+  } = useKelasAsisten(pengguna?.uid ?? null, {
+    sertakanArsip: true,
+    hitungPeserta: false,
+  });
 
-    const {
-        peserta,
-        loading: loadingPeserta,
-        error: errorPeserta,
-        cobaLagi: cobaLagiPeserta,
-    } = usePesertaKelas(kelasId || null);
+  const {
+    peserta,
+    loading: loadingPeserta,
+    error: errorPeserta,
+    cobaLagi: cobaLagiPeserta,
+  } = usePesertaKelas(kelasId || null);
 
-    const kelasAktif = kelas.find((item) => item.idKelas === kelasId) ?? null;
+  const kelasAktif = kelas.find((item) => item.idKelas === kelasId) ?? null;
 
-    const [stateSesi, setStateSesi] = useState<{
-        kelasId: string;
-        retryKey: number;
-        sesi: Sesi[];
-        loading: boolean;
-        error: string | null;
-    } | null>(null);
-    const [retrySesiKey, setRetrySesiKey] = useState(0);
+  const [stateSesi, setStateSesi] = useState<{
+    kelasId: string;
+    retryKey: number;
+    sesi: Sesi[];
+    loading: boolean;
+    error: string | null;
+  } | null>(null);
+  const [retrySesiKey, setRetrySesiKey] = useState(0);
 
-    const cobaLagiSesi = useCallback(() => {
-        setRetrySesiKey((prev) => prev + 1);
-    }, []);
+  const cobaLagiSesi = useCallback(() => {
+    setRetrySesiKey((prev) => prev + 1);
+  }, []);
 
-    useEffect(() => {
-        if (!kelasId) {
-            return;
-        }
+  useEffect(() => {
+    if (!kelasId) {
+      return;
+    }
 
-        const idKelasAktif = kelasId;
-        const retryAktif = retrySesiKey;
-        let aktif = true;
+    const idKelasAktif = kelasId;
+    const retryAktif = retrySesiKey;
+    let aktif = true;
 
-        const unsubscribe = listenSesiKelas(
-            idKelasAktif,
-            (daftarSesi) => {
-                if (!aktif) return;
-                setStateSesi({
-                    kelasId: idKelasAktif,
-                    retryKey: retryAktif,
-                    sesi: daftarSesi,
-                    loading: false,
-                    error: null,
-                });
-            },
-            (error) => {
-                if (!aktif) return;
-                setStateSesi({
-                    kelasId: idKelasAktif,
-                    retryKey: retryAktif,
-                    sesi: [],
-                    loading: false,
-                    error:
-                        error.message.trim().length > 0
-                            ? error.message
-                            : 'Gagal memuat daftar sesi kelas.',
-                });
-            },
-            true,
-        );
-
-        return () => {
-            aktif = false;
-            unsubscribe();
-        };
-    }, [kelasId, retrySesiKey]);
-
-    const stateSesiAktif =
-        kelasId &&
-        stateSesi?.kelasId === kelasId &&
-        stateSesi.retryKey === retrySesiKey
-            ? stateSesi
-            : null;
-    const sesiKelas = stateSesiAktif?.sesi ?? [];
-    const loadingSesi = kelasId ? (stateSesiAktif?.loading ?? true) : false;
-    const errorSesi = stateSesiAktif?.error ?? null;
-
-    const [filter, setFilter] = useState<FilterKelas>('sesi');
-
-    const [editTerbuka, setEditTerbuka] = useState(false);
-    const [loadingEdit, setLoadingEdit] = useState(false);
-    const [errorEdit, setErrorEdit] = useState<string | null>(null);
-
-    const [arsipTerbuka, setArsipTerbuka] = useState(false);
-    const [loadingArsip, setLoadingArsip] = useState(false);
-
-    const [tambahPesertaTerbuka, setTambahPesertaTerbuka] = useState(false);
-    const [loadingTambahPeserta, setLoadingTambahPeserta] = useState(false);
-    const [errorTambahPeserta, setErrorTambahPeserta] = useState<string | null>(
-        null,
+    const unsubscribe = listenSesiKelas(
+      idKelasAktif,
+      (daftarSesi) => {
+        if (!aktif) return;
+        setStateSesi({
+          kelasId: idKelasAktif,
+          retryKey: retryAktif,
+          sesi: daftarSesi,
+          loading: false,
+          error: null,
+        });
+      },
+      (error) => {
+        if (!aktif) return;
+        setStateSesi({
+          kelasId: idKelasAktif,
+          retryKey: retryAktif,
+          sesi: [],
+          loading: false,
+          error:
+            error.message.trim().length > 0
+              ? error.message
+              : 'Gagal memuat daftar sesi kelas.',
+        });
+      },
+      true,
     );
 
-    const [pesertaDinonaktifkan, setPesertaDinonaktifkan] =
-        useState<Keanggotaan | null>(null);
-    const [loadingStatusPeserta, setLoadingStatusPeserta] = useState(false);
-
-    const [formSesiTerbuka, setFormSesiTerbuka] = useState(false);
-    const [modeFormSesi, setModeFormSesi] = useState<'tambah' | 'ubah'>(
-        'tambah',
-    );
-    const [sesiDiedit, setSesiDiedit] = useState<Sesi | null>(null);
-    const [loadingSimpanSesi, setLoadingSimpanSesi] = useState(false);
-    const [errorFormSesi, setErrorFormSesi] = useState<string | null>(null);
-
-    const [sesiDiarsipkan, setSesiDiarsipkan] = useState<Sesi | null>(null);
-    const [loadingArsipSesi, setLoadingArsipSesi] = useState(false);
-
-    const handleUbahKelas = async (namaPraktikum: string) => {
-        if (!kelasAktif || kelasAktif.diarsipkan) return;
-        setLoadingEdit(true);
-        setErrorEdit(null);
-
-        const hasil = await ubahKelas(kelasAktif.idKelas, { namaPraktikum });
-        setLoadingEdit(false);
-
-        if (!hasil.ok) {
-            setErrorEdit(hasil.pesan);
-            return;
-        }
-
-        setEditTerbuka(false);
+    return () => {
+      aktif = false;
+      unsubscribe();
     };
+  }, [kelasId, retrySesiKey]);
 
-    const handleArsipkanKelas = async () => {
-        if (!kelasAktif || kelasAktif.diarsipkan || loadingArsip) return;
-        setLoadingArsip(true);
+  const stateSesiAktif =
+    kelasId &&
+    stateSesi?.kelasId === kelasId &&
+    stateSesi.retryKey === retrySesiKey
+      ? stateSesi
+      : null;
+  const sesiKelas = stateSesiAktif?.sesi ?? [];
+  const loadingSesi = kelasId ? (stateSesiAktif?.loading ?? true) : false;
+  const errorSesi = stateSesiAktif?.error ?? null;
 
-        const hasil = await arsipkanKelas(kelasAktif.idKelas);
-        setLoadingArsip(false);
+  const [filter, setFilter] = useState<FilterKelas>('sesi');
 
-        if (!hasil.ok) {
-            Alert.alert('Gagal mengarsipkan kelas', hasil.pesan);
-            return;
-        }
+  const [editTerbuka, setEditTerbuka] = useState(false);
+  const [loadingEdit, setLoadingEdit] = useState(false);
+  const [errorEdit, setErrorEdit] = useState<string | null>(null);
 
-        setArsipTerbuka(false);
-    };
+  const [arsipTerbuka, setArsipTerbuka] = useState(false);
+  const [loadingArsip, setLoadingArsip] = useState(false);
 
-    const handleTambahPeserta = async (kodePeserta: string) => {
-        if (!kelasAktif || kelasAktif.diarsipkan) return;
-        setLoadingTambahPeserta(true);
-        setErrorTambahPeserta(null);
-        const hasil = await tambahPesertaByKode(kelasAktif.idKelas, kodePeserta);
-        setLoadingTambahPeserta(false);
-        if (!hasil.ok) { setErrorTambahPeserta(hasil.pesan); return; }
-        setTambahPesertaTerbuka(false);
-    };
+  const [tambahPesertaTerbuka, setTambahPesertaTerbuka] = useState(false);
+  const [loadingTambahPeserta, setLoadingTambahPeserta] = useState(false);
+  const [errorTambahPeserta, setErrorTambahPeserta] = useState<string | null>(
+    null,
+  );
 
-    const handleKonfirmasiNonaktif = async () => {
-        if (
-            !kelasAktif ||
-            kelasAktif.diarsipkan ||
-            !pesertaDinonaktifkan ||
-            loadingStatusPeserta
-        ) {
-            return;
-        }
-        setLoadingStatusPeserta(true);
+  const [pesertaDinonaktifkan, setPesertaDinonaktifkan] =
+    useState<Keanggotaan | null>(null);
+  const [loadingStatusPeserta, setLoadingStatusPeserta] = useState(false);
 
-        const hasil = await nonaktifkanPeserta(
-            pesertaDinonaktifkan.idKeanggotaan,
-        );
-        setLoadingStatusPeserta(false);
+  const [formSesiTerbuka, setFormSesiTerbuka] = useState(false);
+  const [modeFormSesi, setModeFormSesi] = useState<'tambah' | 'ubah'>('tambah');
+  const [sesiDiedit, setSesiDiedit] = useState<Sesi | null>(null);
+  const [loadingSimpanSesi, setLoadingSimpanSesi] = useState(false);
+  const [errorFormSesi, setErrorFormSesi] = useState<string | null>(null);
 
-        if (!hasil.ok) {
-            Alert.alert('Gagal menonaktifkan peserta', hasil.pesan);
-            return;
-        }
+  const [sesiDiarsipkan, setSesiDiarsipkan] = useState<Sesi | null>(null);
+  const [loadingArsipSesi, setLoadingArsipSesi] = useState(false);
 
-        setPesertaDinonaktifkan(null);
-    };
+  const handleUbahKelas = async (namaPraktikum: string) => {
+    if (!kelasAktif || kelasAktif.diarsipkan) return;
+    setLoadingEdit(true);
+    setErrorEdit(null);
 
-    const handleSimpanSesi = async (nilai: NilaiFormSesi) => {
-        if (!kelasAktif || kelasAktif.diarsipkan || loadingSimpanSesi) return;
-        setLoadingSimpanSesi(true);
-        setErrorFormSesi(null);
+    const hasil = await ubahKelas(kelasAktif.idKelas, { namaPraktikum });
+    setLoadingEdit(false);
 
-        const hasil =
-            modeFormSesi === 'tambah'
-                ? await buatSesi({
-                      kelasId: kelasAktif.idKelas,
-                      judul: nilai.judul,
-                      labId: nilai.labId,
-                      waktuMulai: nilai.waktuMulai,
-                      waktuSelesai: nilai.waktuSelesai,
-                  })
-                : sesiDiedit
-                  ? await ubahSesi(sesiDiedit.idSesi, {
-                        judul: nilai.judul,
-                        labId: nilai.labId,
-                        waktuMulai: nilai.waktuMulai,
-                        waktuSelesai: nilai.waktuSelesai,
-                    })
-                  : null;
-
-        setLoadingSimpanSesi(false);
-
-        if (!hasil) {
-            setErrorFormSesi('Sesi yang akan diubah tidak ditemukan.');
-            return;
-        }
-
-        if (!hasil.ok) {
-            setErrorFormSesi(hasil.pesan);
-            return;
-        }
-
-        setFormSesiTerbuka(false);
-        setSesiDiedit(null);
-    };
-
-    const handleKonfirmasiArsipSesi = async () => {
-        if (
-            !kelasAktif ||
-            kelasAktif.diarsipkan ||
-            !sesiDiarsipkan ||
-            loadingArsipSesi
-        ) {
-            return;
-        }
-        setLoadingArsipSesi(true);
-
-        const hasil = await arsipkanSesi(sesiDiarsipkan.idSesi);
-        setLoadingArsipSesi(false);
-
-        if (!hasil.ok) {
-            Alert.alert('Gagal mengarsipkan sesi', hasil.pesan);
-            return;
-        }
-
-        setSesiDiarsipkan(null);
-    };
-
-    const handleTekanTambah = () => {
-        if (!kelasAktif || kelasAktif.diarsipkan) return;
-        if (filter === 'sesi') {
-            setModeFormSesi('tambah');
-            setSesiDiedit(null);
-            setErrorFormSesi(null);
-            setFormSesiTerbuka(true);
-        } else {
-            setErrorTambahPeserta(null);
-            setTambahPesertaTerbuka(true);
-        }
-    };
-
-    if (loadingKelas) {
-        return (
-            <>
-                <Stack.Screen options={{ title: 'Detail Kelas' }} />
-                <LoadingState pesan="Memuat detail kelas…" />
-            </>
-        );
+    if (!hasil.ok) {
+      setErrorEdit(hasil.pesan);
+      return;
     }
 
-    if (errorKelas) {
-        return (
-            <>
-                <Stack.Screen options={{ title: 'Detail Kelas' }} />
-                <ErrorState pesan={errorKelas} onCobaLagi={cobaLagiKelas} />
-            </>
-        );
+    setEditTerbuka(false);
+  };
+
+  const handleArsipkanKelas = async () => {
+    if (!kelasAktif || kelasAktif.diarsipkan || loadingArsip) return;
+    setLoadingArsip(true);
+
+    const hasil = await arsipkanKelas(kelasAktif.idKelas);
+    setLoadingArsip(false);
+
+    if (!hasil.ok) {
+      Alert.alert('Gagal mengarsipkan kelas', hasil.pesan);
+      return;
     }
 
-    if (!kelasAktif) {
-        return (
-            <>
-                <Stack.Screen options={{ title: 'Detail Kelas' }} />
-                <View style={styles.container}>
-                    <EmptyState
-                        judul="Kelas tidak ditemukan"
-                        pesan="Kelas tidak tersedia atau Anda tidak memiliki akses ke kelas ini."
-                    />
-                </View>
-            </>
-        );
+    setArsipTerbuka(false);
+  };
+
+  const handleTambahPeserta = async (kodePeserta: string) => {
+    if (!kelasAktif || kelasAktif.diarsipkan) return;
+    setLoadingTambahPeserta(true);
+    setErrorTambahPeserta(null);
+    const hasil = await tambahPesertaByKode(kelasAktif.idKelas, kodePeserta);
+    setLoadingTambahPeserta(false);
+    if (!hasil.ok) {
+      setErrorTambahPeserta(hasil.pesan);
+      return;
+    }
+    setTambahPesertaTerbuka(false);
+  };
+
+  const handleKonfirmasiNonaktif = async () => {
+    if (
+      !kelasAktif ||
+      kelasAktif.diarsipkan ||
+      !pesertaDinonaktifkan ||
+      loadingStatusPeserta
+    ) {
+      return;
+    }
+    setLoadingStatusPeserta(true);
+
+    const hasil = await nonaktifkanPeserta(pesertaDinonaktifkan.idKeanggotaan);
+    setLoadingStatusPeserta(false);
+
+    if (!hasil.ok) {
+      Alert.alert('Gagal menonaktifkan peserta', hasil.pesan);
+      return;
     }
 
-    const jumlahPesertaAktif = peserta.filter((p) => p.status === 'AKTIF').length;
-    const daftarPesertaUrut = [...peserta].sort((a, b) => {
-        if (a.status === b.status) return 0;
-        return a.status === 'AKTIF' ? -1 : 1;
-    });
+    setPesertaDinonaktifkan(null);
+  };
 
-    const jumlahSesiAktif = sesiKelas.filter((s) => !s.diarsipkan).length;
-    const daftarSesiUrut = [...sesiKelas].sort((a, b) => {
-        if (a.diarsipkan === b.diarsipkan) return 0;
-        return a.diarsipkan ? 1 : -1;
-    });
+  const handleSimpanSesi = async (nilai: NilaiFormSesi) => {
+    if (!kelasAktif || kelasAktif.diarsipkan || loadingSimpanSesi) return;
+    setLoadingSimpanSesi(true);
+    setErrorFormSesi(null);
 
+    const hasil =
+      modeFormSesi === 'tambah'
+        ? await buatSesi({
+            kelasId: kelasAktif.idKelas,
+            judul: nilai.judul,
+            labId: nilai.labId,
+            waktuMulai: nilai.waktuMulai,
+            waktuSelesai: nilai.waktuSelesai,
+          })
+        : sesiDiedit
+          ? await ubahSesi(sesiDiedit.idSesi, {
+              judul: nilai.judul,
+              labId: nilai.labId,
+              waktuMulai: nilai.waktuMulai,
+              waktuSelesai: nilai.waktuSelesai,
+            })
+          : null;
+
+    setLoadingSimpanSesi(false);
+
+    if (!hasil) {
+      setErrorFormSesi('Sesi yang akan diubah tidak ditemukan.');
+      return;
+    }
+
+    if (!hasil.ok) {
+      setErrorFormSesi(hasil.pesan);
+      return;
+    }
+
+    setFormSesiTerbuka(false);
+    setSesiDiedit(null);
+  };
+
+  const handleKonfirmasiArsipSesi = async () => {
+    if (
+      !kelasAktif ||
+      kelasAktif.diarsipkan ||
+      !sesiDiarsipkan ||
+      loadingArsipSesi
+    ) {
+      return;
+    }
+    setLoadingArsipSesi(true);
+
+    const hasil = await arsipkanSesi(sesiDiarsipkan.idSesi);
+    setLoadingArsipSesi(false);
+
+    if (!hasil.ok) {
+      Alert.alert('Gagal mengarsipkan sesi', hasil.pesan);
+      return;
+    }
+
+    setSesiDiarsipkan(null);
+  };
+
+  const handleTekanTambah = () => {
+    if (!kelasAktif || kelasAktif.diarsipkan) return;
+    if (filter === 'sesi') {
+      setModeFormSesi('tambah');
+      setSesiDiedit(null);
+      setErrorFormSesi(null);
+      setFormSesiTerbuka(true);
+    } else {
+      setErrorTambahPeserta(null);
+      setTambahPesertaTerbuka(true);
+    }
+  };
+
+  if (loadingKelas) {
     return (
-        <>
-            <Stack.Screen
-                options={{ title: kelasAktif.namaPraktikum || 'Detail Kelas' }}
+      <>
+        <Stack.Screen options={{ title: 'Detail Kelas' }} />
+        <LoadingState pesan="Memuat detail kelas…" />
+      </>
+    );
+  }
+
+  if (errorKelas) {
+    return (
+      <>
+        <Stack.Screen options={{ title: 'Detail Kelas' }} />
+        <ErrorState pesan={errorKelas} onCobaLagi={cobaLagiKelas} />
+      </>
+    );
+  }
+
+  if (!kelasAktif) {
+    return (
+      <>
+        <Stack.Screen options={{ title: 'Detail Kelas' }} />
+        <View style={styles.container}>
+          <View style={styles.emptyWrap}>
+            <EmptyState
+              judul="Kelas tidak ditemukan"
+              pesan="Kelas tidak tersedia atau Anda tidak memiliki akses ke kelas ini."
             />
-            <View style={styles.container}>
-                {/* Bagian atas: tetap diam, tidak ikut tergulir */}
-                <View style={styles.headerTetap}>
-                    <View
-                        style={[
-                            styles.hero,
-                            kelasAktif.diarsipkan && styles.heroDiarsipkan,
-                        ]}
+          </View>
+        </View>
+      </>
+    );
+  }
+
+  const jumlahPesertaAktif = peserta.filter((p) => p.status === 'AKTIF').length;
+  const daftarPesertaUrut = [...peserta].sort((a, b) => {
+    if (a.status === b.status) return 0;
+    return a.status === 'AKTIF' ? -1 : 1;
+  });
+
+  const jumlahSesiAktif = sesiKelas.filter((s) => !s.diarsipkan).length;
+  const daftarSesiUrut = [...sesiKelas].sort((a, b) => {
+    if (a.diarsipkan === b.diarsipkan) return 0;
+    return a.diarsipkan ? 1 : -1;
+  });
+
+  return (
+    <>
+      <Stack.Screen
+        options={{ title: kelasAktif.namaPraktikum || 'Detail Kelas' }}
+      />
+      <View style={styles.container}>
+        {/* Bagian atas: hero + segment bar */}
+        <View style={styles.headerTetap}>
+          <EnterView delay={0}>
+            <BrandGradient
+              variant="indigo"
+              style={[
+                styles.hero,
+                Shadows.primaryGlow,
+                kelasAktif.diarsipkan && styles.heroDiarsipkan,
+              ]}
+            >
+              <View style={styles.heroBarisAtas}>
+                <View style={styles.heroIkon}>
+                  <Text style={styles.heroIkonTeks}>
+                    {buatInisial(kelasAktif.namaPraktikum)}
+                  </Text>
+                </View>
+
+                <View style={styles.heroJudulWrap}>
+                  <Text style={styles.heroJudul} numberOfLines={2}>
+                    {kelasAktif.namaPraktikum}
+                  </Text>
+                  <Text style={styles.heroSub} numberOfLines={1}>
+                    {formatTanggalSingkat(kelasAktif.dibuatPada)}
+                  </Text>
+                </View>
+
+                <View
+                  style={[
+                    styles.heroBadge,
+                    kelasAktif.diarsipkan && styles.heroBadgeArsip,
+                  ]}
+                >
+                  <Text style={styles.heroBadgeTeks}>
+                    {kelasAktif.diarsipkan ? 'Arsip' : 'Aktif'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.heroBarisBawah}>
+                <View style={styles.heroChip}>
+                  <Text style={styles.heroChipAngka}>{jumlahPesertaAktif}</Text>
+                  <Text style={styles.heroChipLabel}>Praktikan</Text>
+                </View>
+                <View style={styles.heroChip}>
+                  <Text style={styles.heroChipAngka}>{jumlahSesiAktif}</Text>
+                  <Text style={styles.heroChipLabel}>Sesi</Text>
+                </View>
+
+                <View style={styles.spacer} />
+
+                {!kelasAktif.diarsipkan ? (
+                  <>
+                    <Pressable
+                      onPress={() => {
+                        setErrorEdit(null);
+                        setEditTerbuka(true);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Ubah nama kelas"
+                      style={({ pressed }) => [
+                        styles.heroTombol,
+                        pressed && styles.ditekan,
+                      ]}
                     >
-                        <View style={styles.heroBarisAtas}>
-                            <View style={styles.heroIkon}>
-                                <Text style={styles.heroIkonTeks}>
-                                    {buatInisial(kelasAktif.namaPraktikum)}
-                                </Text>
-                            </View>
+                      <IconEdit size={13} color="#FFFFFF" strokeWidth={2.1} />
+                      <Text style={styles.heroTombolTeks}>Ubah</Text>
+                    </Pressable>
 
-                            <View style={styles.heroJudulWrap}>
-                                <Text
-                                    style={styles.heroJudul}
-                                    numberOfLines={2}
-                                >
-                                    {kelasAktif.namaPraktikum}
-                                </Text>
-                                <Text style={styles.heroSub} numberOfLines={1}>
-                                    Dibuat:{' '}
-                                    {kelasAktif.dibuatPada
-                                        ? formatWaktu(
-                                              kelasAktif.dibuatPada.toISOString(),
-                                          )
-                                        : 'Memproses…'}
-                                </Text>
-                            </View>
+                    <Pressable
+                      onPress={() => setArsipTerbuka(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Arsipkan kelas"
+                      style={({ pressed }) => [
+                        styles.heroTombol,
+                        styles.heroTombolBahaya,
+                        pressed && styles.ditekan,
+                      ]}
+                    >
+                      <IconArchive size={13} color="#FFE4EC" strokeWidth={2.1} />
+                      <Text style={styles.heroTombolBahayaTeks}>Arsipkan</Text>
+                    </Pressable>
+                  </>
+                ) : null}
+              </View>
+            </BrandGradient>
+          </EnterView>
 
+          <FilterKelasBar
+            aktif={filter}
+            jumlahSesi={jumlahSesiAktif}
+            jumlahPraktikan={jumlahPesertaAktif}
+            onGanti={setFilter}
+            onTambah={kelasAktif.diarsipkan ? undefined : handleTekanTambah}
+          />
+        </View>
+
+        <ScrollView
+          style={styles.daftarScroll}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: 24 + insets.bottom },
+          ]}
+        >
+          <EnterView key={filter} distance={10}>
+            {filter === 'sesi' ? (
+              <>
+                {loadingSesi ? (
+                  <View style={styles.stateBox}>
+                    <LoadingState pesan="Memuat sesi praktikum…" layarPenuh={false} />
+                  </View>
+                ) : errorSesi ? (
+                  <View style={styles.stateBox}>
+                    <ErrorState
+                      pesan={errorSesi}
+                      onCobaLagi={cobaLagiSesi}
+                      layarPenuh={false}
+                    />
+                  </View>
+                ) : daftarSesiUrut.length === 0 ? (
+                  <EmptyState
+                    judul="Belum ada sesi"
+                    pesan={
+                      kelasAktif.diarsipkan
+                        ? 'Tidak ada sesi pada kelas arsip ini.'
+                        : 'Tekan tombol + untuk menambah sesi praktikum.'
+                    }
+                  />
+                ) : (
+                  <View style={styles.daftarPeserta}>
+                    {daftarSesiUrut.map((item, index) => {
+                      const sesiTerkunci =
+                        kelasAktif.diarsipkan || item.diarsipkan;
+                      const dibuka =
+                        !item.diarsipkan && item.statusSesi === 'DIBUKA';
+                      const belumDibuka =
+                        !item.diarsipkan && item.statusSesi === 'BELUM_DIBUKA';
+
+                      const dateBg = dibuka
+                        ? Colors.light.successSoft
+                        : belumDibuka
+                          ? Colors.light.warmSoft
+                          : Colors.light.backgroundElement;
+                      const dateFg = dibuka
+                        ? Colors.light.success
+                        : belumDibuka
+                          ? Colors.light.warm
+                          : Colors.light.textSecondary;
+
+                      return (
+                        <EnterView
+                          key={item.idSesi}
+                          delay={getStaggerDelay(index)}
+                          animateLayout
+                        >
+                          <Pressable
+                            onPress={() =>
+                              router.push({
+                                pathname: '/sesi/[id]',
+                                params: { id: item.idSesi },
+                              })
+                            }
+                            accessibilityRole="button"
+                            accessibilityLabel={`Buka detail sesi ${item.judul}`}
+                            pressRetentionOffset={0}
+                            unstable_pressDelay={100}
+                            style={({ pressed }) => [
+                              styles.kartuSesi,
+                              item.diarsipkan && styles.kartuRedup,
+                              pressed && styles.ditekan,
+                            ]}
+                          >
+                        <View
+                          style={[
+                            styles.sesiAksen,
+                            dibuka && styles.sesiAksenAktif,
+                            belumDibuka && styles.sesiAksenMendatang,
+                          ]}
+                        />
+                        <View style={styles.sesiIsi}>
+                          <View style={styles.sesiBarisUtama}>
                             <View
-                                style={[
-                                    styles.heroBadge,
-                                    kelasAktif.diarsipkan &&
-                                        styles.heroBadgeArsip,
-                                ]}
+                              style={[
+                                styles.sesiTanggal,
+                                { backgroundColor: dateBg },
+                              ]}
                             >
-                                <Text
-                                    style={[
-                                        styles.heroBadgeTeks,
-                                        kelasAktif.diarsipkan &&
-                                            styles.heroBadgeTeksArsip,
-                                    ]}
-                                >
-                                    {kelasAktif.diarsipkan
-                                        ? 'Diarsipkan'
-                                        : 'Aktif'}
-                                </Text>
+                              <Text
+                                style={[
+                                  styles.sesiTanggalAngka,
+                                  { color: dateFg },
+                                ]}
+                              >
+                                {item.waktuMulai.getDate()}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.sesiTanggalBulan,
+                                  { color: dateFg },
+                                ]}
+                              >
+                                {BULAN_SINGKAT[item.waktuMulai.getMonth()]}
+                              </Text>
                             </View>
-                        </View>
 
-                        <View style={styles.heroBarisBawah}>
-                            <View style={styles.heroChip}>
-                                <Text style={styles.heroChipAngka}>
-                                    {jumlahPesertaAktif}
+                            <View style={styles.sesiInfo}>
+                              <View style={styles.barisAtas}>
+                                <Text
+                                  style={styles.namaSesi}
+                                  numberOfLines={2}
+                                >
+                                  {item.judul}
                                 </Text>
-                                <Text style={styles.heroChipLabel}>
-                                    Praktikan
+                                {item.diarsipkan ? (
+                                  <View style={styles.badgeRedup}>
+                                    <Text style={styles.badgeRedupTeks}>
+                                      Arsip
+                                    </Text>
+                                  </View>
+                                ) : (
+                                  <StatusBadge status={item.statusSesi} />
+                                )}
+                              </View>
+
+                              <View style={styles.metaLine}>
+                                <IconMapPin
+                                  size={12.5}
+                                  color={Colors.light.teal}
+                                />
+                                <Text style={styles.meta} numberOfLines={1}>
+                                  {item.lokasi}
                                 </Text>
+                              </View>
+
+                              <View style={styles.metaLine}>
+                                <IconClock
+                                  size={12.5}
+                                  color={Colors.light.textSecondary}
+                                />
+                                <Text style={styles.meta} numberOfLines={1}>
+                                  {formatRentangJam(
+                                    item.waktuMulai,
+                                    item.waktuSelesai,
+                                  )}
+                                </Text>
+                              </View>
                             </View>
-                            <View style={styles.heroChip}>
-                                <Text style={styles.heroChipAngka}>
-                                    {jumlahSesiAktif}
+                          </View>
+
+                          <View style={styles.barisTombolSesi}>
+                            {!sesiTerkunci ? (
+                              <Pressable
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  setModeFormSesi('ubah');
+                                  setSesiDiedit(item);
+                                  setErrorFormSesi(null);
+                                  setFormSesiTerbuka(true);
+                                }}
+                                accessibilityRole="button"
+                                style={({ pressed }) => [
+                                  styles.tombolSekunder,
+                                  pressed && styles.ditekan,
+                                ]}
+                              >
+                                <IconEdit size={12.5} color={Colors.light.text} />
+                                <Text style={styles.tombolSekunderTeks}>
+                                  Ubah
                                 </Text>
-                                <Text style={styles.heroChipLabel}>Sesi</Text>
-                            </View>
+                              </Pressable>
+                            ) : null}
+
+                            {!sesiTerkunci && item.statusSesi !== 'DIBUKA' ? (
+                              <Pressable
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  setSesiDiarsipkan(item);
+                                }}
+                                accessibilityRole="button"
+                                style={({ pressed }) => [
+                                  styles.tombolBahaya,
+                                  pressed && styles.ditekan,
+                                ]}
+                              >
+                                <IconArchive
+                                  size={12.5}
+                                  color={Colors.light.danger}
+                                />
+                                <Text style={styles.tombolBahayaTeks}>
+                                  Arsipkan
+                                </Text>
+                              </Pressable>
+                            ) : null}
 
                             <View style={styles.spacer} />
-
-                            {!kelasAktif.diarsipkan ? (
-                                <>
-                                    <Pressable
-                                        onPress={() => {
-                                            setErrorEdit(null);
-                                            setEditTerbuka(true);
-                                        }}
-                                        accessibilityRole="button"
-                                        accessibilityLabel="Ubah nama kelas"
-                                        style={({ pressed }) => [
-                                            styles.heroTombol,
-                                            pressed && styles.ditekan,
-                                        ]}
-                                    >
-                                        <Text style={styles.heroTombolTeks}>
-                                            Ubah
-                                        </Text>
-                                    </Pressable>
-
-                                    <Pressable
-                                        onPress={() => setArsipTerbuka(true)}
-                                        accessibilityRole="button"
-                                        accessibilityLabel="Arsipkan kelas"
-                                        style={({ pressed }) => [
-                                            styles.heroTombol,
-                                            styles.heroTombolBahaya,
-                                            pressed && styles.ditekan,
-                                        ]}
-                                    >
-                                        <Text
-                                            style={styles.heroTombolBahayaTeks}
-                                        >
-                                            Arsipkan
-                                        </Text>
-                                    </Pressable>
-                                </>
-                            ) : null}
+                            <IconChevronRight
+                              size={17}
+                              color={Colors.light.textSecondary}
+                            />
+                          </View>
                         </View>
-                    </View>
-
-                    <FilterKelasBar
-                        aktif={filter}
-                        jumlahSesi={jumlahSesiAktif}
-                        jumlahPraktikan={jumlahPesertaAktif}
-                        onGanti={setFilter}
-                        onTambah={
-                            kelasAktif.diarsipkan
-                                ? undefined
-                                : handleTekanTambah
-                        }
-                    />
+                      </Pressable>
+                    </EnterView>
+                    );
+                  })}
                 </View>
+              )}
+            </>
+          ) : (
+            <>
+              {loadingPeserta ? (
+                <View style={styles.stateBox}>
+                  <LoadingState
+                    pesan="Memuat peserta kelas…"
+                    layarPenuh={false}
+                  />
+                </View>
+              ) : errorPeserta ? (
+                <View style={styles.stateBox}>
+                  <ErrorState
+                    pesan={errorPeserta}
+                    onCobaLagi={cobaLagiPeserta}
+                    layarPenuh={false}
+                  />
+                </View>
+              ) : daftarPesertaUrut.length === 0 ? (
+                <EmptyState
+                  judul="Belum ada peserta"
+                  pesan={
+                    kelasAktif.diarsipkan
+                      ? 'Tidak ada praktikan pada kelas arsip ini.'
+                      : 'Tambahkan praktikan dengan 8 karakter kode peserta.'
+                  }
+                />
+              ) : (
+                <View style={styles.daftarPeserta}>
+                  {daftarPesertaUrut.map((item, index) => {
+                    const isNonaktif = item.status === 'NONAKTIF';
+                    const tone = getWarmPastelTone(item.nama);
 
-                {/* Hanya bagian ini yang tergulir */}
-                <ScrollView
-                    style={styles.daftarScroll}
-                    contentContainerStyle={[
-                        styles.content,
-                        { paddingBottom: 20 + insets.bottom },
-                    ]}
-                >
-                    {filter === 'sesi' ? (
-                        <>
-                            {loadingSesi ? (
-                                <View style={styles.stateBox}>
-                                    <LoadingState
-                                        pesan="Memuat sesi praktikum…"
-                                        layarPenuh={false}
-                                    />
-                                </View>
-                            ) : errorSesi ? (
-                                <View style={styles.stateBox}>
-                                    <ErrorState
-                                        pesan={errorSesi}
-                                        onCobaLagi={cobaLagiSesi}
-                                        layarPenuh={false}
-                                    />
-                                </View>
-                            ) : daftarSesiUrut.length === 0 ? (
-                                <EmptyState
-                                    judul="Belum ada sesi"
-                                    pesan={
-                                        kelasAktif.diarsipkan
-                                            ? 'Tidak ada sesi yang tersimpan pada kelas arsip ini.'
-                                            : 'Tambahkan sesi praktikum untuk mulai mengelola jadwal dan presensi.'
-                                    }
-                                />
-                            ) : (
-                                <View style={styles.daftarPeserta}>
-                                    {daftarSesiUrut.map((item) => {
-                                        const sesiTerkunci =
-                                            kelasAktif.diarsipkan ||
-                                            item.diarsipkan;
+                    return (
+                      <EnterView
+                        key={item.idKeanggotaan}
+                        delay={getStaggerDelay(index)}
+                        animateLayout
+                      >
+                        <View
+                          style={[
+                            styles.kartuPeserta,
+                            isNonaktif && styles.kartuRedup,
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.avatar,
+                              { backgroundColor: tone.bg },
+                            ]}
+                          >
+                            <Text
+                              style={[styles.avatarTeks, { color: tone.fg }]}
+                            >
+                              {buatInisial(item.nama)}
+                            </Text>
+                          </View>
 
-                                        return (
-                                            <Pressable
-                                                key={item.idSesi}
-                                                onPress={() =>
-                                                    router.push({
-                                                        pathname: '/sesi/[id]',
-                                                        params: {
-                                                            id: item.idSesi,
-                                                        },
-                                                    })
-                                                }
-                                                accessibilityRole="button"
-                                                accessibilityLabel={`Buka detail sesi ${item.judul}`}
-                                                // Kurangi sensitivitas saat menggulir: jari yang
-                                                // bergeser keluar kartu membatalkan tap, dan efek
-                                                // tekan baru muncul setelah jeda singkat.
-                                                pressRetentionOffset={0}
-                                                unstable_pressDelay={100}
-                                                style={({ pressed }) => [
-                                                    styles.kartuSesi,
-                                                    item.diarsipkan &&
-                                                        styles.kartuRedup,
-                                                    pressed && styles.ditekan,
-                                                ]}
-                                            >
-                                                <View
-                                                    style={[
-                                                        styles.sesiAksen,
-                                                        !item.diarsipkan &&
-                                                            item.statusSesi ===
-                                                                'DIBUKA' &&
-                                                            styles.sesiAksenAktif,
-                                                    ]}
-                                                />
-                                                <View style={styles.sesiIsi}>
-                                                    <View
-                                                        style={
-                                                            styles.sesiBarisUtama
-                                                        }
-                                                    >
-                                                        <View
-                                                            style={[
-                                                                styles.sesiTanggal,
-                                                                !item.diarsipkan &&
-                                                                    item.statusSesi ===
-                                                                        'DIBUKA' &&
-                                                                    styles.sesiTanggalAktif,
-                                                            ]}
-                                                        >
-                                                            <Text
-                                                                style={[
-                                                                    styles.sesiTanggalAngka,
-                                                                    !item.diarsipkan &&
-                                                                        item.statusSesi ===
-                                                                            'DIBUKA' &&
-                                                                        styles.sesiTanggalAngkaAktif,
-                                                                ]}
-                                                            >
-                                                                {item.waktuMulai.getDate()}
-                                                            </Text>
-                                                            <Text
-                                                                style={
-                                                                    styles.sesiTanggalBulan
-                                                                }
-                                                            >
-                                                                {
-                                                                    BULAN_SINGKAT[
-                                                                        item.waktuMulai.getMonth()
-                                                                    ]
-                                                                }
-                                                            </Text>
-                                                        </View>
+                          <View style={styles.infoPeserta}>
+                            <Text
+                              style={styles.namaPeserta}
+                              numberOfLines={1}
+                            >
+                              {item.nama}
+                            </Text>
+                            <Text style={styles.nimMono}>{item.nim}</Text>
+                          </View>
 
-                                                        <View
-                                                            style={
-                                                                styles.sesiInfo
-                                                            }
-                                                        >
-                                                            <View
-                                                                style={
-                                                                    styles.barisAtas
-                                                                }
-                                                            >
-                                                                <Text
-                                                                    style={
-                                                                        styles.namaPeserta
-                                                                    }
-                                                                    numberOfLines={
-                                                                        2
-                                                                    }
-                                                                >
-                                                                    {item.judul}
-                                                                </Text>
-                                                                {item.diarsipkan ? (
-                                                                    <View
-                                                                        style={
-                                                                            styles.badgeRedup
-                                                                        }
-                                                                    >
-                                                                        <Text
-                                                                            style={
-                                                                                styles.badgeRedupTeks
-                                                                            }
-                                                                        >
-                                                                            Diarsipkan
-                                                                        </Text>
-                                                                    </View>
-                                                                ) : (
-                                                                    <StatusBadge
-                                                                        status={
-                                                                            item.statusSesi
-                                                                        }
-                                                                    />
-                                                                )}
-                                                            </View>
-                                                            <Text
-                                                                style={
-                                                                    styles.meta
-                                                                }
-                                                            >
-                                                                Lokasi:{' '}
-                                                                {item.lokasi}
-                                                            </Text>
-                                                            <Text
-                                                                style={
-                                                                    styles.meta
-                                                                }
-                                                            >
-                                                                Mulai:{' '}
-                                                                {formatWaktu(
-                                                                    item.waktuMulai.toISOString(),
-                                                                )}
-                                                                {item.waktuSelesai
-                                                                    ? ` · Selesai: ${formatWaktu(item.waktuSelesai.toISOString())}`
-                                                                    : ''}
-                                                            </Text>
-                                                        </View>
-                                                    </View>
+                          {isNonaktif ? (
+                            <View style={styles.badgeRedup}>
+                              <Text style={styles.badgeRedupTeks}>Nonaktif</Text>
+                            </View>
+                          ) : !kelasAktif.diarsipkan ? (
+                            <Pressable
+                              disabled={loadingStatusPeserta}
+                              onPress={() => setPesertaDinonaktifkan(item)}
+                              accessibilityRole="button"
+                              style={({ pressed }) => [
+                                styles.tombolBahaya,
+                                pressed && styles.ditekan,
+                              ]}
+                            >
+                              <Text style={styles.tombolBahayaTeks}>
+                                Nonaktifkan
+                              </Text>
+                            </Pressable>
+                          ) : null}
+                        </View>
+                      </EnterView>
+                    );
+                  })}
+                </View>
+              )}
+            </>
+          )}
+          </EnterView>
+        </ScrollView>
+      </View>
 
-                                                    <View
-                                                        style={
-                                                            styles.barisTombolSesi
-                                                        }
-                                                    >
-                                                        {!sesiTerkunci ? (
-                                                            <Pressable
-                                                                onPress={(
-                                                                    e,
-                                                                ) => {
-                                                                    e.stopPropagation();
-                                                                    setModeFormSesi(
-                                                                        'ubah',
-                                                                    );
-                                                                    setSesiDiedit(
-                                                                        item,
-                                                                    );
-                                                                    setErrorFormSesi(
-                                                                        null,
-                                                                    );
-                                                                    setFormSesiTerbuka(
-                                                                        true,
-                                                                    );
-                                                                }}
-                                                                accessibilityRole="button"
-                                                                style={({
-                                                                    pressed,
-                                                                }) => [
-                                                                    styles.tombolSekunder,
-                                                                    pressed &&
-                                                                        styles.ditekan,
-                                                                ]}
-                                                            >
-                                                                <Text
-                                                                    style={
-                                                                        styles.tombolSekunderTeks
-                                                                    }
-                                                                >
-                                                                    Ubah
-                                                                </Text>
-                                                            </Pressable>
-                                                        ) : null}
+      <KelasFormSheet
+        visible={editTerbuka}
+        mode="ubah"
+        nilaiAwal={kelasAktif.namaPraktikum}
+        loading={loadingEdit}
+        errorPesan={errorEdit}
+        onSubmit={handleUbahKelas}
+        onTutup={() => {
+          if (!loadingEdit) setEditTerbuka(false);
+        }}
+      />
 
-                                                        {!sesiTerkunci &&
-                                                        item.statusSesi !==
-                                                            'DIBUKA' ? (
-                                                            <Pressable
-                                                                onPress={(
-                                                                    e,
-                                                                ) => {
-                                                                    e.stopPropagation();
-                                                                    setSesiDiarsipkan(
-                                                                        item,
-                                                                    );
-                                                                }}
-                                                                accessibilityRole="button"
-                                                                style={({
-                                                                    pressed,
-                                                                }) => [
-                                                                    styles.tombolBahaya,
-                                                                    pressed &&
-                                                                        styles.ditekan,
-                                                                ]}
-                                                            >
-                                                                <Text
-                                                                    style={
-                                                                        styles.tombolBahayaTeks
-                                                                    }
-                                                                >
-                                                                    Arsipkan
-                                                                </Text>
-                                                            </Pressable>
-                                                        ) : null}
+      <SesiFormSheet
+        visible={formSesiTerbuka}
+        mode={modeFormSesi}
+        sesiAwal={sesiDiedit}
+        loading={loadingSimpanSesi}
+        errorPesan={errorFormSesi}
+        onSubmit={handleSimpanSesi}
+        onTutup={() => {
+          if (!loadingSimpanSesi) {
+            setFormSesiTerbuka(false);
+            setSesiDiedit(null);
+          }
+        }}
+      />
 
-                                                        <View
-                                                            style={
-                                                                styles.spacer
-                                                            }
-                                                        />
-                                                        <Text
-                                                            style={
-                                                                styles.lihatDetailTeks
-                                                            }
-                                                        >
-                                                            Detail sesi ›
-                                                        </Text>
-                                                    </View>
-                                                </View>
-                                            </Pressable>
-                                        );
-                                    })}
-                                </View>
-                            )}
-                        </>
-                    ) : (
-                        <>
-                            {loadingPeserta ? (
-                                <View style={styles.stateBox}>
-                                    <LoadingState
-                                        pesan="Memuat peserta kelas…"
-                                        layarPenuh={false}
-                                    />
-                                </View>
-                            ) : errorPeserta ? (
-                                <View style={styles.stateBox}>
-                                    <ErrorState
-                                        pesan={errorPeserta}
-                                        onCobaLagi={cobaLagiPeserta}
-                                        layarPenuh={false}
-                                    />
-                                </View>
-                            ) : daftarPesertaUrut.length === 0 ? (
-                                <EmptyState
-                                    judul="Belum ada peserta"
-                                    pesan={
-                                        kelasAktif.diarsipkan
-                                            ? 'Tidak ada praktikan yang tersimpan pada kelas arsip ini.'
-                                            : 'Tambahkan praktikan menggunakan 8 karakter kode peserta dari profil mereka.'
-                                    }
-                                />
-                            ) : (
-                                <View style={styles.daftarPeserta}>
-                                    {daftarPesertaUrut.map((item) => {
-                                        const isNonaktif =
-                                            item.status === 'NONAKTIF';
+      <ConfirmSheet
+        visible={sesiDiarsipkan !== null}
+        judul="Arsipkan sesi?"
+        pesan={
+          sesiDiarsipkan
+            ? `Sesi "${sesiDiarsipkan.judul}" akan diarsipkan. Riwayat presensi dan izin tetap tersimpan.`
+            : ''
+        }
+        labelKonfirmasi="Arsipkan"
+        labelLoading="Mengarsipkan…"
+        loading={loadingArsipSesi}
+        destructive
+        onKonfirmasi={handleKonfirmasiArsipSesi}
+        onBatal={() => {
+          if (!loadingArsipSesi) setSesiDiarsipkan(null);
+        }}
+      />
 
-                                        return (
-                                            <View
-                                                key={item.idKeanggotaan}
-                                                style={[
-                                                    styles.kartuPeserta,
-                                                    isNonaktif &&
-                                                        styles.kartuRedup,
-                                                ]}
-                                            >
-                                                <View style={styles.avatar}>
-                                                    <Text
-                                                        style={
-                                                            styles.avatarTeks
-                                                        }
-                                                    >
-                                                        {buatInisial(item.nama)}
-                                                    </Text>
-                                                </View>
+      <ConfirmSheet
+        visible={arsipTerbuka}
+        judul="Arsipkan kelas?"
+        pesan={`Kelas "${kelasAktif.namaPraktikum}" akan diarsipkan. Riwayat tetap tersimpan, tetapi peserta dan sesi baru tidak dapat ditambahkan.`}
+        labelKonfirmasi="Arsipkan"
+        labelLoading="Mengarsipkan…"
+        loading={loadingArsip}
+        destructive
+        onKonfirmasi={handleArsipkanKelas}
+        onBatal={() => {
+          if (!loadingArsip) setArsipTerbuka(false);
+        }}
+      />
 
-                                                <View
-                                                    style={styles.infoPeserta}
-                                                >
-                                                    <View
-                                                        style={
-                                                            styles.barisNamaPeserta
-                                                        }
-                                                    >
-                                                        <Text
-                                                            style={
-                                                                styles.namaPeserta
-                                                            }
-                                                        >
-                                                            {item.nama}
-                                                        </Text>
-                                                    </View>
-                                                    <Text style={styles.meta}>
-                                                        NIM: {item.nim}
-                                                    </Text>
-                                                </View>
+      <TambahPesertaSheet
+        visible={tambahPesertaTerbuka}
+        loading={loadingTambahPeserta}
+        errorPesan={errorTambahPeserta}
+        onSubmit={handleTambahPeserta}
+        onTutup={() => {
+          if (!loadingTambahPeserta) setTambahPesertaTerbuka(false);
+        }}
+      />
 
-                                                {isNonaktif ? (
-                                                    <View
-                                                        style={
-                                                            styles.badgeRedup
-                                                        }
-                                                    >
-                                                        <Text
-                                                            style={
-                                                                styles.badgeRedupTeks
-                                                            }
-                                                        >
-                                                            Nonaktif
-                                                        </Text>
-                                                    </View>
-                                                ) : !kelasAktif.diarsipkan ? (
-                                                    <Pressable
-                                                        disabled={
-                                                            loadingStatusPeserta
-                                                        }
-                                                        onPress={() =>
-                                                            setPesertaDinonaktifkan(
-                                                                item,
-                                                            )
-                                                        }
-                                                        accessibilityRole="button"
-                                                        style={({
-                                                            pressed,
-                                                        }) => [
-                                                            styles.tombolBahaya,
-                                                            pressed &&
-                                                                styles.ditekan,
-                                                        ]}
-                                                    >
-                                                        <Text
-                                                            style={
-                                                                styles.tombolBahayaTeks
-                                                            }
-                                                        >
-                                                            Nonaktifkan
-                                                        </Text>
-                                                    </Pressable>
-                                                ) : null}
-                                            </View>
-                                        );
-                                    })}
-                                </View>
-                            )}
-                        </>
-                    )}
-                </ScrollView>
-            </View>
-
-            <KelasFormSheet
-                visible={editTerbuka}
-                mode="ubah"
-                nilaiAwal={kelasAktif.namaPraktikum}
-                loading={loadingEdit}
-                errorPesan={errorEdit}
-                onSubmit={handleUbahKelas}
-                onTutup={() => {
-                    if (!loadingEdit) setEditTerbuka(false);
-                }}
-            />
-
-            <SesiFormSheet
-                visible={formSesiTerbuka}
-                mode={modeFormSesi}
-                sesiAwal={sesiDiedit}
-                loading={loadingSimpanSesi}
-                errorPesan={errorFormSesi}
-                onSubmit={handleSimpanSesi}
-                onTutup={() => {
-                    if (!loadingSimpanSesi) {
-                        setFormSesiTerbuka(false);
-                        setSesiDiedit(null);
-                    }
-                }}
-            />
-
-            <ConfirmSheet
-                visible={sesiDiarsipkan !== null}
-                judul="Arsipkan sesi?"
-                pesan={
-                    sesiDiarsipkan
-                        ? `Sesi "${sesiDiarsipkan.judul}" akan diarsipkan. Riwayat presensi dan izin tetap tersimpan, tetapi sesi tidak tampil di jadwal aktif.`
-                        : ''
-                }
-                labelKonfirmasi="Arsipkan"
-                labelLoading="Mengarsipkan…"
-                loading={loadingArsipSesi}
-                onKonfirmasi={handleKonfirmasiArsipSesi}
-                onBatal={() => {
-                    if (!loadingArsipSesi) setSesiDiarsipkan(null);
-                }}
-            />
-
-            <ConfirmSheet
-                visible={arsipTerbuka}
-                judul="Arsipkan kelas?"
-                pesan={`Kelas "${kelasAktif.namaPraktikum}" akan diarsipkan. Riwayat tetap tersimpan, tetapi peserta dan sesi baru tidak dapat ditambahkan.`}
-                labelKonfirmasi="Arsipkan"
-                labelLoading="Mengarsipkan…"
-                loading={loadingArsip}
-                onKonfirmasi={handleArsipkanKelas}
-                onBatal={() => {
-                    if (!loadingArsip) setArsipTerbuka(false);
-                }}
-            />
-
-            <TambahPesertaSheet
-                visible={tambahPesertaTerbuka}
-                loading={loadingTambahPeserta}
-                errorPesan={errorTambahPeserta}
-                onSubmit={handleTambahPeserta}
-                onTutup={() => {
-                    if (!loadingTambahPeserta) setTambahPesertaTerbuka(false);
-                }}
-            />
-
-            <ConfirmSheet
-                visible={pesertaDinonaktifkan !== null}
-                judul="Nonaktifkan peserta?"
-                pesan={
-                    pesertaDinonaktifkan
-                        ? `${pesertaDinonaktifkan.nama} akan dinonaktifkan dari kelas ini. Riwayat presensi dan izin tetap tersimpan.`
-                        : ''
-                }
-                labelKonfirmasi="Nonaktifkan"
-                labelLoading="Menonaktifkan…"
-                loading={loadingStatusPeserta}
-                onKonfirmasi={handleKonfirmasiNonaktif}
-                onBatal={() => {
-                    if (!loadingStatusPeserta) setPesertaDinonaktifkan(null);
-                }}
-            />
-        </>
-    );
+      <ConfirmSheet
+        visible={pesertaDinonaktifkan !== null}
+        judul="Nonaktifkan peserta?"
+        pesan={
+          pesertaDinonaktifkan
+            ? `${pesertaDinonaktifkan.nama} akan dinonaktifkan dari kelas ini. Riwayat presensi dan izin tetap tersimpan.`
+            : ''
+        }
+        labelKonfirmasi="Nonaktifkan"
+        labelLoading="Menonaktifkan…"
+        loading={loadingStatusPeserta}
+        destructive
+        onKonfirmasi={handleKonfirmasiNonaktif}
+        onBatal={() => {
+          if (!loadingStatusPeserta) setPesertaDinonaktifkan(null);
+        }}
+      />
+    </>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.light.background,
-    },
-    content: {
-        padding: 20,
-        paddingTop: 16,
-        gap: 12,
-    },
-    headerTetap: {
-        paddingHorizontal: 20,
-        paddingTop: 16,
-        paddingBottom: 14,
-        gap: 14,
-        backgroundColor: Colors.light.background,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.light.border,
-    },
-    daftarScroll: {
-        flex: 1,
-    },
-    hero: {
-        gap: 14,
-        padding: 16,
-        borderRadius: 18,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.backgroundElement,
-    },
-    heroDiarsipkan: {
-        opacity: 0.65,
-    },
-    heroBarisAtas: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    heroIkon: {
-        width: 46,
-        height: 46,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Colors.light.primarySoft,
-    },
-    heroIkonTeks: {
-        fontSize: 17,
-        fontWeight: '700',
-        letterSpacing: 0.5,
-        color: Colors.light.primary,
-    },
-    heroJudulWrap: {
-        flex: 1,
-        gap: 2,
-    },
-    heroJudul: {
-        fontSize: 18,
-        fontWeight: '700',
-        lineHeight: 22,
-        color: Colors.light.primary,
-    },
-    heroSub: {
-        fontSize: 12,
-        color: Colors.light.textSecondary,
-    },
-    heroBadge: {
-        alignSelf: 'flex-start',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 999,
-        backgroundColor: Colors.light.successSoft,
-    },
-    heroBadgeArsip: {
-        backgroundColor: Colors.light.border,
-    },
-    heroBadgeTeks: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: Colors.light.success,
-    },
-    heroBadgeTeksArsip: {
-        color: Colors.light.textSecondary,
-    },
-    heroBarisBawah: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: 8,
-    },
-    heroChip: {
-        flexDirection: 'row',
-        alignItems: 'baseline',
-        gap: 5,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 10,
-        backgroundColor: Colors.light.primarySoft,
-    },
-    heroChipAngka: {
-        fontSize: 15,
-        fontWeight: '800',
-        color: Colors.light.primary,
-    },
-    heroChipLabel: {
-        fontSize: 12,
-        color: Colors.light.primary,
-    },
-    heroTombol: {
-        paddingHorizontal: 12,
-        paddingVertical: 7,
-        borderRadius: 9,
-        backgroundColor: Colors.light.primarySoft,
-    },
-    heroTombolTeks: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: Colors.light.primary,
-    },
-    heroTombolBahaya: {
-        backgroundColor: '#FEE2E2',
-    },
-    heroTombolBahayaTeks: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: Colors.light.danger,
-    },
-    barisAtas: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        gap: 10,
-    },
-    meta: {
-        fontSize: 13,
-        color: Colors.light.textSecondary,
-    },
-    stateBox: {
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.backgroundElement,
-        padding: 12,
-    },
-    daftarPeserta: {
-        gap: 12,
-    },
-    kartuRedup: {
-        opacity: 0.58,
-    },
-    badgeRedup: {
-        alignSelf: 'flex-start',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 999,
-        backgroundColor: Colors.light.border,
-    },
-    badgeRedupTeks: {
-        fontSize: 11,
-        fontWeight: '700',
-        color: Colors.light.textSecondary,
-    },
-    kartuSesi: {
-        flexDirection: 'row',
-        overflow: 'hidden',
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.backgroundElement,
-    },
-    sesiAksen: {
-        width: 5,
-        backgroundColor: Colors.light.border,
-    },
-    sesiAksenAktif: {
-        backgroundColor: Colors.light.success,
-    },
-    sesiIsi: {
-        flex: 1,
-        gap: 4,
-        padding: 14,
-    },
-    sesiBarisUtama: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    sesiTanggal: {
-        width: 50,
-        height: 54,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Colors.light.primarySoft,
-    },
-    sesiTanggalAktif: {
-        backgroundColor: Colors.light.successSoft,
-    },
-    sesiTanggalAngka: {
-        fontSize: 20,
-        fontWeight: '800',
-        lineHeight: 24,
-        color: Colors.light.primary,
-    },
-    sesiTanggalAngkaAktif: {
-        color: Colors.light.success,
-    },
-    sesiTanggalBulan: {
-        fontSize: 11,
-        fontWeight: '600',
-        textTransform: 'uppercase',
-        color: Colors.light.textSecondary,
-    },
-    sesiInfo: {
-        flex: 1,
-        gap: 3,
-    },
-    barisTombolSesi: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginTop: 4,
-        paddingTop: 10,
-        borderTopWidth: 1,
-        borderTopColor: Colors.light.border,
-    },
-    spacer: {
-        flex: 1,
-    },
-    lihatDetailTeks: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: Colors.light.primary,
-    },
-    kartuPeserta: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 12,
-        padding: 14,
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.backgroundElement,
-    },
-    avatar: {
-        width: 42,
-        height: 42,
-        borderRadius: 21,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Colors.light.accentSoft,
-    },
-    avatarTeks: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: Colors.light.accent,
-    },
-    infoPeserta: {
-        flex: 1,
-        gap: 4,
-    },
-    barisNamaPeserta: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        flexWrap: 'wrap',
-    },
-    namaPeserta: {
-        flex: 1,
-        fontSize: 15,
-        fontWeight: '600',
-        color: Colors.light.text,
-    },
-    tombolSekunder: {
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: Colors.light.border,
-        backgroundColor: Colors.light.background,
-    },
-    tombolSekunderTeks: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: Colors.light.text,
-    },
-    tombolBahaya: {
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 8,
-        backgroundColor: '#FEE2E2',
-    },
-    tombolBahayaTeks: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: Colors.light.danger,
-    },
-    ditekan: {
-        opacity: 0.75,
-    },
+  container: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
+  },
+  emptyWrap: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'center',
+  },
+  content: {
+    padding: 20,
+    paddingTop: 14,
+    gap: 12,
+  },
+  headerTetap: {
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 14,
+    gap: 14,
+    backgroundColor: Colors.light.background,
+  },
+  daftarScroll: {
+    flex: 1,
+  },
+  hero: {
+    gap: 14,
+    padding: 18,
+    borderRadius: Radii.xl,
+  },
+  heroDiarsipkan: {
+    opacity: 0.72,
+  },
+  heroBarisAtas: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  heroIkon: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  heroIkonTeks: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 16,
+    letterSpacing: 0.5,
+    color: '#FFFFFF',
+  },
+  heroJudulWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  heroJudul: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 18,
+    lineHeight: 23,
+    color: '#FFFFFF',
+  },
+  heroSub: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.82)',
+  },
+  heroBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radii.pill,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+  },
+  heroBadgeArsip: {
+    backgroundColor: 'rgba(28, 25, 41, 0.28)',
+  },
+  heroBadgeTeks: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 11.5,
+    color: '#FFFFFF',
+  },
+  heroBarisBawah: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  heroChip: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: Radii.sm + 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  heroChipAngka: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 13.5,
+    color: '#FFFFFF',
+  },
+  heroChipLabel: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  heroTombol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: Radii.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+  },
+  heroTombolTeks: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12,
+    color: '#FFFFFF',
+  },
+  heroTombolBahaya: {
+    backgroundColor: 'rgba(214, 61, 103, 0.35)',
+  },
+  heroTombolBahayaTeks: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12,
+    color: '#FFE4EC',
+  },
+  barisAtas: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  metaLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  meta: {
+    fontFamily: Fonts.sans,
+    fontSize: 12.5,
+    color: Colors.light.textSecondary,
+    flexShrink: 1,
+  },
+  stateBox: {
+    borderRadius: Radii.lg,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.card,
+    padding: 12,
+    ...Shadows.subtle,
+  },
+  daftarPeserta: {
+    gap: 12,
+  },
+  kartuRedup: {
+    opacity: 0.62,
+  },
+  badgeRedup: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radii.pill,
+    backgroundColor: Colors.light.backgroundElement,
+  },
+  badgeRedupTeks: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 11,
+    color: Colors.light.textSecondary,
+  },
+  kartuSesi: {
+    flexDirection: 'row',
+    overflow: 'hidden',
+    borderRadius: Radii.lg,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.card,
+    ...Shadows.card,
+  },
+  sesiAksen: {
+    width: 4,
+    backgroundColor: Colors.light.border,
+  },
+  sesiAksenAktif: {
+    backgroundColor: Colors.light.success,
+  },
+  sesiAksenMendatang: {
+    backgroundColor: Colors.light.warm,
+  },
+  sesiIsi: {
+    flex: 1,
+    gap: 8,
+    padding: 14,
+  },
+  sesiBarisUtama: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  sesiTanggal: {
+    width: 48,
+    height: 54,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sesiTanggalAngka: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  sesiTanggalBulan: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 10.5,
+    textTransform: 'uppercase',
+  },
+  sesiInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  namaSesi: {
+    flex: 1,
+    fontFamily: Fonts.sansBold,
+    fontSize: 15,
+    lineHeight: 20,
+    color: Colors.light.text,
+  },
+  barisTombolSesi: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
+  },
+  spacer: {
+    flex: 1,
+  },
+  kartuPeserta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    padding: 14,
+    borderRadius: Radii.md + 2,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.card,
+    ...Shadows.subtle,
+  },
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarTeks: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 14,
+  },
+  infoPeserta: {
+    flex: 1,
+    gap: 3,
+  },
+  namaPeserta: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 14.5,
+    color: Colors.light.text,
+  },
+  nimMono: {
+    fontFamily: Fonts.mono,
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+  },
+  tombolSekunder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: Radii.sm,
+    backgroundColor: Colors.light.backgroundElement,
+  },
+  tombolSekunderTeks: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12,
+    color: Colors.light.text,
+  },
+  tombolBahaya: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: Radii.sm,
+    backgroundColor: Colors.light.dangerSoft,
+  },
+  tombolBahayaTeks: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12,
+    color: Colors.light.danger,
+  },
+  ditekan: {
+    opacity: 0.82,
+  },
 });
