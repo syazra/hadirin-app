@@ -1,5 +1,7 @@
+import { doc, onSnapshot } from '@react-native-firebase/firestore';
 import { useEffect, useState } from 'react';
 
+import { getFirebaseServices, isFirebaseAvailable } from '@/lib/firebase';
 import { listenPresensiPengguna } from '@/services/presensi-service';
 import { listenSesiById } from '@/services/sesi-service';
 import type { Presensi, Sesi } from '@/types';
@@ -31,9 +33,16 @@ export function useRiwayatKehadiran(uid: string) {
     let siklus = 0;
 
     const berhentiSesi: (() => void)[] = [];
+    const berhentiKelas = new Map<string, () => void>();
     const hasilSesi = new Map<string, ItemRiwayatKehadiran>();
+    const namaKelasMap = new Map<string, string>();
     const sesiSelesai = new Set<string>();
     const errorSesi = new Map<string, string>();
+
+    const bersihkanListenerKelas = () => {
+      berhentiKelas.forEach((unsub) => unsub());
+      berhentiKelas.clear();
+    };
 
     const berhentiPresensi = listenPresensiPengguna(
       uid,
@@ -43,7 +52,9 @@ export function useRiwayatKehadiran(uid: string) {
         const idSiklus = ++siklus;
 
         berhentiSesi.splice(0).forEach((berhenti) => berhenti());
+        bersihkanListenerKelas();
         hasilSesi.clear();
+        namaKelasMap.clear();
         sesiSelesai.clear();
         errorSesi.clear();
 
@@ -65,11 +76,27 @@ export function useRiwayatKehadiran(uid: string) {
         }));
 
         const perbaruiState = () => {
-          const riwayat = [...hasilSesi.values()].sort(
-            (a, b) =>
-              (b.presensi.waktuHadir?.getTime() ?? 0) -
-              (a.presensi.waktuHadir?.getTime() ?? 0),
-          );
+          const riwayat = [...hasilSesi.values()]
+            .map((item) => {
+              const namaDariKelas = namaKelasMap.get(item.sesi.kelasId);
+              const namaPraktikum =
+                namaDariKelas !== undefined
+                  ? namaDariKelas
+                  : (item.sesi.namaPraktikum ?? '');
+
+              return {
+                ...item,
+                sesi: {
+                  ...item.sesi,
+                  namaPraktikum,
+                },
+              };
+            })
+            .sort(
+              (a, b) =>
+                (b.presensi.waktuHadir?.getTime() ?? 0) -
+                (a.presensi.waktuHadir?.getTime() ?? 0),
+            );
 
           setState({
             uid,
@@ -82,13 +109,44 @@ export function useRiwayatKehadiran(uid: string) {
           });
         };
 
+        const pastikanListenerKelas = (kelasId: string) => {
+          if (!kelasId || !isFirebaseAvailable || berhentiKelas.has(kelasId)) {
+            return;
+          }
+
+          const { db } = getFirebaseServices();
+          const unsubKelas = onSnapshot(
+            doc(db, 'kelas', kelasId),
+            (kelasSnap) => {
+              if (!aktif || idSiklus !== siklus) return;
+              const namaPraktikum = kelasSnap.data()?.namaPraktikum;
+              if (typeof namaPraktikum === 'string' && namaPraktikum.trim()) {
+                namaKelasMap.set(kelasId, namaPraktikum.trim());
+                perbaruiState();
+              }
+            },
+            () => {
+              // Abaikan error baca metadata kelas jika rule tidak mengizinkan; fallback ke namaPraktikum sesi
+            },
+          );
+
+          berhentiKelas.set(kelasId, unsubKelas);
+        };
+
         daftar.forEach((presensi) => {
+          if (presensi.kelasId) {
+            pastikanListenerKelas(presensi.kelasId);
+          }
+
           const berhenti = listenSesiById(
             presensi.sesiId,
             (sesi) => {
               if (!aktif || idSiklus !== siklus) return;
 
               if (sesi) {
+                if (sesi.kelasId) {
+                  pastikanListenerKelas(sesi.kelasId);
+                }
                 hasilSesi.set(presensi.idPresensi, {
                   sesi,
                   presensi,
@@ -131,6 +189,7 @@ export function useRiwayatKehadiran(uid: string) {
       aktif = false;
       berhentiPresensi();
       berhentiSesi.forEach((berhenti) => berhenti());
+      bersihkanListenerKelas();
     };
   }, [uid]);
 
