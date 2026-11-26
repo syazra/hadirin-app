@@ -239,7 +239,7 @@ async function main() {
       db.collection('laboratorium').doc(lab.idLab),
       {
         idLab: lab.idLab,
-        kode: lab.kodeLab,
+        kodeLab: lab.kodeLab,
         nama: lab.nama,
         lokasiGedung: lab.lokasiGedung,
         latitude: lab.latitude,
@@ -253,14 +253,21 @@ async function main() {
 
   // 3. Seed Kelas
   for (const kls of DATA_KELAS) {
+    const klsKonfig = kls as typeof kls & {
+      gracePeriodMenit?: number;
+      nominalDenda?: number;
+    };
     await upsertDoc(
       db.collection('kelas').doc(kls.idKelas),
       {
         idKelas: kls.idKelas,
         namaPraktikum: kls.namaPraktikum,
         asistenUid: kls.asistenUid,
+        gracePeriodMenit: klsKonfig.gracePeriodMenit ?? 0,
+        nominalDenda: klsKonfig.nominalDenda ?? 0,
         diarsipkan: kls.diarsipkan,
         dibuatPada: now,
+        diperbaruiPada: now,
       },
       summary.kelas
     );

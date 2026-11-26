@@ -15,6 +15,11 @@ import {
 
 const PANJANG_MAKS_NAMA = 100;
 
+export interface KonfigurasiDendaKelas {
+    gracePeriodMenit?: number;
+    nominalDenda?: number;
+}
+
 function gagal(alasan: AlasanGagal, pesan: string): Hasil {
     return { ok: false, alasan, pesan };
 }
@@ -30,6 +35,13 @@ function keDate(nilai: unknown): Date | null {
         typeof (nilai as { toDate: unknown }).toDate === 'function'
     ) {
         return (nilai as { toDate: () => Date }).toDate();
+    }
+    return null;
+}
+
+function validasiAngkaNonNegatif(nilai: unknown, label: string): string | null {
+    if (typeof nilai !== 'number' || !Number.isFinite(nilai) || nilai < 0) {
+        return `${label} harus berupa angka 0 atau lebih.`;
     }
     return null;
 }
@@ -79,7 +91,10 @@ function petakanError(error: unknown): Hasil {
 /**
  * Menambahkan kelas baru milik asisten yang sedang login.
  */
-export async function tambahKelas(namaPraktikum: string): Promise<Hasil> {
+export async function tambahKelas(
+    namaPraktikum: string,
+    konfigurasi: KonfigurasiDendaKelas = {},
+): Promise<Hasil> {
     if (!isFirebaseAvailable) {
         return gagal(
             'TIDAK_DIKENAL',
@@ -107,12 +122,31 @@ export async function tambahKelas(namaPraktikum: string): Promise<Hasil> {
         );
     }
 
+    const gracePeriodMenit = konfigurasi.gracePeriodMenit ?? 0;
+    const nominalDenda = konfigurasi.nominalDenda ?? 0;
+
+    const errGrace = validasiAngkaNonNegatif(
+        gracePeriodMenit,
+        'Grace period (menit)',
+    );
+    if (errGrace) {
+        return gagal('INPUT_TIDAK_VALID', errGrace);
+    }
+
+    const errDenda = validasiAngkaNonNegatif(nominalDenda, 'Nominal denda');
+    if (errDenda) {
+        return gagal('INPUT_TIDAK_VALID', errDenda);
+    }
+
     try {
         await addDoc(collection(db, 'kelas'), {
             namaPraktikum: nama,
             asistenUid: user.uid,
+            gracePeriodMenit: Math.floor(gracePeriodMenit),
+            nominalDenda: Math.floor(nominalDenda),
             diarsipkan: false,
             dibuatPada: serverTimestamp(),
+            diperbaruiPada: serverTimestamp(),
         });
         return { ok: true, data: undefined };
     } catch (error) {
@@ -121,11 +155,16 @@ export async function tambahKelas(namaPraktikum: string): Promise<Hasil> {
 }
 
 /**
- * Mengubah data kelas (namaPraktikum dan/atau arsip satu arah false -> true).
+ * Mengubah data kelas (namaPraktikum, konfigurasi denda, dan/atau arsip satu arah false -> true).
  */
 export async function ubahKelas(
     idKelas: string,
-    data: Partial<Pick<Kelas, 'namaPraktikum' | 'diarsipkan'>>,
+    data: Partial<
+        Pick<
+            Kelas,
+            'namaPraktikum' | 'gracePeriodMenit' | 'nominalDenda' | 'diarsipkan'
+        >
+    >,
 ): Promise<Hasil> {
     if (!isFirebaseAvailable) {
         return gagal(
@@ -148,7 +187,7 @@ export async function ubahKelas(
         return gagal('INPUT_TIDAK_VALID', 'ID kelas tidak valid.');
     }
 
-    const payload: { namaPraktikum?: string; diarsipkan?: boolean } = {};
+    const payload: Record<string, unknown> = {};
 
     if (data.namaPraktikum !== undefined) {
         const nama = data.namaPraktikum.trim();
@@ -164,6 +203,28 @@ export async function ubahKelas(
         payload.namaPraktikum = nama;
     }
 
+    if (data.gracePeriodMenit !== undefined) {
+        const errGrace = validasiAngkaNonNegatif(
+            data.gracePeriodMenit,
+            'Grace period (menit)',
+        );
+        if (errGrace) {
+            return gagal('INPUT_TIDAK_VALID', errGrace);
+        }
+        payload.gracePeriodMenit = Math.floor(data.gracePeriodMenit);
+    }
+
+    if (data.nominalDenda !== undefined) {
+        const errDenda = validasiAngkaNonNegatif(
+            data.nominalDenda,
+            'Nominal denda',
+        );
+        if (errDenda) {
+            return gagal('INPUT_TIDAK_VALID', errDenda);
+        }
+        payload.nominalDenda = Math.floor(data.nominalDenda);
+    }
+
     if (data.diarsipkan !== undefined) {
         if (!data.diarsipkan) {
             return gagal(
@@ -177,6 +238,8 @@ export async function ubahKelas(
     if (Object.keys(payload).length === 0) {
         return gagal('INPUT_TIDAK_VALID', 'Tidak ada perubahan data kelas.');
     }
+
+    payload.diperbaruiPada = serverTimestamp();
 
     try {
         const kelasRef = doc(db, 'kelas', id);
@@ -258,8 +321,15 @@ export function listenKelasAsisten(
                     idKelas: docSnap.id,
                     namaPraktikum: String(d.namaPraktikum ?? ''),
                     asistenUid: String(d.asistenUid ?? ''),
+                    gracePeriodMenit:
+                        typeof d.gracePeriodMenit === 'number'
+                            ? d.gracePeriodMenit
+                            : 0,
+                    nominalDenda:
+                        typeof d.nominalDenda === 'number' ? d.nominalDenda : 0,
                     diarsipkan: Boolean(d.diarsipkan),
                     dibuatPada: keDate(d.dibuatPada),
+                    diperbaruiPada: keDate(d.diperbaruiPada),
                 };
             });
 
