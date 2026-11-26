@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import { RefreshControl, ScrollView, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { JadwalList } from '@/components/shared/jadwal-list';
 import { ErrorState } from '@/components/ui/error-state';
@@ -10,6 +11,7 @@ import { useJadwalPraktikan } from '@/hooks/use-jadwal-praktikan';
 
 export default function JadwalPraktikanScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { pengguna, loading: authLoading } = useAuth();
   const {
     sesi,
@@ -31,7 +33,10 @@ export default function JadwalPraktikanScreen() {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: 32 + insets.bottom },
+      ]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -43,6 +48,7 @@ export default function JadwalPraktikanScreen() {
     >
       <JadwalList
         sesi={sesi}
+        tampilkanFilterDibuka={false}
         onPilihSesi={(idSesi) =>
           router.push({
             pathname: '/sesi/[id]',
@@ -62,7 +68,6 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingTop: 14,
-    paddingBottom: 32,
     flexGrow: 1,
   },
 });

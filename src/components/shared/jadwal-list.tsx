@@ -13,10 +13,24 @@ type FilterJadwal = 'SEMUA' | StatusSesi;
 type JadwalListProps = {
   sesi: Sesi[];
   onPilihSesi: (idSesi: string) => void;
+  tampilkanFilterDibuka?: boolean;
 };
 
-export function JadwalList({ sesi, onPilihSesi }: JadwalListProps) {
+const PRIORITAS_STATUS: Record<StatusSesi, number> = {
+  DIBUKA: 0,
+  BELUM_DIBUKA: 1,
+  DITUTUP: 2,
+};
+
+export function JadwalList({
+  sesi,
+  onPilihSesi,
+  tampilkanFilterDibuka = true,
+}: JadwalListProps) {
   const [filter, setFilter] = useState<FilterJadwal>('SEMUA');
+
+  const filterAktif: FilterJadwal =
+    !tampilkanFilterDibuka && filter === 'DIBUKA' ? 'SEMUA' : filter;
 
   const counts = useMemo(() => {
     let dibuka = 0;
@@ -38,9 +52,23 @@ export function JadwalList({ sesi, onPilihSesi }: JadwalListProps) {
   }, [sesi]);
 
   const sesiTampil = useMemo(() => {
-    if (filter === 'SEMUA') return sesi;
-    return sesi.filter((item) => item.statusSesi === filter);
-  }, [sesi, filter]);
+    const hasil =
+      filterAktif === 'SEMUA'
+        ? [...sesi]
+        : sesi.filter((item) => item.statusSesi === filterAktif);
+
+    return hasil.sort((a, b) => {
+      const selisihStatus =
+        (PRIORITAS_STATUS[a.statusSesi] ?? 99) -
+        (PRIORITAS_STATUS[b.statusSesi] ?? 99);
+
+      if (selisihStatus !== 0) {
+        return selisihStatus;
+      }
+
+      return a.waktuMulai.getTime() - b.waktuMulai.getTime();
+    });
+  }, [sesi, filterAktif]);
 
   if (sesi.length === 0) {
     return (
@@ -54,7 +82,9 @@ export function JadwalList({ sesi, onPilihSesi }: JadwalListProps) {
 
   const opsiFilter: { key: FilterJadwal; label: string; count: number }[] = [
     { key: 'SEMUA', label: 'Semua', count: counts.SEMUA },
-    { key: 'DIBUKA', label: 'Dibuka', count: counts.DIBUKA },
+    ...(tampilkanFilterDibuka
+      ? [{ key: 'DIBUKA' as const, label: 'Dibuka', count: counts.DIBUKA }]
+      : []),
     { key: 'BELUM_DIBUKA', label: 'Mendatang', count: counts.BELUM_DIBUKA },
     { key: 'DITUTUP', label: 'Ditutup', count: counts.DITUTUP },
   ];
@@ -67,7 +97,7 @@ export function JadwalList({ sesi, onPilihSesi }: JadwalListProps) {
         contentContainerStyle={styles.filterRow}
       >
         {opsiFilter.map((opsi) => {
-          const aktif = filter === opsi.key;
+          const aktif = filterAktif === opsi.key;
           return (
             <PressableScale
               key={opsi.key}

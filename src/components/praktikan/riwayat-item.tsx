@@ -28,6 +28,8 @@ export function RiwayatItem({ sesi, presensi }: RiwayatItemProps) {
     ? formatWaktu(presensi.waktuHadir.toISOString())
     : 'Menunggu konfirmasi';
 
+  const namaMataKuliah = sesi.namaPraktikum?.trim() || '';
+
   return (
     <View style={styles.card}>
       <View style={styles.dateTile}>
@@ -39,19 +41,28 @@ export function RiwayatItem({ sesi, presensi }: RiwayatItemProps) {
 
       <View style={styles.body}>
         <View style={styles.topRow}>
-          <Text style={styles.nama} numberOfLines={2}>
-            {sesi.judul}
-          </Text>
+          <View style={styles.titleWrap}>
+            {namaMataKuliah ? (
+              <Text style={styles.matkul} numberOfLines={1}>
+                {namaMataKuliah}
+              </Text>
+            ) : null}
+            <Text style={styles.nama} numberOfLines={2}>
+              {sesi.judul}
+            </Text>
+          </View>
           <StatusBadge status="HADIR" />
         </View>
 
         <View style={styles.metaRow}>
-          <View style={styles.metaItem}>
-            <IconMapPin size={12.5} color={Colors.light.teal} />
-            <Text style={styles.metaText} numberOfLines={1}>
-              {sesi.lokasi}
-            </Text>
-          </View>
+          {sesi.lokasi ? (
+            <View style={styles.metaItem}>
+              <IconMapPin size={12.5} color={Colors.light.teal} />
+              <Text style={styles.metaText} numberOfLines={1}>
+                {sesi.lokasi}
+              </Text>
+            </View>
+          ) : null}
           <View style={styles.metaItem}>
             <IconCheckCircle size={12.5} color={Colors.light.success} />
             <Text style={styles.metaText} numberOfLines={1}>
@@ -106,8 +117,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  nama: {
+  titleWrap: {
     flex: 1,
+    gap: 2,
+  },
+  matkul: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 11.5,
+    color: Colors.light.primary,
+  },
+  nama: {
     fontFamily: Fonts.sansBold,
     fontSize: 15,
     lineHeight: 20,

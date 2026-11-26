@@ -1,4 +1,4 @@
-
+import { hentikanSemuaPantauanLokasi } from '@/services/location-service';
 import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
@@ -19,13 +19,13 @@ import {
     isFirebaseAvailable,
 } from '@/lib/firebase';
 
+import { restoreNotificationsAfterLogoutFailure, unregisterNotificationsBeforeLogout } from '@/services/notification-service';
 import type {
     AlasanGagal,
     Hasil,
     Pengguna,
 } from '@/types';
 import { hasilErrorFirebase } from '@/utils/error-firebase';
-import { restoreNotificationsAfterLogoutFailure, unregisterNotificationsBeforeLogout } from '@/services/notification-service';
 import {
     normalisasiEmail,
     validasiEmail,
@@ -468,6 +468,7 @@ export async function keluar(): Promise<Hasil> {
     try {
         const { auth } = getFirebaseServices();
 
+        hentikanSemuaPantauanLokasi();
         await unregisterNotificationsBeforeLogout();
         try {
             await signOut(auth);

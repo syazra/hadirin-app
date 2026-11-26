@@ -1,9 +1,14 @@
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RekapItem } from '@/components/asisten/rekap-item';
 import { RingkasanHadir } from '@/components/asisten/ringkasan-hadir';
 import { BrandGradient } from '@/components/ui/brand-gradient';
+import {
+  DropdownSelect,
+  type DropdownOption,
+} from '@/components/ui/dropdown-select';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { IconClock, IconMapPin } from '@/components/ui/icons';
@@ -26,6 +31,7 @@ type FilterStatusRekap =
   | 'BELUM_ALPHA';
 
 export default function RekapScreen() {
+  const insets = useSafeAreaInsets();
   const { pengguna } = useAuth();
   const {
     kelas,
@@ -50,7 +56,10 @@ export default function RekapScreen() {
   }, [kelas, idKelasPilihan]);
 
   const sesiKelas = useMemo(
-    () => sesi.filter((item) => item.kelasId === idKelasTerpilih),
+    () =>
+      sesi
+        .filter((item) => item.kelasId === idKelasTerpilih)
+        .sort((a, b) => a.waktuMulai.getTime() - b.waktuMulai.getTime()),
     [sesi, idKelasTerpilih],
   );
 
@@ -63,6 +72,32 @@ export default function RekapScreen() {
 
   const kelasAktif = kelas.find((item) => item.idKelas === idKelasTerpilih);
   const sesiAktif = sesiKelas.find((item) => item.idSesi === idSesiTerpilih);
+
+  const opsiKelas: DropdownOption[] = useMemo(
+    () =>
+      kelas.map((item) => {
+        const jumlahPertemuan = sesi.filter(
+          (s) => s.kelasId === item.idKelas,
+        ).length;
+        return {
+          value: item.idKelas,
+          label: item.namaPraktikum,
+          subtitle: `${jumlahPertemuan} pertemuan`,
+        };
+      }),
+    [kelas, sesi],
+  );
+
+  const opsiSesi: DropdownOption[] = useMemo(
+    () =>
+      sesiKelas.map((item, idx) => ({
+        value: item.idSesi,
+        label: item.judul || `Pertemuan ${idx + 1}`,
+        subtitle: `${item.lokasi} · ${formatWaktu(item.waktuMulai.toISOString())}`,
+        badge: <StatusBadge status={item.statusSesi} />,
+      })),
+    [sesiKelas],
+  );
 
   const rekap = useRekapSesi(
     sesiAktif?.idSesi ?? null,
@@ -111,7 +146,12 @@ export default function RekapScreen() {
 
   if (kelas.length === 0) {
     return (
-      <View style={styles.emptyWrap}>
+      <View
+        style={[
+          styles.emptyWrap,
+          { paddingBottom: Spacing.four + insets.bottom },
+        ]}
+      >
         <EmptyState
           judul="Belum ada kelas"
           pesan="Buat kelas terlebih dahulu untuk memantau rekap kehadiran."
@@ -144,75 +184,52 @@ export default function RekapScreen() {
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={styles.container}
+      contentContainerStyle={[
+        styles.container,
+        { paddingBottom: 36 + insets.bottom },
+      ]}
       showsVerticalScrollIndicator={false}
     >
-      {/* Compact class pills */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipRow}
-      >
-        {kelas.map((item) => {
-          const aktif = item.idKelas === idKelasTerpilih;
-          return (
-            <PressableScale
-              key={item.idKelas}
-              scaleTo={0.94}
-              style={[styles.chip, aktif && styles.chipAktif]}
-              onPress={() => {
-                setIdKelasPilihan(item.idKelas);
-                setFilterStatus('SEMUA');
-              }}
-            >
-              <Text style={[styles.chipText, aktif && styles.chipTextAktif]}>
-                {item.namaPraktikum}
-              </Text>
-            </PressableScale>
-          );
-        })}
-      </ScrollView>
+      <View style={styles.filterCard}>
+        <DropdownSelect
+          label="Mata Kuliah / Kelas"
+          placeholder="Pilih mata kuliah"
+          sheetTitle="Pilih Mata Kuliah"
+          options={opsiKelas}
+          selectedValue={idKelasTerpilih}
+          onSelect={(idKelasBaru) => {
+            setIdKelasPilihan(idKelasBaru);
+            setIdSesiPilihan('');
+            setFilterStatus('SEMUA');
+          }}
+        />
 
-      {/* Compact session pills */}
+        <DropdownSelect
+          label="Pertemuan"
+          placeholder={
+            sesiKelas.length === 0
+              ? 'Belum ada pertemuan'
+              : 'Pilih pertemuan'
+          }
+          sheetTitle="Pilih Pertemuan"
+          options={opsiSesi}
+          selectedValue={idSesiTerpilih}
+          disabled={sesiKelas.length === 0}
+          emptyText="Kelas ini belum memiliki pertemuan."
+          onSelect={(idSesiBaru) => {
+            setIdSesiPilihan(idSesiBaru);
+            setFilterStatus('SEMUA');
+          }}
+        />
+      </View>
+
       {sesiKelas.length === 0 ? (
         <EmptyState
           judul="Belum ada sesi"
           pesan="Kelas ini belum memiliki sesi praktikum."
           emoji="📅"
         />
-      ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.sesiChipRow}
-        >
-          {sesiKelas.map((item) => {
-            const aktif = item.idSesi === idSesiTerpilih;
-            return (
-              <PressableScale
-                key={item.idSesi}
-                scaleTo={0.94}
-                style={[styles.sesiChip, aktif && styles.sesiChipAktif]}
-                onPress={() => {
-                  setIdSesiPilihan(item.idSesi);
-                  setFilterStatus('SEMUA');
-                }}
-              >
-                <Text
-                  style={[
-                    styles.sesiChipTitle,
-                    aktif && styles.sesiChipTitleAktif,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {item.judul}
-                </Text>
-                <StatusBadge status={item.statusSesi} />
-              </PressableScale>
-            );
-          })}
-        </ScrollView>
-      )}
+      ) : null}
 
       {sesiAktif && (
         <>
@@ -361,63 +378,19 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 14,
     gap: 14,
-    paddingBottom: 36,
+  },
+  filterCard: {
+    gap: 12,
+    padding: 14,
+    borderRadius: Radii.xl,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.card,
+    ...Shadows.subtle,
   },
   chipRow: {
     gap: 8,
     paddingVertical: 2,
-  },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: Radii.pill,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    backgroundColor: Colors.light.card,
-    ...Shadows.subtle,
-  },
-  chipAktif: {
-    borderColor: Colors.light.primary,
-    backgroundColor: Colors.light.primary,
-  },
-  chipText: {
-    fontFamily: Fonts.sansSemiBold,
-    fontSize: 12.5,
-    color: Colors.light.text,
-  },
-  chipTextAktif: {
-    color: '#FFFFFF',
-  },
-  sesiChipRow: {
-    gap: 10,
-    paddingVertical: 2,
-  },
-  sesiChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingLeft: 12,
-    paddingRight: 8,
-    paddingVertical: 8,
-    borderRadius: Radii.md + 2,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    backgroundColor: Colors.light.card,
-    maxWidth: 260,
-    ...Shadows.subtle,
-  },
-  sesiChipAktif: {
-    borderColor: Colors.light.primary,
-    backgroundColor: Colors.light.primarySoft,
-  },
-  sesiChipTitle: {
-    fontFamily: Fonts.sansSemiBold,
-    fontSize: 12.5,
-    color: Colors.light.text,
-    flexShrink: 1,
-  },
-  sesiChipTitleAktif: {
-    color: Colors.light.primary,
   },
   ringkasanHeader: {
     padding: 18,
