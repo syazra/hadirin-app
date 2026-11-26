@@ -7,6 +7,24 @@ const BATCH_LIMIT = 12;
 const WORKER_BUDGET_MS = 45_000;
 const MIN_DELIVERY_TIME_MS = 7_000;
 
+export async function queueIntent(db: Firestore, eventId: string, now: number) {
+  try {
+    return await processIntent(db, eventId, now);
+  } catch {
+    return rescheduleIntent(db, eventId, now);
+  }
+}
+
+export async function deliverEvent(db: Firestore, messaging: NotificationSender, eventKey: string,
+  now: () => number, deadline?: number): ReturnType<typeof processNotification> {
+  try {
+    return await processNotification(db, messaging, eventKey, now, deadline);
+  } catch (error) {
+    if (!(error instanceof NotificationRetry)) throw error;
+    return { state: 'RETRY' };
+  }
+}
+
 export async function runWorker(db: Firestore, messaging: NotificationSender,
   now: () => number = Date.now) {
   const start = now();
@@ -29,12 +47,7 @@ export async function runWorker(db: Firestore, messaging: NotificationSender,
   for (const intent of intents.docs) {
     if (now() >= start + WORKER_BUDGET_MS / 3) break;
     recordAge(intent.get('createdAt'));
-    let state: string;
-    try {
-      state = await processIntent(db, intent.id, now());
-    } catch {
-      state = await rescheduleIntent(db, intent.id, now());
-    }
+    const state = await queueIntent(db, intent.id, now());
     summary.intents[state] = (summary.intents[state] ?? 0) + 1;
   }
 
@@ -42,16 +55,11 @@ export async function runWorker(db: Firestore, messaging: NotificationSender,
   for (const job of jobs.docs) {
     if (deadline - now() < MIN_DELIVERY_TIME_MS) break;
     recordAge(job.get('createdAt'));
-    try {
-      const result = await processNotification(db, messaging, job.id, now, deadline);
-      summary.deliveries[result.state] = (summary.deliveries[result.state] ?? 0) + 1;
-      summary.accepted += result.accepted ?? 0;
-      summary.failed += result.failed ?? 0;
-      summary.noTokenUsers += result.noTokenUsers ?? 0;
-    } catch (error) {
-      if (!(error instanceof NotificationRetry)) throw error;
-      summary.deliveries.RETRY = (summary.deliveries.RETRY ?? 0) + 1;
-    }
+    const result = await deliverEvent(db, messaging, job.id, now, deadline);
+    summary.deliveries[result.state] = (summary.deliveries[result.state] ?? 0) + 1;
+    summary.accepted += result.accepted ?? 0;
+    summary.failed += result.failed ?? 0;
+    summary.noTokenUsers += result.noTokenUsers ?? 0;
   }
   return summary;
 }

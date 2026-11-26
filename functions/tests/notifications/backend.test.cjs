@@ -1,10 +1,10 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const { FieldValue, Timestamp } = require('firebase-admin/firestore');
-const { notificationJob } = require('../notifications/send-notification');
-const { processNotification, NotificationRetry } = require('../notifications/process-notification');
-const { MAX_ATTEMPTS, normalizeNotification, notificationData } = require('../notifications/notification-contract');
-const { getUserDevices } = require('../notifications/token-service');
+const { notificationJob } = require('../../lib/notifications/send-notification');
+const { processNotification, NotificationRetry } = require('../../lib/notifications/process-notification');
+const { MAX_ATTEMPTS, normalizeNotification, notificationData } = require('../../lib/notifications/notification-contract');
+const { getUserDevices } = require('../../lib/notifications/token-service');
 
 function database() {
   const docs = new Map();
