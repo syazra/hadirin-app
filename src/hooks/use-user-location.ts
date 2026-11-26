@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useAuth } from '@/hooks/use-auth';
 import {
   ambilPosisiSekarang,
+  hentikanSemuaPantauanLokasi,
   mulaiPantauLokasi,
   pastikanIzinDanLayananLokasi,
 } from '@/services/location-service';
@@ -18,6 +20,16 @@ const TIMEOUT_REFRESH_GPS_MS = 10_000;
 export interface HasilUseUserLocation extends StateLokasiPengguna {
   refresh: () => Promise<void>;
 }
+
+const INITIAL_STATE: StateLokasiPengguna = {
+  loading: true,
+  permissionDenied: false,
+  servicesDisabled: false,
+  position: null,
+  isLowAccuracy: false,
+  isStale: false,
+  error: null,
+};
 
 function hitungStatePosisi(
   posisi: KoordinatPengguna,
@@ -53,21 +65,39 @@ export function useUserLocation(
     batasUsiaMs = DEFAULT_BATAS_USIA_MS,
   } = opsi;
 
-  const [state, setState] = useState<StateLokasiPengguna>({
-    loading: true,
-    permissionDenied: false,
-    servicesDisabled: false,
-    position: null,
-    isLowAccuracy: false,
-    isStale: false,
-    error: null,
-  });
+  const authState = useAuth() as unknown as Record<string, any>;
+  const userId: string | null =
+    authState?.pengguna?.uid ??
+    authState?.firebaseUser?.uid ??
+    authState?.user?.uid ??
+    authState?.uid ??
+    null;
 
+  const [state, setState] = useState<StateLokasiPengguna>(INITIAL_STATE);
   const sedangRefreshRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!userId) {
+      hentikanSemuaPantauanLokasi();
+      setState({
+        ...INITIAL_STATE,
+        loading: false,
+      });
+      return;
+    }
+
     let aktif = true;
     let stopWatch: (() => void) | null = null;
+
+    setState(INITIAL_STATE);
 
     (async () => {
       const kesiapan = await pastikanIzinDanLayananLokasi();
@@ -129,22 +159,27 @@ export function useUserLocation(
       aktif = false;
       if (stopWatch) {
         stopWatch();
+        stopWatch = null;
       }
     };
-  }, [watch, batasAkurasiMeter, batasUsiaMs]);
+  }, [userId, watch, batasAkurasiMeter, batasUsiaMs]);
 
   const refresh = useCallback(async () => {
-    if (sedangRefreshRef.current) return;
+    if (sedangRefreshRef.current || !userId) return;
     sedangRefreshRef.current = true;
 
-    setState((prev) => ({
-      ...prev,
-      loading: true,
-      error: null,
-    }));
+    if (isMountedRef.current) {
+      setState((prev) => ({
+        ...prev,
+        loading: true,
+        error: null,
+      }));
+    }
 
     try {
       const kesiapan = await pastikanIzinDanLayananLokasi();
+      if (!isMountedRef.current) return;
+
       if (!kesiapan.siap) {
         setState({
           loading: false,
@@ -165,6 +200,8 @@ export function useUserLocation(
         ),
       ]);
 
+      if (!isMountedRef.current) return;
+
       setState(
         hitungStatePosisi(
           { ...posisiBaru, timestamp: Date.now() },
@@ -173,6 +210,7 @@ export function useUserLocation(
         ),
       );
     } catch {
+      if (!isMountedRef.current) return;
       setState((prev) => ({
         ...prev,
         loading: false,
@@ -183,7 +221,7 @@ export function useUserLocation(
     } finally {
       sedangRefreshRef.current = false;
     }
-  }, [batasAkurasiMeter, batasUsiaMs]);
+  }, [userId, batasAkurasiMeter, batasUsiaMs]);
 
   return {
     ...state,

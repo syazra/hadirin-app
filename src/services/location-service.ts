@@ -11,6 +11,8 @@ export type HasilCekKesiapanLokasi =
       pesan: string;
     };
 
+let activeSubscription: Location.LocationSubscription | null = null;
+
 export function petakanLokasiKeKoordinat(
   lokasi: Location.LocationObject,
 ): KoordinatPengguna {
@@ -83,11 +85,28 @@ export async function ambilPosisiSekarang(): Promise<KoordinatPengguna> {
 }
 
 /**
+ * Menghentikan pemantauan lokasi yang sedang aktif (jika ada).
+ */
+export function hentikanSemuaPantauanLokasi(): void {
+  if (activeSubscription) {
+    try {
+      activeSubscription.remove();
+    } catch {
+      // Abaikan error jika subscription sudah dibersihkan oleh native layer
+    } finally {
+      activeSubscription = null;
+    }
+  }
+}
+
+/**
  * Memulai pemantauan lokasi secara realtime dan mengembalikan fungsi pembersih (unsubscribe).
  */
 export async function mulaiPantauLokasi(
   onUpdate: (posisi: KoordinatPengguna) => void,
 ): Promise<() => void> {
+  hentikanSemuaPantauanLokasi();
+
   const subscription = await Location.watchPositionAsync(
     {
       accuracy: Location.Accuracy.High,
@@ -99,7 +118,21 @@ export async function mulaiPantauLokasi(
     },
   );
 
+  activeSubscription = subscription;
+  let sudahDibersihkan = false;
+
   return () => {
-    subscription.remove();
+    if (sudahDibersihkan) return;
+    sudahDibersihkan = true;
+
+    try {
+      subscription.remove();
+    } catch {
+      // Abaikan error saat teardown
+    }
+
+    if (activeSubscription === subscription) {
+      activeSubscription = null;
+    }
   };
 }
