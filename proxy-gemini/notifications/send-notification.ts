@@ -1,5 +1,5 @@
 import type { Timestamp } from 'firebase-admin/firestore';
-import { hash, normalizeNotification, type NotificationInput } from './notification-contract';
+import { hash, normalizeNotification, type NotificationInput } from './notification-contract.js';
 
 export function notificationJob(raw: NotificationInput, createdAt: Timestamp) {
   const input = normalizeNotification(raw);

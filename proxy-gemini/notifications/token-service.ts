@@ -1,5 +1,5 @@
 import type { Firestore } from 'firebase-admin/firestore';
-import { hash } from './notification-contract';
+import { hash } from './notification-contract.js';
 
 export interface NotificationDevice {
   uid: string;

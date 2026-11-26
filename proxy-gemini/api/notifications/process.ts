@@ -1,8 +1,8 @@
 import { Receiver } from '@upstash/qstash';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
-import { firebaseAdminApp, requireEnv } from '../../firebase-admin-app';
-import { runWorker } from '../../notifications/run-worker';
+import { firebaseAdminApp, requireEnv } from '../../firebase-admin-app.js';
+import { runWorker } from '../../notifications/run-worker.js';
 
 type WorkerSummary = Awaited<ReturnType<typeof runWorker>>;
 type Verify = (signature: string, body: string) => Promise<boolean>;

@@ -1,7 +1,7 @@
 import { Timestamp, type Firestore } from 'firebase-admin/firestore';
-import { EVENT_COLLECTION, INTENT_COLLECTION } from './notification-contract';
-import { processIntent, rescheduleIntent } from './process-intent';
-import { NotificationRetry, processNotification, type NotificationSender } from './process-notification';
+import { EVENT_COLLECTION, INTENT_COLLECTION } from './notification-contract.js';
+import { processIntent, rescheduleIntent } from './process-intent.js';
+import { NotificationRetry, processNotification, type NotificationSender } from './process-notification.js';
 
 const BATCH_LIMIT = 12;
 const WORKER_BUDGET_MS = 45_000;
