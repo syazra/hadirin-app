@@ -131,4 +131,6 @@ test('forged events and unauthorized actors are rejected on both sides of the wr
   await assertFails(updateDoc(eventRef, { state: 'COMPLETE' }));
   await assertFails(deleteDoc(eventRef));
   await assertFails(setDoc(doc(db, 'notificationConfig/runtime'), { requireIntent: false }));
+  await assertFails(getDoc(doc(db, 'notificationConfig/runtime')));
+  await assertFails(setDoc(doc(db, 'notificationConfig/runtime'), { deliveryBackend: 'firebase' }, { merge: true }));
 });

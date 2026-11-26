@@ -192,11 +192,11 @@ Panduan kebijakan klasifikasi tersedia di [`docs/far-s2-01-ai-categories.md`](do
 
 Aplikasi menggunakan Firebase Authentication dan Cloud Firestore untuk autentikasi serta data aplikasi. Firestore Security Rules dan indexes berada di root repository pada `firestore.rules` dan `firestore.indexes.json`.
 
-Source Firebase Cloud Functions untuk presensi dan Demo Login berbasis Custom Token tersedia di direktori `functions/`. Notifikasi Sprint 3 diproses melalui Vercel dan FCM dengan jadwal QStash. Ikuti [panduan deployment notifikasi](docs/notification-backend.md) untuk mengaktifkannya pada Firebase Spark.
+Source Firebase Cloud Functions untuk presensi, Demo Login berbasis Custom Token, dan notifikasi tersedia di direktori `functions/`. Notifikasi Sprint 3 dikirim lewat FCM setelah trigger Firestore memproses intent. Ikuti panduan untuk mengaktifkannya pada Firebase Blaze. [Panduan deployment notifikasi](docs/notification-backend.md)
 
 Demo Login pada versi aplikasi yang dijelaskan di README ini menggunakan Firebase Authentication secara langsung dengan akun dummy yang dikonfigurasi secara lokal. Alur tersebut tidak memerlukan deployment Cloud Functions. Kredensial demo hanya ditujukan untuk pengujian dan tidak boleh menggunakan akun pribadi atau akun produksi.
 
-Pengiriman otomatis berjalan setelah Firestore Rules, worker Vercel, dan jadwal QStash aktif pada lingkungan Firebase yang sama.
+Pengiriman otomatis berjalan setelah Firestore Rules, Cloud Functions, dan flag `deliveryBackend` aktif pada proyek Firebase yang sama. Cloud Scheduler memulihkan pengiriman yang masih tertunda setiap dua menit.
 
 Firebase App Check dikonfigurasi melalui `src/lib/firebase-app-check.ts`. Development menggunakan debug provider, sedangkan build release menggunakan Play Integrity. Debug token harus dikelola melalui Firebase Console dan tidak boleh dimasukkan ke repository.
 

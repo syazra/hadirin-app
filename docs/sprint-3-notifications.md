@@ -2,7 +2,7 @@
 
 The Android client registers device tokens, handles foreground messages, and
 routes notification taps. Session and izin updates create Firestore intents
-for the Vercel worker on Firebase Spark.
+for the Firebase Cloud Functions worker on Blaze.
 
 ## User flow
 
@@ -87,8 +87,8 @@ deduplication before navigation. Account changes clear account-scoped presentati
 - Deciding a pending izin sends `IZIN_DISETUJUI` or `IZIN_DITOLAK` to the
   applicant. AI classification updates leave the notification state alone.
 
-See [the backend runbook](notification-backend.md) for deploying the worker,
-configuring the scheduler, enforcing the new write rules, and rolling back.
+See the backend runbook for deploying the functions, switching traffic,
+and rolling back. [Notification delivery on Firebase Blaze](notification-backend.md)
 
 ## Automated checks
 
@@ -99,15 +99,16 @@ npm run test:notifications
 npm --prefix proxy-gemini run typecheck
 npm --prefix proxy-gemini test
 npm --prefix functions run lint
-npm --prefix functions run build
+npm --prefix functions run test:notifications
 npm --prefix tests/rules run typecheck
 npm --prefix tests/rules run test:notification-intents
 npm --prefix tests/rules run test:notification-tokens
 ```
 
-Run the last two commands with the Firestore Emulator on `127.0.0.1:8080`.
-Set `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080` for the backend test command to
-exercise actual Firestore transactions and delivery selection with mocked FCM.
+Run the Functions notification tests and the two rules test commands with the
+Firestore Emulator on `127.0.0.1:8080`. Set
+`FIRESTORE_EMULATOR_HOST=127.0.0.1:8080` for the Functions tests to exercise
+Firestore transactions, event handlers, and recovery with mocked FCM.
 
 ## Android acceptance
 
@@ -118,12 +119,14 @@ exercise actual Firestore transactions and delivery selection with mocked FCM.
    when required.
 2. Use two Android devices with an assistant and a student who is an active
    member of a test class. The student enables notifications in Profile.
-   Confirm the installation registry entry and a successful QStash tick.
+   Confirm the installation registry entry and enable Firebase delivery in the
+   Firebase environment used by the test devices.
 3. Open a session, change its schedule, approve a pending izin, and reject a
-   separate pending izin. Confirm receipt within three minutes in foreground,
-   background, and after dismissing the app from recent apps. Confirm each
-   tap opens the correct session or izin and verify an unrelated account
-   receives nothing.
+   separate pending izin. Use the Functions logs to confirm both Firestore
+   triggers handled each notification before the recovery scan. Confirm receipt
+   in foreground, background, and after dismissing the app from recent apps.
+   Confirm each tap opens the correct session or izin and verify an unrelated
+   account receives nothing.
 4. Check denied permission, Settings recovery, token refresh, and offline
    registration. Confirm an old-account tap cannot navigate after switching
    accounts. Verify the assistant can close and archive a session once
