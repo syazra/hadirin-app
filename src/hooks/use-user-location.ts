@@ -21,6 +21,10 @@ export interface HasilUseUserLocation extends StateLokasiPengguna {
   refresh: () => Promise<void>;
 }
 
+interface StateLokasiDenganUser extends StateLokasiPengguna {
+  userId: string;
+}
+
 const INITIAL_STATE: StateLokasiPengguna = {
   loading: true,
   permissionDenied: false,
@@ -29,6 +33,11 @@ const INITIAL_STATE: StateLokasiPengguna = {
   isLowAccuracy: false,
   isStale: false,
   error: null,
+};
+
+const IDLE_STATE: StateLokasiPengguna = {
+  ...INITIAL_STATE,
+  loading: false,
 };
 
 function hitungStatePosisi(
@@ -65,15 +74,14 @@ export function useUserLocation(
     batasUsiaMs = DEFAULT_BATAS_USIA_MS,
   } = opsi;
 
-  const authState = useAuth() as unknown as Record<string, any>;
+  const authState = useAuth() as unknown as Record<string, unknown>;
   const userId: string | null =
-    authState?.pengguna?.uid ??
-    authState?.firebaseUser?.uid ??
-    authState?.user?.uid ??
-    authState?.uid ??
-    null;
+    (authState?.pengguna as { uid?: string } | undefined)?.uid ??
+    (authState?.firebaseUser as { uid?: string } | undefined)?.uid ??
+    (authState?.user as { uid?: string } | undefined)?.uid ??
+    (typeof authState?.uid === 'string' ? authState.uid : null);
 
-  const [state, setState] = useState<StateLokasiPengguna>(INITIAL_STATE);
+  const [state, setState] = useState<StateLokasiDenganUser | null>(null);
   const sedangRefreshRef = useRef(false);
   const isMountedRef = useRef(true);
 
@@ -87,17 +95,12 @@ export function useUserLocation(
   useEffect(() => {
     if (!userId) {
       hentikanSemuaPantauanLokasi();
-      setState({
-        ...INITIAL_STATE,
-        loading: false,
-      });
       return;
     }
 
+    const uidAktif = userId;
     let aktif = true;
     let stopWatch: (() => void) | null = null;
-
-    setState(INITIAL_STATE);
 
     (async () => {
       const kesiapan = await pastikanIzinDanLayananLokasi();
@@ -105,6 +108,7 @@ export function useUserLocation(
 
       if (!kesiapan.siap) {
         setState({
+          userId: uidAktif,
           loading: false,
           permissionDenied: kesiapan.permissionDenied,
           servicesDisabled: kesiapan.servicesDisabled,
@@ -119,14 +123,16 @@ export function useUserLocation(
       try {
         const posisiAwal = await ambilPosisiSekarang();
         if (aktif) {
-          setState(
-            hitungStatePosisi(posisiAwal, batasAkurasiMeter, batasUsiaMs),
-          );
+          setState({
+            userId: uidAktif,
+            ...hitungStatePosisi(posisiAwal, batasAkurasiMeter, batasUsiaMs),
+          });
         }
       } catch {
         if (aktif) {
           setState((prev) => ({
-            ...prev,
+            ...(prev?.userId === uidAktif ? prev : INITIAL_STATE),
+            userId: uidAktif,
             loading: false,
             error:
               'Tidak dapat memperoleh titik koordinat GPS. Pastikan berada di area terbuka dan coba lagi.',
@@ -138,9 +144,10 @@ export function useUserLocation(
         try {
           const unsub = await mulaiPantauLokasi((posisiBaru) => {
             if (aktif && !sedangRefreshRef.current) {
-              setState(
-                hitungStatePosisi(posisiBaru, batasAkurasiMeter, batasUsiaMs),
-              );
+              setState({
+                userId: uidAktif,
+                ...hitungStatePosisi(posisiBaru, batasAkurasiMeter, batasUsiaMs),
+              });
             }
           });
 
@@ -166,11 +173,13 @@ export function useUserLocation(
 
   const refresh = useCallback(async () => {
     if (sedangRefreshRef.current || !userId) return;
+    const uidAktif = userId;
     sedangRefreshRef.current = true;
 
     if (isMountedRef.current) {
       setState((prev) => ({
-        ...prev,
+        ...(prev?.userId === uidAktif ? prev : INITIAL_STATE),
+        userId: uidAktif,
         loading: true,
         error: null,
       }));
@@ -182,6 +191,7 @@ export function useUserLocation(
 
       if (!kesiapan.siap) {
         setState({
+          userId: uidAktif,
           loading: false,
           permissionDenied: kesiapan.permissionDenied,
           servicesDisabled: kesiapan.servicesDisabled,
@@ -202,29 +212,40 @@ export function useUserLocation(
 
       if (!isMountedRef.current) return;
 
-      setState(
-        hitungStatePosisi(
+      setState({
+        userId: uidAktif,
+        ...hitungStatePosisi(
           { ...posisiBaru, timestamp: Date.now() },
           batasAkurasiMeter,
           batasUsiaMs,
         ),
-      );
+      });
     } catch {
       if (!isMountedRef.current) return;
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: prev.position
-          ? null
-          : 'Tidak dapat memperoleh titik koordinat GPS. Pastikan berada di area terbuka dan coba lagi.',
-      }));
+      setState((prev) => {
+        const base = prev?.userId === uidAktif ? prev : INITIAL_STATE;
+        return {
+          ...base,
+          userId: uidAktif,
+          loading: false,
+          error: base.position
+            ? null
+            : 'Tidak dapat memperoleh titik koordinat GPS. Pastikan berada di area terbuka dan coba lagi.',
+        };
+      });
     } finally {
       sedangRefreshRef.current = false;
     }
   }, [userId, batasAkurasiMeter, batasUsiaMs]);
 
+  const stateAktif: StateLokasiPengguna = !userId
+    ? IDLE_STATE
+    : state?.userId === userId
+      ? state
+      : INITIAL_STATE;
+
   return {
-    ...state,
+    ...stateAktif,
     refresh,
   };
 }
