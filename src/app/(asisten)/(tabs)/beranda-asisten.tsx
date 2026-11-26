@@ -111,10 +111,13 @@ export default function BerandaAsistenScreen() {
     loading: jadwalLoading,
     muatUlang,
   } = useJadwalAsisten(pengguna?.uid ?? null);
-  const { kelas } = useKelasAsisten(pengguna?.uid ?? null, { sertakanArsip: true });
+  const {
+    kelas,
+    loading: kelasLoading,
+  } = useKelasAsisten(pengguna?.uid ?? null, { sertakanArsip: true });
   const { izin } = useIzinAsisten(pengguna?.uid ?? null);
 
-  const sedangMemuat = authLoading || jadwalLoading;
+  const sedangMemuat = authLoading || jadwalLoading || kelasLoading;
 
   const kelasById = Object.fromEntries(
     kelas.map((item) => [item.idKelas, item]),
@@ -147,7 +150,8 @@ export default function BerandaAsistenScreen() {
         hariSingkat: getHariSingkat(tanggalMulai),
         angkaTanggal: tanggalMulai.getDate(),
         judul: item.judul,
-        namaPraktikum: kelasById[item.kelasId]?.namaPraktikum,
+        namaPraktikum:
+          kelasById[item.kelasId]?.namaPraktikum ?? item.namaPraktikum,
         rentangWaktu: formatRentangWaktuSesi(tanggalMulai, sesiData.waktuSelesai),
         lokasi: item.lokasi,
       };
@@ -228,7 +232,11 @@ export default function BerandaAsistenScreen() {
               <KartuSesiAktifAsisten
                 key={item.idSesi}
                 sesi={item}
-                namaPraktikum={kelasById[item.kelasId]?.namaPraktikum ?? 'Praktikum'}
+                namaPraktikum={
+                  kelasById[item.kelasId]?.namaPraktikum ??
+                  item.namaPraktikum ??
+                  'Praktikum'
+                }
                 onPressKelola={() =>
                   router.push({
                     pathname: '/sesi/[id]',

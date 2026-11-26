@@ -72,13 +72,22 @@ export interface Kelas {
   idKelas: string;
   namaPraktikum: string;
   asistenUid: string;
+  gracePeriodMenit: number;
+  nominalDenda: number;
   diarsipkan: boolean;
   dibuatPada: Date | null;
+  diperbaruiPada?: Date | null;
 }
 
 export interface Laboratorium {
-  idLab: string; kodeLab: string; nama: string; lokasiGedung: string;
-  latitude: number; longitude: number; radiusPresensi: number; aktif: boolean;
+  idLab: string;
+  kodeLab: string;
+  nama: string;
+  lokasiGedung: string;
+  latitude: number;
+  longitude: number;
+  radiusPresensi: number;
+  aktif: boolean;
 }
 
 export interface Keanggotaan {
@@ -95,12 +104,14 @@ export interface Sesi {
   kelasId: string;
   namaPraktikum?: string;
   judul: string;
-  labId?: string | null; 
+  labId?: string | null;
   lokasi?: string;
-  waktuMulai: Date; 
+  waktuMulai: Date;
   waktuSelesai: Date | null;
-  statusSesi: StatusSesi; 
+  statusSesi: StatusSesi;
   diarsipkan: boolean;
+  dibuatPada?: Date | null;
+  diperbaruiPada?: Date | null;
 }
 
 export interface Presensi {

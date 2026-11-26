@@ -171,9 +171,22 @@ export function useSesiDetail(
                                           'string'
                                               ? kelasData.asistenUid
                                               : '',
+                                      gracePeriodMenit:
+                                          typeof kelasData.gracePeriodMenit ===
+                                          'number'
+                                              ? kelasData.gracePeriodMenit
+                                              : 0,
+                                      nominalDenda:
+                                          typeof kelasData.nominalDenda ===
+                                          'number'
+                                              ? kelasData.nominalDenda
+                                              : 0,
                                       diarsipkan: Boolean(kelasData.diarsipkan),
                                       dibuatPada: konversiKeDate(
                                           kelasData.dibuatPada,
+                                      ),
+                                      diperbaruiPada: konversiKeDate(
+                                          kelasData.diperbaruiPada,
                                       ),
                                   }
                                 : null;
