@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Laboratorium } from '@/types';
-import { ambilLaboratorium, tambahLaboratorium, ubahLaboratorium } from '@/services/laboratorium-service';
 
-type InputLaboratorium = Omit<Laboratorium, 'idLab'>;
+import {
+  ambilLaboratorium,
+  hapusLaboratorium,
+  tambahLaboratorium,
+  ubahLaboratorium,
+  type InputLab,
+} from '@/services/laboratorium-service';
+import type { Laboratorium } from '@/types';
 
 export function useLaboratorium() {
   const [daftarLaboratorium, setDaftarLaboratorium] = useState<Laboratorium[]>([]);
@@ -21,20 +26,43 @@ export function useLaboratorium() {
     setLoading(false);
   }, []);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void muatData(); }, [muatData]);
+  useEffect(() => {
+    let aktif = true;
 
-  const tambah = async (data: InputLaboratorium) => {
+    const ambilAwal = async () => {
+      const hasil = await ambilLaboratorium();
+      if (!aktif) return;
+      if (hasil.ok) {
+        setDaftarLaboratorium(hasil.data);
+        setError(null);
+      } else {
+        setError(hasil.pesan);
+      }
+      setLoading(false);
+    };
+
+    void ambilAwal();
+
+    return () => {
+      aktif = false;
+    };
+  }, []);
+
+  const tambah = async (data: InputLab) => {
     const hasil = await tambahLaboratorium(data);
     if (hasil.ok) await muatData();
-    else setError(hasil.pesan);
     return hasil;
   };
 
-  const ubah = async (id: string, data: InputLaboratorium) => {
+  const ubah = async (id: string, data: InputLab) => {
     const hasil = await ubahLaboratorium(id, data);
     if (hasil.ok) await muatData();
-    else setError(hasil.pesan);
+    return hasil;
+  };
+
+  const hapus = async (id: string) => {
+    const hasil = await hapusLaboratorium(id);
+    if (hasil.ok) await muatData();
     return hasil;
   };
 
@@ -50,5 +78,14 @@ export function useLaboratorium() {
     });
   };
 
-  return { daftarLaboratorium, loading, error, muatData, tambah, ubah, ubahStatusAktif };
+  return {
+    daftarLaboratorium,
+    loading,
+    error,
+    muatData,
+    tambah,
+    ubah,
+    hapus,
+    ubahStatusAktif,
+  };
 }

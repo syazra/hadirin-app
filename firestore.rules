@@ -121,15 +121,26 @@ service cloud.firestore {
 
     function classDataValid(data) {
       return data.keys().hasAll([
-          'namaPraktikum', 'asistenUid', 'diarsipkan', 'dibuatPada'
+          'namaPraktikum', 'asistenUid', 'gracePeriodMenit',
+          'nominalDenda', 'diarsipkan', 'dibuatPada'
         ])
         && data.keys().hasOnly([
-          'namaPraktikum', 'asistenUid', 'diarsipkan', 'dibuatPada'
+          'namaPraktikum', 'asistenUid', 'labId',
+          'gracePeriodMenit', 'nominalDenda', 'diarsipkan',
+          'dibuatPada', 'diperbaruiPada'
         ])
         && teksValid(data.namaPraktikum, 100)
         && data.asistenUid is string
+        && (!('labId' in data) || data.labId == null || teksValid(data.labId, 128))
+        && data.gracePeriodMenit is int
+        && data.gracePeriodMenit >= 0
+        && data.gracePeriodMenit <= 120
+        && data.nominalDenda is int
+        && data.nominalDenda >= 0
+        && data.nominalDenda <= 1000000
         && data.diarsipkan is bool
-        && data.dibuatPada is timestamp;
+        && data.dibuatPada is timestamp
+        && (!('diperbaruiPada' in data) || data.diperbaruiPada is timestamp);
     }
 
     function sesiDataValid(data) {
@@ -267,31 +278,39 @@ service cloud.firestore {
         && classDataValid(request.resource.data)
         && request.resource.data.asistenUid == request.auth.uid
         && request.resource.data.diarsipkan == false
-        && request.resource.data.dibuatPada == request.time;
+        && request.resource.data.dibuatPada == request.time
+        && (!('diperbaruiPada' in request.resource.data) || request.resource.data.diperbaruiPada == request.time);
     }
 
     function kelasUpdateValid() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
       return isAsisten()
         && resource.data.asistenUid == request.auth.uid
         && resource.data.diarsipkan == false
         && request.resource.data.asistenUid == resource.data.asistenUid
         && request.resource.data.dibuatPada == resource.data.dibuatPada
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'namaPraktikum', 'diarsipkan'
+        && changed.hasOnly([
+          'namaPraktikum', 'labId', 'gracePeriodMenit',
+          'nominalDenda', 'diarsipkan', 'diperbaruiPada'
         ])
-        && request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'namaPraktikum', 'diarsipkan'
+        && changed.hasAny([
+          'namaPraktikum', 'labId', 'gracePeriodMenit',
+          'nominalDenda', 'diarsipkan'
         ])
-        && (
-          (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['namaPraktikum'])
-            && teksValid(request.resource.data.namaPraktikum, 100)
-          )
-          || (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['diarsipkan'])
-            && request.resource.data.diarsipkan == true
-          )
-        );
+        && (!('namaPraktikum' in changed) || teksValid(request.resource.data.namaPraktikum, 100))
+        && (!('labId' in changed) || request.resource.data.labId == null || teksValid(request.resource.data.labId, 128))
+        && (!('gracePeriodMenit' in changed) || (
+          request.resource.data.gracePeriodMenit is int
+          && request.resource.data.gracePeriodMenit >= 0
+          && request.resource.data.gracePeriodMenit <= 120
+        ))
+        && (!('nominalDenda' in changed) || (
+          request.resource.data.nominalDenda is int
+          && request.resource.data.nominalDenda >= 0
+          && request.resource.data.nominalDenda <= 1000000
+        ))
+        && (!('diarsipkan' in changed) || request.resource.data.diarsipkan == true)
+        && (!('diperbaruiPada' in changed) || request.resource.data.diperbaruiPada == request.time);
     }
 
     function anggotaBaruValid(anggotaId) {
@@ -570,7 +589,7 @@ service cloud.firestore {
       allow get, list: if signedIn();
       allow create: if laboratoriumBaruValid();
       allow update: if laboratoriumUpdateValid();
-      allow delete: if false;
+      allow delete: if isAsisten();
     }
 
     match /kelas/{kelasId} {
@@ -581,7 +600,7 @@ service cloud.firestore {
         ) || (
           signedIn() && resource.data.diarsipkan == false
         );
-      allow list: if isAsisten() && resource.data.asistenUid == request.auth.uid;
+      allow list: if isAsisten();
       allow create: if kelasBaruValid();
       allow update: if kelasUpdateValid();
       allow delete: if false;

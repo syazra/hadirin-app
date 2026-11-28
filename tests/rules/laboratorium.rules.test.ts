@@ -176,9 +176,9 @@ test('LAB-05: praktikan ditolak melakukan create, update, maupun delete laborato
   await assertFails(deleteDoc(doc(db, 'laboratorium', ID_LAB)));
 });
 
-test('LAB-06: delete laboratorium ditolak untuk asisten maupun praktikan (soft-deactivate)', async () => {
-  await assertFails(deleteDoc(doc(dbSebagai('asisten-01'), 'laboratorium', ID_LAB)));
+test('LAB-06: asisten dapat menghapus laboratorium sedangkan praktikan ditolak', async () => {
   await assertFails(deleteDoc(doc(dbSebagai('praktikan-01'), 'laboratorium', ID_LAB)));
+  await assertSucceeds(deleteDoc(doc(dbSebagai('asisten-01'), 'laboratorium', ID_LAB)));
 });
 
 test('LAB-07: validasi schema menolak koordinat/radius/teks/aktif tidak valid serta field tambahan', async () => {

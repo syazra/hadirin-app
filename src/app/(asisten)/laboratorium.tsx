@@ -6,9 +6,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import LaboratoryPickerMap from '@/components/maps/laboratory-picker-map';
 import { AppButton } from '@/components/ui/app-button';
@@ -25,6 +25,7 @@ import {
   IconFlask,
   IconMapPin,
   IconPlus,
+  IconTrash,
 } from '@/components/ui/icons';
 import { LoadingState } from '@/components/ui/loading-state';
 import {
@@ -32,6 +33,7 @@ import {
   LivePulseDot,
   PressableScale,
 } from '@/components/ui/motion';
+import { TextField } from '@/components/ui/text-field';
 import { getStaggerDelay } from '@/constants/motion';
 import { Colors, Fonts, Radii, Shadows } from '@/constants/theme';
 import { useLaboratorium } from '@/hooks/use-laboratorium';
@@ -47,18 +49,34 @@ const KOSONG = {
   aktif: true,
 };
 
+function parseAngkaDesimal(teks: string): number {
+  return Number(teks.trim().replace(',', '.'));
+}
+
 export default function LaboratoriumScreen() {
-  const { daftarLaboratorium, loading, error, tambah, ubah, ubahStatusAktif } =
-    useLaboratorium();
+  const {
+    daftarLaboratorium,
+    loading,
+    error,
+    muatData,
+    tambah,
+    ubah,
+    hapus,
+    ubahStatusAktif,
+  } = useLaboratorium();
+
   const [form, setForm] = useState(KOSONG);
   const [editId, setEditId] = useState<string | null>(null);
   const [sheetTerbuka, setSheetTerbuka] = useState(false);
   const [menyimpan, setMenyimpan] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
-  const [labDinonaktifkan, setLabDinonaktifkan] = useState<Laboratorium | null>(
-    null,
-  );
+  const [konfirmasiStatus, setKonfirmasiStatus] = useState<{
+    lab: Laboratorium;
+    aktifBaru: boolean;
+  } | null>(null);
+  const [labDihapus, setLabDihapus] = useState<Laboratorium | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const jumlahAktif = daftarLaboratorium.filter((item) => item.aktif).length;
 
@@ -90,6 +108,8 @@ export default function LaboratoriumScreen() {
   };
 
   const simpan = async () => {
+    if (menyimpan) return;
+
     if (!form.latitude.trim() || !form.longitude.trim()) {
       Alert.alert(
         'Lokasi belum dipilih',
@@ -98,9 +118,9 @@ export default function LaboratoriumScreen() {
       return;
     }
 
-    const latitude = Number(form.latitude);
-    const longitude = Number(form.longitude);
-    const radiusPresensi = Number(form.radiusPresensi);
+    const latitude = parseAngkaDesimal(form.latitude);
+    const longitude = parseAngkaDesimal(form.longitude);
+    const radiusPresensi = parseAngkaDesimal(form.radiusPresensi);
 
     if (
       !Number.isFinite(latitude) ||
@@ -152,7 +172,7 @@ export default function LaboratoriumScreen() {
         if (editId === lab.idLab) {
           setForm((old) => ({ ...old, aktif: aktifBaru }));
         }
-        setLabDinonaktifkan(null);
+        setKonfirmasiStatus(null);
       } else {
         Alert.alert('Gagal', hasil.pesan);
       }
@@ -161,29 +181,45 @@ export default function LaboratoriumScreen() {
     }
   };
 
+  const jalankanHapus = async (lab: Laboratorium) => {
+    if (deletingId) return;
+    setDeletingId(lab.idLab);
+    try {
+      const hasil = await hapus(lab.idLab);
+      setLabDihapus(null);
+      if (hasil.ok) {
+        Alert.alert('Berhasil', `${lab.nama} telah dihapus.`);
+      } else {
+        Alert.alert('Tidak dapat menghapus', hasil.pesan);
+      }
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const renderField = (
     label: string,
-    key: keyof typeof form,
+    key: Exclude<keyof typeof form, 'aktif'>,
     numeric = false,
     placeholder = '',
   ) => (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        style={styles.input}
-        value={String(form[key])}
-        placeholder={placeholder}
-        placeholderTextColor={Colors.light.textSecondary}
-        keyboardType={numeric ? 'decimal-pad' : 'default'}
-        editable={!menyimpan}
-        onChangeText={(value) => setForm((old) => ({ ...old, [key]: value }))}
-      />
-    </View>
+    <TextField
+      label={label}
+      value={String(form[key])}
+      placeholder={placeholder}
+      keyboardType={numeric ? 'decimal-pad' : 'default'}
+      autoCapitalize={key === 'kodeLab' ? 'characters' : undefined}
+      editable={!menyimpan}
+      onChangeText={(value) => setForm((old) => ({ ...old, [key]: value }))}
+    />
   );
+
+  const initialLat = parseAngkaDesimal(form.latitude);
+  const initialLng = parseAngkaDesimal(form.longitude);
 
   return (
     <>
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.topBar}>
           <View style={styles.summaryPill}>
             <IconFlask size={15} color={Colors.light.brandMid} />
@@ -207,7 +243,11 @@ export default function LaboratoriumScreen() {
         {loading ? (
           <LoadingState pesan="Memuat daftar laboratorium..." />
         ) : error ? (
-          <ErrorState judul="Gagal memuat laboratorium" pesan={error} />
+          <ErrorState
+            judul="Gagal memuat laboratorium"
+            pesan={error}
+            onCobaLagi={() => void muatData()}
+          />
         ) : daftarLaboratorium.length === 0 ? (
           <View style={styles.emptyWrap}>
             <EmptyState
@@ -308,13 +348,12 @@ export default function LaboratoriumScreen() {
                     <PressableScale
                       disabled={togglingId === lab.idLab}
                       scaleTo={0.94}
-                      onPress={() => {
-                        if (lab.aktif) {
-                          setLabDinonaktifkan(lab);
-                          return;
-                        }
-                        void jalankanToggleStatus(lab, true);
-                      }}
+                      onPress={() =>
+                        setKonfirmasiStatus({
+                          lab,
+                          aktifBaru: !lab.aktif,
+                        })
+                      }
                       style={[
                         lab.aktif ? styles.deactivatePill : styles.activatePill,
                         togglingId === lab.idLab && styles.disabled,
@@ -340,13 +379,26 @@ export default function LaboratoriumScreen() {
                             : 'Aktifkan'}
                       </Text>
                     </PressableScale>
+
+                    <PressableScale
+                      disabled={deletingId === lab.idLab}
+                      scaleTo={0.94}
+                      onPress={() => setLabDihapus(lab)}
+                      style={[
+                        styles.deletePill,
+                        deletingId === lab.idLab && styles.disabled,
+                      ]}
+                    >
+                      <IconTrash size={13.5} color={Colors.light.danger} />
+                      <Text style={styles.deleteText}>Hapus</Text>
+                    </PressableScale>
                   </View>
                 </View>
               </EnterView>
             ))}
           </ScrollView>
         )}
-      </View>
+      </SafeAreaView>
 
       <BottomSheet
         visible={sheetTerbuka}
@@ -360,11 +412,7 @@ export default function LaboratoriumScreen() {
             {editId ? 'Edit Laboratorium' : 'Tambah Laboratorium'}
           </Text>
 
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.sheetBody}
-            showsVerticalScrollIndicator={false}
-          >
+          <View style={styles.sheetBody}>
             {renderField('Kode laboratorium', 'kodeLab', false, 'Contoh: B')}
             {renderField(
               'Nama laboratorium',
@@ -422,7 +470,7 @@ export default function LaboratoriumScreen() {
                 Status laboratorium: {form.aktif ? 'Aktif' : 'Nonaktif'}
               </Text>
             </Pressable>
-          </ScrollView>
+          </View>
 
           <View style={styles.sheetActions}>
             <View style={styles.actionFlex}>
@@ -458,36 +506,72 @@ export default function LaboratoriumScreen() {
       </BottomSheet>
 
       <ConfirmSheet
-        visible={labDinonaktifkan !== null}
-        judul="Nonaktifkan laboratorium?"
+        visible={konfirmasiStatus !== null}
+        judul={
+          konfirmasiStatus?.aktifBaru
+            ? 'Aktifkan kembali laboratorium?'
+            : 'Nonaktifkan laboratorium?'
+        }
         pesan={
-          labDinonaktifkan
-            ? `${labDinonaktifkan.nama} tidak akan dapat dipilih untuk sesi baru, namun riwayat sesi lama tetap aman.`
+          konfirmasiStatus
+            ? konfirmasiStatus.aktifBaru
+              ? `${konfirmasiStatus.lab.nama} akan tersedia kembali untuk dipilih pada kelas dan sesi praktikum.`
+              : `${konfirmasiStatus.lab.nama} tidak akan dapat dipilih untuk sesi baru, namun riwayat sesi lama tetap aman.`
             : ''
         }
-        labelKonfirmasi="Nonaktifkan"
+        labelKonfirmasi={
+          konfirmasiStatus?.aktifBaru ? 'Aktifkan' : 'Nonaktifkan'
+        }
         labelLoading="Memproses…"
         loading={
-          labDinonaktifkan !== null && togglingId === labDinonaktifkan.idLab
+          konfirmasiStatus !== null && togglingId === konfirmasiStatus.lab.idLab
         }
-        destructive
+        destructive={!konfirmasiStatus?.aktifBaru}
         onKonfirmasi={() => {
-          if (labDinonaktifkan) {
-            void jalankanToggleStatus(labDinonaktifkan, false);
+          if (konfirmasiStatus) {
+            void jalankanToggleStatus(
+              konfirmasiStatus.lab,
+              konfirmasiStatus.aktifBaru,
+            );
           }
         }}
         onBatal={() => {
-          if (!togglingId) setLabDinonaktifkan(null);
+          if (!togglingId) setKonfirmasiStatus(null);
+        }}
+      />
+
+      <ConfirmSheet
+        visible={labDihapus !== null}
+        judul="Hapus laboratorium?"
+        pesan={
+          labDihapus
+            ? `Data ${labDihapus.nama} akan dihapus permanen jika sudah tidak memiliki kelas atau sesi aktif.`
+            : ''
+        }
+        labelKonfirmasi="Hapus"
+        labelLoading="Menghapus…"
+        loading={labDihapus !== null && deletingId === labDihapus.idLab}
+        destructive
+        onKonfirmasi={() => {
+          if (labDihapus) {
+            void jalankanHapus(labDihapus);
+          }
+        }}
+        onBatal={() => {
+          if (!deletingId) setLabDihapus(null);
         }}
       />
 
       <LaboratoryPickerMap
         visible={pickerVisible}
         initialCoordinate={
-          form.latitude && form.longitude
+          form.latitude.trim() &&
+          form.longitude.trim() &&
+          Number.isFinite(initialLat) &&
+          Number.isFinite(initialLng)
             ? {
-                latitude: Number(form.latitude),
-                longitude: Number(form.longitude),
+                latitude: initialLat,
+                longitude: initialLng,
               }
             : null
         }
@@ -660,6 +744,7 @@ const styles = StyleSheet.create({
   },
   cardFooter: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'flex-end',
     gap: 8,
     paddingTop: 10,
@@ -708,6 +793,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.light.success,
   },
+  deletePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: Radii.sm,
+    backgroundColor: Colors.light.dangerSoft,
+  },
+  deleteText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12,
+    color: Colors.light.danger,
+  },
   sheetWrap: {
     gap: 14,
   },
@@ -721,22 +820,11 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   field: {
-    gap: 6,
+    gap: 7,
   },
   label: {
     fontFamily: Fonts.sansSemiBold,
     fontSize: 13,
-    color: Colors.light.text,
-  },
-  input: {
-    minHeight: 46,
-    borderWidth: 1.5,
-    borderColor: Colors.light.border,
-    borderRadius: Radii.md,
-    paddingHorizontal: 13,
-    backgroundColor: Colors.light.backgroundElement,
-    fontFamily: Fonts.sans,
-    fontSize: 14.5,
     color: Colors.light.text,
   },
   pickButton: {

@@ -1,5 +1,17 @@
 import type { Laboratorium } from '@/types';
 
+export const BATAS_LABORATORIUM = {
+  PANJANG_MAKS_KODE: 32,
+  PANJANG_MAKS_NAMA: 100,
+  PANJANG_MAKS_GEDUNG: 200,
+  LATITUDE_MIN: -90,
+  LATITUDE_MAKS: 90,
+  LONGITUDE_MIN: -180,
+  LONGITUDE_MAKS: 180,
+  RADIUS_MIN_METER: 1,
+  RADIUS_MAKS_METER: 10_000,
+} as const;
+
 export const DATA_LABORATORIUM: Laboratorium[] = [
   { idLab: 'lab-b', kodeLab: 'B', nama: 'Lab Informatika B', lokasiGedung: 'Gedung E FSM UNDIP Lt. 2', latitude: -7.0482375, longitude: 110.440765625, radiusPresensi: 40, aktif: true },
   { idLab: 'lab-c', kodeLab: 'C', nama: 'Lab Informatika C', lokasiGedung: 'Gedung E FSM UNDIP Lt. 2', latitude: -7.0482375, longitude: 110.440765625, radiusPresensi: 40, aktif: true },
