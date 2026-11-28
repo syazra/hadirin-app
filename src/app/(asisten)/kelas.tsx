@@ -8,9 +8,13 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { KelasCard } from '@/components/asisten/kelas-card';
-import { KelasFormSheet } from '@/components/asisten/kelas-form-sheet';
+import {
+  KelasFormSheet,
+  type NilaiFormKelas,
+} from '@/components/asisten/kelas-form-sheet';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
@@ -21,6 +25,7 @@ import { getStaggerDelay } from '@/constants/motion';
 import { Colors, Fonts, Radii, Shadows } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useKelasAsisten } from '@/hooks/use-kelas-asisten';
+import { useLaboratorium } from '@/hooks/use-laboratorium';
 import {
   arsipkanKelas,
   tambahKelas,
@@ -35,6 +40,7 @@ export default function KelasScreen() {
   const { pengguna } = useAuth();
   const { kelas, jumlahPesertaPerKelas, loading, error, cobaLagi } =
     useKelasAsisten(pengguna?.uid ?? null, { sertakanArsip: true });
+  const { daftarLaboratorium } = useLaboratorium();
 
   const [filter, setFilter] = useState<FilterKelas>('SEMUA');
 
@@ -45,6 +51,19 @@ export default function KelasScreen() {
 
   const [kelasDiarsip, setKelasDiarsip] = useState<Kelas | null>(null);
   const [loadingArsip, setLoadingArsip] = useState(false);
+
+  const laboratoriumAktif = useMemo(
+    () => daftarLaboratorium.filter((item) => item.aktif),
+    [daftarLaboratorium],
+  );
+
+  const labelLabPerId = useMemo(() => {
+    const peta: Record<string, string> = {};
+    for (const lab of daftarLaboratorium) {
+      peta[lab.idLab] = `${lab.kodeLab} · ${lab.nama}`;
+    }
+    return peta;
+  }, [daftarLaboratorium]);
 
   const { jumlahAktif, jumlahDiarsipkan, kelasTampil } = useMemo(() => {
     const aktif = kelas.filter((item) => !item.diarsipkan);
@@ -89,13 +108,22 @@ export default function KelasScreen() {
     setErrorForm(null);
   };
 
-  const handleSubmitForm = async (namaPraktikum: string) => {
+  const handleSubmitForm = async (nilai: NilaiFormKelas) => {
     setLoadingForm(true);
     setErrorForm(null);
 
     const hasil = kelasDiedit
-      ? await ubahKelas(kelasDiedit.idKelas, { namaPraktikum })
-      : await tambahKelas(namaPraktikum);
+      ? await ubahKelas(kelasDiedit.idKelas, {
+          namaPraktikum: nilai.namaPraktikum,
+          labId: nilai.labId,
+          gracePeriodMenit: nilai.gracePeriodMenit,
+          nominalDenda: nilai.nominalDenda,
+        })
+      : await tambahKelas(nilai.namaPraktikum, {
+          labId: nilai.labId,
+          gracePeriodMenit: nilai.gracePeriodMenit,
+          nominalDenda: nilai.nominalDenda,
+        });
 
     setLoadingForm(false);
 
@@ -124,16 +152,24 @@ export default function KelasScreen() {
   };
 
   if (loading) {
-    return <LoadingState pesan="Memuat daftar kelas..." />;
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <LoadingState pesan="Memuat daftar kelas..." />
+      </SafeAreaView>
+    );
   }
 
   if (error) {
-    return <ErrorState pesan={error} onCobaLagi={cobaLagi} />;
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <ErrorState pesan={error} onCobaLagi={cobaLagi} />
+      </SafeAreaView>
+    );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Top control bar: scrollable filter pills + compact "+ Kelas" CTA */}
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      {/* Top control bar: scrollable filter pills + compact "+ Praktikum" CTA */}
       <View style={styles.topBar}>
         <ScrollView
           horizontal
@@ -187,11 +223,11 @@ export default function KelasScreen() {
           onPress={bukaFormTambah}
           scaleTo={0.94}
           accessibilityRole="button"
-          accessibilityLabel="Tambah kelas"
+          accessibilityLabel="Tambah Praktikum"
           style={styles.tombolTambah}
         >
           <IconPlus size={16} color="#FFFFFF" strokeWidth={2.4} />
-          <Text style={styles.tombolTambahTeks}>Kelas</Text>
+          <Text style={styles.tombolTambahTeks}>Praktikum</Text>
         </PressableScale>
       </View>
 
@@ -223,6 +259,7 @@ export default function KelasScreen() {
             <EnterView delay={getStaggerDelay(index)}>
               <KelasCard
                 kelas={item}
+                labelLab={item.labId ? labelLabPerId[item.labId] : undefined}
                 jumlahPeserta={jumlahPesertaPerKelas[item.idKelas]}
                 onPress={() =>
                   router.push({
@@ -241,7 +278,8 @@ export default function KelasScreen() {
       <KelasFormSheet
         visible={formTerbuka}
         mode={kelasDiedit ? 'ubah' : 'tambah'}
-        nilaiAwal={kelasDiedit?.namaPraktikum ?? ''}
+        kelasAwal={kelasDiedit}
+        daftarLab={laboratoriumAktif}
         loading={loadingForm}
         errorPesan={errorForm}
         onSubmit={handleSubmitForm}
@@ -265,7 +303,7 @@ export default function KelasScreen() {
           if (!loadingArsip) setKelasDiarsip(null);
         }}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

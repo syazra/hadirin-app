@@ -2,9 +2,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   IconArchive,
-  IconCalendar,
   IconChevronRight,
+  IconClock,
   IconEdit,
+  IconMapPin,
   IconUsers,
 } from '@/components/ui/icons';
 import { getWarmPastelTone } from '@/constants/pastel';
@@ -18,6 +19,7 @@ type KelasCardProps = {
   onEdit?: () => void;
   onArsip?: () => void;
   subjudul?: string;
+  labelLab?: string;
   jumlahPeserta?: number;
   infoSesi?: string;
 };
@@ -44,13 +46,8 @@ function buatInisialKelas(nama: string): string {
     .toUpperCase();
 }
 
-function formatTanggalSingkat(tanggal: Date | null | undefined): string {
-  if (!tanggal) return 'Memproses…';
-  return tanggal.toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+function formatRupiahSingkat(nominal: number): string {
+  return `Rp${nominal.toLocaleString('id-ID')}`;
 }
 
 export function KelasCard({
@@ -59,6 +56,7 @@ export function KelasCard({
   onEdit,
   onArsip,
   subjudul,
+  labelLab,
   jumlahPeserta,
   infoSesi,
 }: KelasCardProps) {
@@ -121,6 +119,15 @@ export function KelasCard({
       </View>
 
       <View style={styles.chipsRow}>
+        {labelLab ? (
+          <View style={styles.metaChip}>
+            <IconMapPin size={13} color={Colors.light.primary} />
+            <Text style={styles.metaChipText} numberOfLines={1}>
+              {labelLab}
+            </Text>
+          </View>
+        ) : null}
+
         {jumlahPeserta !== undefined ? (
           <View style={styles.metaChip}>
             <IconUsers size={13} color={Colors.light.primary} />
@@ -128,18 +135,26 @@ export function KelasCard({
           </View>
         ) : null}
 
+        <View style={styles.metaChip}>
+          <IconClock size={13} color={Colors.light.warm} />
+          <Text style={styles.metaChipText}>
+            Toleransi {kelas.gracePeriodMenit} mnt
+          </Text>
+        </View>
+
+        <View style={styles.metaChip}>
+          <Text style={styles.metaChipText}>
+            {kelas.nominalDenda > 0
+              ? `Denda ${formatRupiahSingkat(kelas.nominalDenda)}`
+              : 'Tanpa denda'}
+          </Text>
+        </View>
+
         {infoSesi ? (
           <View style={styles.metaChip}>
             <Text style={styles.metaChipText}>{infoSesi}</Text>
           </View>
         ) : null}
-
-        <View style={styles.metaChip}>
-          <IconCalendar size={13} color={Colors.light.warm} />
-          <Text style={styles.metaChipText}>
-            {formatTanggalSingkat(kelas.dibuatPada)}
-          </Text>
-        </View>
       </View>
 
       {!diarsipkan && (onEdit || onArsip) ? (

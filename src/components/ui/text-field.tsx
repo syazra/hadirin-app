@@ -1,5 +1,11 @@
-import React, { useEffect, useRef } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  type TextInputProps,
+  View,
+} from 'react-native';
 import Animated, {
   interpolateColor,
   useAnimatedStyle,
@@ -25,6 +31,8 @@ type TextFieldProps = {
   maxLength?: number;
   editable?: boolean;
   showCounter?: boolean;
+  keyboardType?: TextInputProps['keyboardType'];
+  autoCapitalize?: TextInputProps['autoCapitalize'];
 };
 
 export function TextField({
@@ -37,6 +45,8 @@ export function TextField({
   maxLength,
   editable = true,
   showCounter = false,
+  keyboardType = 'default',
+  autoCapitalize,
 }: TextFieldProps) {
   const reducedMotion = useReducedMotion();
   const focusProgress = useSharedValue(0);
@@ -107,6 +117,8 @@ export function TextField({
         multiline={multiline}
         maxLength={maxLength}
         editable={editable}
+        keyboardType={keyboardType}
+        autoCapitalize={autoCapitalize}
         onFocus={handleFocus}
         onBlur={handleBlur}
         style={[

@@ -72,6 +72,7 @@ export interface Kelas {
   idKelas: string;
   namaPraktikum: string;
   asistenUid: string;
+  labId?: string | null;
   gracePeriodMenit: number;
   nominalDenda: number;
   diarsipkan: boolean;
